@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "atop"
+version = "0.1.0"
+description = "AToP: Attribution-guided Temporal Pattern mining for Transformer-based EHR predictions"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [
+    { name = "Anas Belouali", email = "belouali@gmail.com" }
+]
+keywords = ["explainability", "EHR", "temporal patterns", "integrated gradients", "transformer", "clinical AI"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Topic :: Scientific/Engineering :: Medical Science Apps.",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+requires-python = ">=3.9"
+dependencies = [
+    "torch>=2.0",
+    "numpy>=1.24",
+    "pandas>=2.0",
+    "scikit-learn>=1.3",
+    "matplotlib>=3.7",
+    "scipy>=1.11",
+]
+
+[project.optional-dependencies]
+dev = ["pytest", "pytest-cov", "black", "ruff"]
+
+[project.urls]
+Homepage = "https://github.com/belouali/atop"
+Repository = "https://github.com/belouali/atop"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["atop*"]
+
+[tool.setuptools.package-data]
+atop = ["data_files/*.csv"]
