@@ -25,10 +25,38 @@ with open(f"{FULL_RUN}/summary.json") as f:
     summary = json.load(f)
 with open(f"{FULL_RUN}/metrics.json") as f:
     metrics = json.load(f)
+with open(f"{FULL_RUN}/config.json") as f:
+    cfg = json.load(f)
 
 print("\n── MODEL PERFORMANCE ──")
 print(f"  AUROC:   {metrics['auroc']:.4f}")
 print(f"  PR-AUC:  {metrics['pr_auc']:.4f}")
+
+# ── Mining / attribution operational config ───────────────────────────────
+print("\n── MINING & ATTRIBUTION CONFIG (from runs/full_CPD/config.json) ──")
+mining_keys = [
+    # Attribution
+    "ig_n_steps", "ig_mass", "ig_max_tokens", "ig_batch_size",
+    # Mining method + support
+    "mining_method", "min_support_frac", "mine_on_trainval",
+    # Episode mining
+    "episode_max_len", "episode_min_steps", "episode_topn",
+    # N-gram / PrefixSpan (reference only if used)
+    "ngram_min_len", "ngram_max_len",
+    "prefixspan_min_len", "prefixspan_topn",
+    # Dedup / capping
+    "jaccard_dedup", "jaccard_rep", "cap_by_or_per_length", "cap_metric",
+    # Validation
+    "validate_top_k", "validate_max_admissions_per_pattern", "n_shuffle_draws",
+    # Token construction
+    "token_types", "max_visits", "max_seq_len", "one_per_patient",
+    "exclude_elective_readmissions", "harmonize_icd", "chronic_filter",
+    "first_occurrence_only", "first_occurrence_drugs_only", "max_drug_freq",
+]
+for k in mining_keys:
+    if k in cfg:
+        v = cfg[k]
+        print(f"  {k:<40} {v}")
 
 # ── TABLE 1: Cohort characteristics ───────────────────────────────────────
 print("\n── TABLE 1: COHORT CHARACTERISTICS ──")
