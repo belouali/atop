@@ -811,10 +811,8 @@ def build_shap_comparison_figure(out_dir, model, device, icd_titles, pick, input
     # ── Build figure ─────────────────────────────────────────────────────
     fig = plt.figure(figsize=(20, 16))
     fig.suptitle(
-        f"Explanation comparison ({split.upper()}) — patient {pid}, "
-        f"index_hadm={hadm_id}, readmission={pick['readmission']}, "
-        f"n_visits={pick.get('n_visits', '?')}, "
-        f"matched {len(all_matched)} of {len(df_patterns_train)} patterns",
+        f"Representative {split} patient — {pick.get('n_visits', '?')} visits, "
+        f"readmitted, {len(all_matched)} matched patterns",
         fontsize=11, fontweight="bold", y=0.98)
 
     # ── Panel A: SHAP (signed) ───────────────────────────────────────────
