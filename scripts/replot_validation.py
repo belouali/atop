@@ -65,18 +65,33 @@ def _load_all_maps(run_dir):
                 if len(row) >= 2:
                     _SHORT_NAME_MAP[row[0].strip()] = row[1].strip()
     print(f"  Loaded {len(_SHORT_NAME_MAP)} short name mappings")
-    # Drug names
+    # Drug names — config.json may record a path that was valid on the training
+    # host (e.g. a Colab mount) but doesn't exist locally. Fall back to
+    # common relative locations before giving up.
     config_path = os.path.join(run_dir, "config.json")
+    drug_mapping = ""
     if os.path.exists(config_path):
         with open(config_path) as f:
             cfg = json.load(f)
         drug_mapping = cfg.get("drug_mapping", "")
-        if drug_mapping and os.path.exists(drug_mapping):
-            df = pd.read_csv(drug_mapping)
-            if "ingredient_rxcui" in df.columns and "ingredient_name" in df.columns:
-                for rxcui, name in df.dropna(subset=["ingredient_rxcui", "ingredient_name"]).groupby("ingredient_rxcui")["ingredient_name"].first().items():
-                    _DRUG_NAMES[f"D:RX_{int(rxcui)}"] = str(name)
-    print(f"  Loaded {len(_DRUG_NAMES)} drug name mappings")
+    candidates = [drug_mapping] if drug_mapping else []
+    candidates += [
+        os.path.join(run_dir, "ndc_to_ingredient.csv"),
+        os.path.join(run_dir, "..", "..", "data", "mimiciv", "3.1", "hosp", "ndc_to_ingredient.csv"),
+        os.path.join(os.path.dirname(run_dir), "data", "mimiciv", "3.1", "hosp", "ndc_to_ingredient.csv"),
+        "../data/mimiciv/3.1/hosp/ndc_to_ingredient.csv",
+    ]
+    resolved_path = next((p for p in candidates if p and os.path.exists(p)), None)
+    if resolved_path:
+        df = pd.read_csv(resolved_path)
+        if "ingredient_rxcui" in df.columns and "ingredient_name" in df.columns:
+            for rxcui, name in (df.dropna(subset=["ingredient_rxcui", "ingredient_name"])
+                                  .groupby("ingredient_rxcui")["ingredient_name"]
+                                  .first().items()):
+                _DRUG_NAMES[f"D:RX_{int(rxcui)}"] = str(name).strip().title()
+        print(f"  Loaded {len(_DRUG_NAMES)} drug name mappings from {resolved_path}")
+    else:
+        print(f"  Loaded 0 drug name mappings (ndc_to_ingredient.csv not found)")
     # ICD titles
     for candidate in [os.path.join(run_dir, "icd_titles.json"),
                       os.path.join(run_dir, "explain", "icd_titles.json")]:
