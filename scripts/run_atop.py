@@ -102,6 +102,9 @@ def parse_args():
                         "'prev_diff' (|prevalence difference|). Default: or")
     p.add_argument("--min_support_frac", type=float, default=-1,
                    help="Override min support fraction (-1 = use config, e.g. 0.01)")
+    p.add_argument("--scoring_min_support_frac", type=float, default=-99,
+                   help="Scoring-level min support fraction. -1 = same as mining frac (default behavior). "
+                        "0 = no scoring filter. >0 = fraction of full cohort. -99 = use config.")
     p.add_argument("--jaccard_dedup", type=float, default=-1,
                    help="Jaccard threshold for pre-scoring pattern deduplication. "
                         "0 = disabled. -1 = use config.")
@@ -161,6 +164,8 @@ def main():
             explainer.config.cap_metric = args.cap_metric
         if args.min_support_frac >= 0:
             explainer.config.min_support_frac = args.min_support_frac
+        if args.scoring_min_support_frac > -99:
+            explainer.config.scoring_min_support_frac = args.scoring_min_support_frac
         if args.jaccard_dedup >= 0:
             explainer.config.jaccard_dedup = args.jaccard_dedup
         if args.jaccard_rep:

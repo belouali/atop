@@ -136,6 +136,7 @@ class AToPConfig:
     # Mining
     mining_method: str = "episode"
     min_support_frac: float = 0.02
+    scoring_min_support_frac: float = -1  # -1 = use min_support_frac; 0 = no filter; >0 = fraction of full cohort
     mine_on_trainval: bool = False
     ngram_min_len: int = 2
     ngram_max_len: int = 4
