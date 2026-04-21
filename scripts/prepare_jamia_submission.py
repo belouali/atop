@@ -1,131 +1,55 @@
 """
-Prepare AToP_JAMIA_submission.docx from AToP_paper_v6.docx.
+One-pass JAMIA submission formatter for AToP_paper_v6.docx.
 
-Changes made:
-  1. Fill all [val] placeholders with confirmed numbers
-  2. Fix XGB PR-AUC 0.32 -> 0.31 everywhere
-  3. Ensure JAMIA document order:
-       Title page (own page) -> Abstract -> Main text + embedded tables ->
-       Acknowledgments -> Statements -> References -> Figure legends with alt text
-  4. Report remaining placeholders and structural issues
+What this does (in order):
+  1. Loads the 218,196-patient one-per-patient cache
+     (../data/mimiciv/3.1/hosp/.atop_cache/samples_*.pkl with label sum = 27,508)
+     and computes Table 1 stats directly from it — no manual filling.
+  2. Copies figures to ../manuscript/jamia_submission/figures/ with
+     JAMIA-standard names (Figure1.pptx, Figure2/3/4.png).
+  3. Fills Table 1, Table 2, Table 3 [val] cells positionally
+     (the docx uses generic [val], not named placeholders).
+  4. Removes the Acuity (emergency) row from Table 1 (redundant with
+     Emergency/Urgent).
+  5. Fixes XGB PR-AUC 0.32 -> 0.31 everywhere.
+  6. Applies text edits B-G at real docx anchors.
+  7. Appends a Figure Legends section with alt text for all 4 figures.
+  8. Saves AToP_JAMIA_submission.docx.
+
+Run from atop_package/:
+    python scripts/prepare_jamia_submission.py
 """
 from __future__ import annotations
-import os, re
+import os, re, sys, glob, pickle, shutil
+import numpy as np
+import pandas as pd
 from docx import Document
+from docx.shared import Pt
+from docx.oxml import OxmlElement
 
-SRC = "../manuscript/atop_v5.5/AToP_paper_v6.docx"
-DST = "../manuscript/jamia_submission/AToP_JAMIA_submission.docx"
-os.makedirs(os.path.dirname(DST), exist_ok=True)
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-# ── Placeholder map ────────────────────────────────────────────────────────────
-REPLACEMENTS = {
-    # ── Performance numbers ──
-    "[AUROC_ATOP]":            "0.77 (95% CI 0.76–0.77)",
-    "[PRAUC_ATOP]":            "0.34 (95% CI 0.33–0.36)",
-    "[AUROC_XGB]":             "0.73 (95% CI 0.72–0.74)",
-    "[PRAUC_XGB]":             "0.31 (95% CI 0.30–0.32)",
-    "[AUROC_LR]":              "0.66 (95% CI 0.65–0.67)",
-    "[PRAUC_LR]":              "0.24 (95% CI 0.23–0.25)",
-    # ── Cohort numbers ──
-    "[N_TOTAL]":               "218,196",
-    "[N_READMIT]":             "24,876",
-    "[N_NO_READMIT]":          "171,501",
-    "[N_VAL]":                 "21,819",
-    "[N_TABLE1]":              "196,377",
-    "[READMIT_RATE]":          "12.7%",
-    # ── Table 1 ──
-    "[AGE_OVERALL]":           "57 (38–71)",
-    "[AGE_READMIT]":           "60 (44–73)",
-    "[AGE_NO_READMIT]":        "57 (37–71)",
-    "[FEMALE_OVERALL]":        "115,461 (52.9%)",
-    "[FEMALE_READMIT]":        "12,489 (50.2%)",
-    "[FEMALE_NO_READMIT]":     "91,370 (53.3%)",
-    "[EMERG_OVERALL]":         "171,168 (78.4%)",
-    "[EMERG_READMIT]":         "21,444 (86.2%)",
-    "[EMERG_NO_READMIT]":      "132,043 (77.1%)",
-    "[LOS_OVERALL]":           "4.0 (2.0–8.0)",
-    "[LOS_READMIT]":           "6.0 (3.0–11.0)",
-    "[LOS_NO_READMIT]":        "4.0 (2.0–7.0)",
-    "[CCI_OVERALL]":           "2.0 (0.0–5.0)",
-    "[CCI_READMIT]":           "4.0 (1.0–7.0)",
-    "[CCI_NO_READMIT]":        "2.0 (0.0–4.0)",
-    "[ED_OVERALL]":            "0.0 (0.0–1.0)",
-    "[ED_READMIT]":            "1.0 (0.0–2.0)",
-    "[ED_NO_READMIT]":         "0.0 (0.0–1.0)",
-    # ── Table 2 ──
-    "[N_PATTERNS_TOTAL]":      "24,490",
-    "[N_PATTERNS_DEDUP]":      "5,047",
-    "[COMPRESSION_RATIO]":     "38.0%",
-    "[CASE_MIN_SUP]":          "387",
-    "[CTRL_MIN_SUP]":          "2,669",
-    "[FINAL_GATE]":            "3,055",
-}
-
-
-def replace_in_paragraph(para, old, new):
-    full_text = "".join(r.text for r in para.runs)
-    if old not in full_text:
-        return False
-    new_full = full_text.replace(old, new)
-    if para.runs:
-        para.runs[0].text = new_full
-        for r in para.runs[1:]:
-            r.text = ""
-    return True
-
-
-def replace_in_doc(doc, old, new):
-    changed = 0
-    for para in doc.paragraphs:
-        if replace_in_paragraph(para, old, new):
-            changed += 1
-    for table in doc.tables:
-        for row in table.rows:
-            for cell in row.cells:
-                for para in cell.paragraphs:
-                    if replace_in_paragraph(para, old, new):
-                        changed += 1
-    return changed
-
-
-doc = Document(SRC)
-
-# ── Step 1: Direct replacements ───────────────────────────────────────────────
-print("[1] Applying direct replacements...")
-total_changes = 0
-for old, new in REPLACEMENTS.items():
-    n = replace_in_doc(doc, old, new)
-    if n:
-        print(f"    '{old}' → '{new}'  ({n} occurrences)")
-    total_changes += n
-
-# ── Step 2: Fix PR-AUC 0.32 → 0.31 (XGBoost-specific phrases) ────────────────
-print("\n[2] Fixing XGB PR-AUC 0.32 → 0.31...")
-xgb_phrases = [
-    ("PR-AUC 0.32",        "PR-AUC 0.31"),
-    ("PR-AUC ~0.32",       "PR-AUC ~0.31"),
-    ("PR-AUC of 0.32",     "PR-AUC of 0.31"),
-    ("0.729 / ~0.32",      "0.729 / ~0.31"),
-    ("(PR-AUC 0.32",       "(PR-AUC 0.31"),
-    ("PR-AUC: 0.32",       "PR-AUC: 0.31"),
+# ── Paths ────────────────────────────────────────────────────────────────
+SRC_CANDIDATES = [
+    "../manuscript/atop_v5.5/AToP_paper_v6.docx",
+    "../manuscript/claude files/AToP_paper_v6.docx",
 ]
-for old, new in xgb_phrases:
-    n = replace_in_doc(doc, old, new)
-    if n:
-        print(f"    Fixed: '{old}' → '{new}'  ({n} occurrences)")
+SRC = next((p for p in SRC_CANDIDATES if os.path.exists(p)), None)
+if SRC is None:
+    raise FileNotFoundError(
+        f"AToP_paper_v6.docx not found in any of: {SRC_CANDIDATES}"
+    )
+SUBMIT_DIR = "../manuscript/jamia_submission"
+FIG_DIR    = f"{SUBMIT_DIR}/figures"
+DST        = f"{SUBMIT_DIR}/AToP_JAMIA_submission.docx"
+os.makedirs(FIG_DIR, exist_ok=True)
 
-# ── Step 3: Positional fill of tables with generic [val] placeholders ─────────
-# The docx uses generic "[val]" everywhere instead of named placeholders like
-# [AUROC_ATOP] or [AGE_OVERALL], so the map above matches nothing. Fill tables
-# by row/column position using the confirmed numbers supplied in the task spec.
-print("\n[3] Filling tables positionally...")
+FULL_RUN   = "../runs/full_CPD"
+MIMIC_DIR  = "../data/mimiciv/3.1/hosp"
+PKL_CACHE  = f"{MIMIC_DIR}/.atop_cache"
 
-
+# ── Helpers ─────────────────────────────────────────────────────────────
 def set_cell(cell, text):
-    """Replace all text in a table cell with ``text``, preserving one paragraph."""
-    if not cell.paragraphs:
-        return False
-    # keep the first paragraph's first run as the anchor
     first = cell.paragraphs[0]
     if first.runs:
         first.runs[0].text = text
@@ -133,310 +57,590 @@ def set_cell(cell, text):
             r.text = ""
     else:
         first.add_run(text)
-    # clear any trailing paragraphs in the cell
     for extra in cell.paragraphs[1:]:
         if extra.runs:
             extra.runs[0].text = ""
             for r in extra.runs[1:]:
                 r.text = ""
+
+def replace_in_para(para, old, new):
+    full = "".join(r.text for r in para.runs)
+    if old not in full:
+        return False
+    new_full = full.replace(old, new)
+    if para.runs:
+        para.runs[0].text = new_full
+        for r in para.runs[1:]:
+            r.text = ""
     return True
 
+def replace_all(doc, old, new):
+    n = 0
+    for p in doc.paragraphs:
+        if replace_in_para(p, old, new):
+            n += 1
+    for tbl in doc.tables:
+        for row in tbl.rows:
+            for cell in row.cells:
+                for p in cell.paragraphs:
+                    if replace_in_para(p, old, new):
+                        n += 1
+    return n
 
-# ── Table 0: Cohort characteristics — FULL 218,196 cohort ──
-# Computed by scripts/compute_table1_full_cohort.py using the model's exact
-# index-admission rule (penultimate if ≥2 admissions, else first;
-# exclude_elective_readmissions=True). These match summary.json exactly.
-# Columns: [Characteristic, Overall (N=218,196), Readmitted (n=27,508), Not Readmitted (n=190,688), P]
-if len(doc.tables) > 0:
-    t0 = doc.tables[0]
-    # Header row: the v5.5 docx has a literal newline between "Readmitted"
-    # and "(n=[val])", so replace on the joined text rather than exact match.
-    HEADER_COHORT = {
-        "Readmitted":      "Readmitted\n(n=27,508)",
-        "Not Readmitted":  "Not Readmitted\n(n=190,688)",
-    }
-    for cell in t0.rows[0].cells:
-        # Match on the first word(s) and an "[val]" presence
-        text = cell.text.strip()
-        if "[val]" in text:
-            for label, new_text in HEADER_COHORT.items():
-                if text.startswith(label):
-                    set_cell(cell, new_text)
-                    break
+def append_to_para(para, suffix):
+    if para.runs:
+        full = "".join(r.text for r in para.runs) + suffix
+        para.runs[0].text = full
+        for r in para.runs[1:]:
+            r.text = ""
+        return True
+    return False
 
-    # row_idx -> (Overall, Readmitted, Not Readmitted, P)
-    # P-values are not available — keep as "—" for manual entry.
-    # r8 (Acuity, emergency) = same values as r5 (Emergency/Urgent) — binary
-    # component of LACE maps 1:1 to non-elective admissions; the two rows are
-    # clinically redundant per co-author note.
-    t0_rows = {
-        2:  ("57 (38–71)",         "58 (40–72)",         "57 (38–71)",         "—"),  # Age
-        3:  ("115,344 (52.9%)",    "14,141 (51.4%)",     "101,203 (53.1%)",    "—"),  # Female
-        5:  ("195,500 (89.6%)",    "24,852 (90.3%)",     "170,648 (89.5%)",    "—"),  # Emergency/Urgent
-        7:  ("2.6 (1.0–5.1)",      "3.2 (1.2–6.8)",      "2.6 (1.0–4.9)",      "—"),  # LOS (days)
-        8:  ("195,500 (89.6%)",    "24,852 (90.3%)",     "170,648 (89.5%)",    "—"),  # Acuity (emergency) — same as r5
-        9:  ("1 (0–2)",            "1 (0–4)",            "1 (0–2)",            "—"),  # CCI
-        10: ("0 (0–1)",            "0 (0–1)",            "0 (0–1)",            "—"),  # ED visits 6mo
-        11: ("1 (1–2)",            "2 (1–4)",            "1 (1–1)",            "—"),  # Prior admissions (n_visits)
-    }
-    for ri, values in t0_rows.items():
-        if ri >= len(t0.rows):
-            continue
-        row = t0.rows[ri]
-        # Columns 1–4 correspond to (Overall, Readmitted, Not Readmitted, P)
-        for ci, val in enumerate(values, start=1):
-            if ci < len(row.cells):
-                set_cell(row.cells[ci], val)
-    print("  [Table 0] Filled header + all 8 data rows (Age, Female, Emergency, LOS, Acuity, CCI, ED visits, Prior admissions) with FULL 218,196 cohort")
 
-# ── Table 1: Mining summary ──
-# Columns: [Metric, Train, Test]
-# Only train-side has most mining values; patterns counted at admission level.
-if len(doc.tables) > 1:
-    t1 = doc.tables[1]
-    t1_rows = {
-        # (Train, Test)
-        2: ("36.1 (43.3)",  "—"),    # Mean sequence length
-        3: ("13.7 (12.4)",  "—"),    # Mean salient tokens
-        4: ("38.0",         "—"),    # Compression ratio (the table cell already has "%" suffix)
-        6: ("24,490",       "—"),    # Patterns meeting min support
-        7: ("5,325",        "—"),    # Cross-visit patterns (≥2 blocks)
-        8: ("5,047",        "—"),    # After Jaccard dedup (j≥0.2)
-        10: ("—",           "1,877"),  # Risk patterns (test)
-        11: ("—",           "3,170"),  # Protective patterns (test)
-    }
-    for ri, (train, test) in t1_rows.items():
-        if ri >= len(t1.rows):
-            continue
-        row = t1.rows[ri]
-        if len(row.cells) >= 3:
-            set_cell(row.cells[1], train)
-            set_cell(row.cells[2], test)
-    print("  [Table 1] Filled all mining metrics (train/test)")
+# ────────────────────────────────────────────────────────────────────────
+# Step A — Load the 218,196-patient pkl and compute Table 1 stats
+# ────────────────────────────────────────────────────────────────────────
+print("=" * 70)
+print("[A] Loading one-per-patient pkl and computing Table 1 stats")
+print("=" * 70)
 
-# ── Table 2: Phenotype clusters — ΣIG + n carriers ──
-# Match rows by the "Representative Pattern" column against the dumbbell CSV
-# and panel_c CSV for n_present.
-import pandas as pd
+TARGET_N = 218196  # matches summary.json
+pkls = sorted(glob.glob(f"{PKL_CACHE}/samples_*.pkl"))
+pkl_path = None
+for p in pkls:
+    with open(p, "rb") as f:
+        d = pickle.load(f)
+    if len(d) == TARGET_N:
+        pkl_path = p
+        samples = d
+        break
+if pkl_path is None:
+    raise FileNotFoundError(
+        f"No samples_*.pkl of size {TARGET_N} found in {PKL_CACHE}"
+    )
+print(f"    pkl: {os.path.basename(pkl_path)}  ({len(samples):,} samples)")
 
-try:
-    dumbbell = pd.read_csv("../runs/full_CPD/explain/figures/main/fig4_dumbbell_test_j20_short.csv")
-    pathway  = pd.read_csv("../runs/full_CPD/explain/figures/csv/fig3_pathway_importance_test.csv")
+labels    = np.array([s["readmit_30d"] for s in samples], dtype=float)
+n_visits  = np.array([s.get("n_visits", 0) for s in samples], dtype=int)
+pids      = [str(s["patient_id"]) for s in samples]
+hadm_ids  = [str(s["index_hadm_id"]) for s in samples]
+cohort = pd.DataFrame({
+    "subject_id": pids,
+    "hadm_id": hadm_ids,
+    "readmit_30d": labels,
+    "n_visits": n_visits,
+})
+n_total = len(cohort)
+n_r     = int(cohort["readmit_30d"].sum())
+n_nr    = n_total - n_r
+print(f"    total={n_total:,}  readmit={n_r:,}  no_readmit={n_nr:,}")
+assert n_total == TARGET_N, f"pkl size ({n_total}) != TARGET_N ({TARGET_N})"
 
-    def _canon(s: str) -> str:
-        """Canonicalize label: lowercase, strip non-essential tokens."""
-        import re as _re
-        t = str(s).lower().strip()
-        # unify arrow/dash/paren variants, then strip braces/commas/punctuation
-        t = t.replace("→", "->").replace("–", "-").replace("—", "-")
-        t = _re.sub(r"\s*\([^)]*\)", "", t)      # drop parenthesised qualifiers
-        t = _re.sub(r"[\{\},\s\.]", "", t)       # drop { } , whitespace, .
-        return t
+# ── Merge demographics + admission type + LACE ────────────────────────────
+patients = pd.read_csv(
+    f"{MIMIC_DIR}/patients.csv.gz",
+    dtype={"subject_id": str},
+    usecols=["subject_id", "gender", "anchor_age"],
+)
+admissions = pd.read_csv(
+    f"{MIMIC_DIR}/admissions.csv.gz",
+    dtype={"subject_id": str, "hadm_id": str},
+    usecols=["subject_id", "hadm_id", "admission_type"],
+)
+lace = pd.read_csv(
+    f"{FULL_RUN}/lace_scores_all.csv",
+    dtype={"subject_id": str, "hadm_id": str},
+)
 
-    # Build the authoritative lookup by joining dumbbell → pathway on pattern key.
-    # label_to_data: canonical_label -> (sig_ig, n_carriers, delta)
-    label_to_data = {}
-    for _, r in dumbbell.iterrows():
-        pat = r["pattern"]
-        lbl = r["label"]
-        sig   = float(r["original_sig_ig"]) if pd.notna(r.get("original_sig_ig")) else None
-        delta = float(r["delta"])          if pd.notna(r.get("delta"))          else None
-        n = None
-        m = pathway[pathway["pattern"] == pat]
-        if len(m):
-            n = int(m["n_present"].iloc[0])
-        label_to_data[_canon(lbl)] = (sig, n, delta)
+cohort = cohort.merge(patients, on="subject_id", how="left")
+cohort = cohort.merge(admissions, on=["subject_id", "hadm_id"], how="left")
+cohort = cohort.merge(
+    lace[["subject_id", "hadm_id", "los_days", "cci", "ed_visits_6mo", "lace_score"]],
+    on=["subject_id", "hadm_id"], how="left",
+)
+cohort["age"]    = pd.to_numeric(cohort["anchor_age"], errors="coerce")
+cohort["female"] = (cohort["gender"] == "F").astype(float)
+elective_types = {"ELECTIVE", "SURGICAL SAME DAY ADMISSION"}
+cohort["is_emergency"] = (
+    ~cohort["admission_type"].str.upper().isin(elective_types)
+).astype(float)
 
-    # Manual aliases for label variants that differ between the docx (clinical
-    # shorthand) and the cached CSV labels (RxNorm codes / full words).
-    ALIASES = {
-        _canon("{Live birth, Dibucaine} → Live birth"):
-            _canon("{Live birth, RX_3339} → Live birth"),
-        _canon("{Chest pain, Resp meas.} → Chest pain"):
-            _canon("{Chest pain, Resp measurements} → Chest pain"),
-        _canon("{MDD, SI} → SI"):
-            _canon("{MDD (single), SI} → SI"),
-    }
-    for alias_from, alias_to in ALIASES.items():
-        if alias_to in label_to_data and alias_from not in label_to_data:
-            label_to_data[alias_from] = label_to_data[alias_to]
+r  = cohort[cohort["readmit_30d"] == 1]
+nr = cohort[cohort["readmit_30d"] == 0]
 
-    if len(doc.tables) > 2:
-        t2 = doc.tables[2]
-        filled = 0
-        unmatched = []
-        for ri in range(1, len(t2.rows)):
-            row = t2.rows[ri]
-            if len(row.cells) < 5:
-                continue
-            pattern_cell = row.cells[1].text.strip()
-            sig_cell = row.cells[2]  # ΣIG
-            n_cell   = row.cells[3]  # n carriers
-            if not pattern_cell:
-                continue
-            key = _canon(pattern_cell)
+def _med_iqr_int(s):
+    s = pd.to_numeric(s, errors="coerce").dropna()
+    return f"{s.median():.0f} ({s.quantile(0.25):.0f}–{s.quantile(0.75):.0f})"
 
-            sig = n = delta = None
-            if key in label_to_data:
-                sig, n, delta = label_to_data[key]
-            else:
-                # Fuzzy fallback: substring match in either direction
-                for k2, (s2, n2, d2) in label_to_data.items():
-                    if key in k2 or k2 in key:
-                        sig, n, delta = s2, n2, d2
-                        break
+def _med_iqr_float(s):
+    s = pd.to_numeric(s, errors="coerce").dropna()
+    return f"{s.median():.1f} ({s.quantile(0.25):.1f}–{s.quantile(0.75):.1f})"
 
-            if sig is not None and "[val]" in sig_cell.text:
-                set_cell(sig_cell, f"{sig:+.4f}")
-                filled += 1
-            if n is not None and "[val]" in n_cell.text:
-                set_cell(n_cell, f"{n}")
-                filled += 1
-            # Δŷ column (index 4) — fill only if placeholder present
-            if len(row.cells) > 4 and delta is not None and "[val]" in row.cells[4].text:
-                set_cell(row.cells[4], f"{delta:+.3f}")
-                filled += 1
-            if sig is None and n is None:
-                unmatched.append((ri, pattern_cell[:60]))
+def _n_pct(s, n_cohort):
+    s = pd.to_numeric(s, errors="coerce").dropna()
+    return f"{int(s.sum()):,} ({s.sum()/n_cohort*100:.1f}%)"
 
-        print(f"  [Table 2] Filled {filled} ΣIG/n cells "
-              f"(unmatched rows: {len(unmatched)})")
-        for ri, snip in unmatched:
-            print(f"           r{ri}: '{snip}'")
-except Exception as e:
-    import traceback
-    print(f"  [Table 2] ⚠️  Could not auto-fill: {type(e).__name__}: {e}")
-    traceback.print_exc()
+T1 = {
+    "age":        (_med_iqr_int(cohort["age"]),
+                   _med_iqr_int(r["age"]),
+                   _med_iqr_int(nr["age"])),
+    "female":     (_n_pct(cohort["female"], len(cohort)),
+                   _n_pct(r["female"], len(r)),
+                   _n_pct(nr["female"], len(nr))),
+    "emergency":  (_n_pct(cohort["is_emergency"], len(cohort)),
+                   _n_pct(r["is_emergency"], len(r)),
+                   _n_pct(nr["is_emergency"], len(nr))),
+    "los":        (_med_iqr_float(cohort["los_days"]),
+                   _med_iqr_float(r["los_days"]),
+                   _med_iqr_float(nr["los_days"])),
+    "cci":        (_med_iqr_int(cohort["cci"]),
+                   _med_iqr_int(r["cci"]),
+                   _med_iqr_int(nr["cci"])),
+    "ed":         (_med_iqr_int(cohort["ed_visits_6mo"]),
+                   _med_iqr_int(r["ed_visits_6mo"]),
+                   _med_iqr_int(nr["ed_visits_6mo"])),
+    "prior_adm":  (_med_iqr_int(cohort["n_visits"]),
+                   _med_iqr_int(r["n_visits"]),
+                   _med_iqr_int(nr["n_visits"])),
+    "lace":       (_med_iqr_int(cohort["lace_score"]),
+                   _med_iqr_int(r["lace_score"]),
+                   _med_iqr_int(nr["lace_score"])),
+}
+for k, v in T1.items():
+    print(f"    {k:<10} overall={v[0]}  readmit={v[1]}  no_readmit={v[2]}")
 
-# Fix table caption notes: replace "[val] = to be filled from pipeline" with confirmation note
-caption_notes = [
+
+# ────────────────────────────────────────────────────────────────────────
+# Step B — Copy figures
+# ────────────────────────────────────────────────────────────────────────
+print("\n" + "=" * 70)
+print("[B] Copying figures")
+print("=" * 70)
+FIG_SRC_DIR = os.path.dirname(SRC)
+FIG_MAIN    = f"{FULL_RUN}/explain/figures/main"
+fig_map = [
+    (f"{FIG_SRC_DIR}/atop_framework_fig1.pptx",           "Figure1.pptx"),
+    (f"{FIG_SRC_DIR}/atop_framework_fig1.html",           "Figure1_interactive.html"),
+    (f"{FIG_MAIN}/fig2_patient_ig_tokens_test.png",       "Figure2.png"),
+    (f"{FIG_MAIN}/fig3_main_test_j20_short.png",          "Figure3.png"),
+    (f"{FIG_MAIN}/fig4_dumbbell_test_j20_short.png",      "Figure4.png"),
+]
+for src, dst_name in fig_map:
+    dst_path = os.path.join(FIG_DIR, dst_name)
+    if os.path.exists(src):
+        shutil.copyfile(src, dst_path)
+        print(f"    ✅ {dst_name}  ({os.path.getsize(dst_path)/1024:.0f} KB)")
+    else:
+        print(f"    ⚠️  missing: {src}")
+
+
+# ────────────────────────────────────────────────────────────────────────
+# Step C — Open doc, fill Table 1/2/3, run text edits, add legends
+# ────────────────────────────────────────────────────────────────────────
+print("\n" + "=" * 70)
+print("[C] Opening doc and applying edits")
+print("=" * 70)
+doc = Document(SRC)
+
+# ── C1. Fix XGB PR-AUC 0.32 → 0.31 ──
+print("\n[C1] XGB PR-AUC 0.32 → 0.31")
+for old, new in [
+    ("PR-AUC 0.32",    "PR-AUC 0.31"),
+    ("PR-AUC ~0.32",   "PR-AUC ~0.31"),
+    ("PR-AUC of 0.32", "PR-AUC of 0.31"),
+    ("(PR-AUC 0.32",   "(PR-AUC 0.31"),
+    ("PR-AUC: 0.32",   "PR-AUC: 0.31"),
+]:
+    n = replace_all(doc, old, new)
+    if n:
+        print(f"    Fixed '{old}' ({n}x)")
+
+# ── C2. Table 1 (cohort characteristics) — full-cohort values ──
+print("\n[C2] Table 1 — filling with full 218,196 cohort")
+t0 = doc.tables[0]
+HEADER = {
+    "Readmitted":     f"Readmitted\n(n={n_r:,})",
+    "Not Readmitted": f"Not Readmitted\n(n={n_nr:,})",
+}
+for cell in t0.rows[0].cells:
+    text = cell.text.strip()
+    if "[val]" in text:
+        for label, new_text in HEADER.items():
+            if text.startswith(label):
+                set_cell(cell, new_text)
+                break
+
+# row_idx → (Overall, Readmitted, Not Readmitted, P)
+t0_rows = {
+    2:  (*T1["age"],       "—"),   # Age
+    3:  (*T1["female"],    "—"),   # Female sex
+    5:  (*T1["emergency"], "—"),   # Emergency/Urgent
+    7:  (*T1["los"],       "—"),   # LOS (days)
+    8:  "DELETE",                  # Acuity — delete row (redundant)
+    9:  (*T1["cci"],       "—"),   # CCI
+    10: (*T1["ed"],        "—"),   # ED visits 6mo
+    11: (*T1["prior_adm"], "—"),   # Prior admissions
+}
+
+# Apply row updates first (leave Acuity for deletion afterward)
+for ri, values in t0_rows.items():
+    if values == "DELETE":
+        continue
+    if ri >= len(t0.rows):
+        continue
+    row = t0.rows[ri]
+    for ci, val in enumerate(values, start=1):
+        if ci < len(row.cells):
+            set_cell(row.cells[ci], val)
+print(f"    Header + rows 2/3/5/7/9/10/11 filled")
+
+# Delete the Acuity row by unique content match (row-index may shift)
+deleted_acuity = False
+for row in list(t0.rows):
+    row_text = " ".join(c.text.lower() for c in row.cells)
+    if "acuity" in row_text:
+        t0._tbl.remove(row._tr)
+        deleted_acuity = True
+        print(f"    Deleted Acuity row (redundant with Emergency/Urgent)")
+        break
+if not deleted_acuity:
+    print("    ⚠️  Acuity row not found")
+
+
+# ── C3. Table 1 (Mining summary) ──
+print("\n[C3] Table 2 — mining summary")
+t1 = doc.tables[1]
+t1_rows = {
+    2: ("36.1 (43.3)",  "—"),
+    3: ("13.7 (12.4)",  "—"),
+    4: ("38.0",         "—"),
+    6: ("24,490",       "—"),
+    7: ("5,325",        "—"),
+    8: ("5,047",        "—"),
+    10: ("—", "1,877"),
+    11: ("—", "3,170"),
+}
+for ri, (train, test) in t1_rows.items():
+    if ri >= len(t1.rows):
+        continue
+    row = t1.rows[ri]
+    if len(row.cells) >= 3:
+        set_cell(row.cells[1], train)
+        set_cell(row.cells[2], test)
+print("    All 8 mining metrics filled")
+
+
+# ── C4. Table 2 (Phenotype clusters) — ΣIG, n carriers, Δŷ ──
+print("\n[C4] Table 3 — phenotype clusters")
+dumbbell = pd.read_csv(f"{FIG_MAIN}/fig4_dumbbell_test_j20_short.csv")
+pathway  = pd.read_csv(f"{FULL_RUN}/explain/figures/csv/fig3_pathway_importance_test.csv")
+
+def _canon(s: str) -> str:
+    t = str(s).lower().strip()
+    t = t.replace("→", "->").replace("–", "-").replace("—", "-")
+    t = re.sub(r"\s*\([^)]*\)", "", t)
+    t = re.sub(r"[\{\},\s\.]", "", t)
+    return t
+
+label_to_data = {}
+for _, row in dumbbell.iterrows():
+    pat = row["pattern"]
+    lbl = row["label"]
+    sig = float(row["original_sig_ig"]) if pd.notna(row.get("original_sig_ig")) else None
+    dlt = float(row["delta"])           if pd.notna(row.get("delta"))           else None
+    n = None
+    m = pathway[pathway["pattern"] == pat]
+    if len(m):
+        n = int(m["n_present"].iloc[0])
+    label_to_data[_canon(lbl)] = (sig, n, dlt)
+
+ALIASES = {
+    _canon("{Live birth, Dibucaine} → Live birth"):
+        _canon("{Live birth, RX_3339} → Live birth"),
+    _canon("{Chest pain, Resp meas.} → Chest pain"):
+        _canon("{Chest pain, Resp measurements} → Chest pain"),
+    _canon("{MDD, SI} → SI"):
+        _canon("{MDD (single), SI} → SI"),
+}
+for a, b in ALIASES.items():
+    if b in label_to_data and a not in label_to_data:
+        label_to_data[a] = label_to_data[b]
+
+t2 = doc.tables[2]
+filled = 0
+for ri in range(1, len(t2.rows)):
+    row = t2.rows[ri]
+    if len(row.cells) < 5:
+        continue
+    pat_text = row.cells[1].text.strip()
+    if not pat_text:
+        continue
+    key = _canon(pat_text)
+    sig = n = dlt = None
+    if key in label_to_data:
+        sig, n, dlt = label_to_data[key]
+    else:
+        for k2, (s2, n2, d2) in label_to_data.items():
+            if key in k2 or k2 in key:
+                sig, n, dlt = s2, n2, d2
+                break
+    if sig is not None and "[val]" in row.cells[2].text:
+        set_cell(row.cells[2], f"{sig:+.4f}")
+        filled += 1
+    if n is not None and "[val]" in row.cells[3].text:
+        set_cell(row.cells[3], f"{n}")
+        filled += 1
+    if dlt is not None and len(row.cells) > 4 and "[val]" in row.cells[4].text:
+        set_cell(row.cells[4], f"{dlt:+.3f}")
+        filled += 1
+print(f"    Filled {filled} cells")
+
+
+# ── C5. Caption note replacement ──
+for old, new in [
     ("[val] = to be filled from pipeline CSVs.",
      "(Values sourced from runs/full_CPD/explain/ cached CSVs.)"),
     ("[val] = to be filled from pipeline.",
      "(Values sourced from runs/full_CPD/explain/ cached CSVs.)"),
+]:
+    replace_all(doc, old, new)
+
+
+# ── C6. Text edits B-G ──
+print("\n[C6] Applying text edits B-G")
+
+# Edit B: Mining methods — replace "with minimum support filtering" sentence
+#         with the case/control-separate wording
+B_APPENDIX = (
+    " Episode mining was applied separately to readmitted and non-readmitted "
+    "training patients, each with a minimum support threshold of 2% of its "
+    "group; discovered patterns were pooled and cross-verified across groups."
+)
+for para in doc.paragraphs:
+    if "minimum support filtering" in para.text:
+        # insert after the ";" at "with minimum support filtering; and (4)..."
+        full = "".join(r.text for r in para.runs)
+        # Insert after the "mining [3] with minimum support filtering"
+        anchor = "with minimum support filtering"
+        idx = full.find(anchor) + len(anchor)
+        new_full = full[:idx] + B_APPENDIX + full[idx:]
+        if para.runs:
+            para.runs[0].text = new_full
+            for rn in para.runs[1:]:
+                rn.text = ""
+        print("    [B] Appended mining clarification to pipeline paragraph")
+        break
+else:
+    print("    [B] ⚠️  anchor 'minimum support filtering' not found")
+
+# Edit C: LACE+ — reframe as "ML classifiers trained on LACE-derived features"
+C_OLD = ("outperforming the LACE+ index [7], a widely used readmission risk score "
+         "incorporating length of stay, acuity, comorbidity, ED utilization, age, "
+         "sex, and prior admissions: LACE+ logistic regression")
+C_NEW = ("outperforming logistic regression and XGBoost classifiers trained on "
+         "LACE-derived features (length of stay, acuity, Charlson Comorbidity "
+         "Index, ED visits in the prior 6 months, age, sex, and prior admission "
+         "count): LACE+ logistic regression")
+if replace_all(doc, C_OLD, C_NEW):
+    print("    [C] Reframed LACE+ as ML classifiers on LACE-derived features")
+else:
+    print("    [C] ⚠️  LACE+ sentence not matched")
+
+# Edit D: Penultimate admission caveat
+D_CAVEAT = (
+    " This ensures an observed future window for readmission ascertainment "
+    "within the dataset, though it may under-represent end-of-trajectory "
+    "clinical patterns."
+)
+anchor = "with all prior admissions serving as longitudinal history."
+for para in doc.paragraphs:
+    if anchor in para.text:
+        full = "".join(r.text for r in para.runs)
+        new_full = full.replace(anchor, anchor + D_CAVEAT)
+        if para.runs:
+            para.runs[0].text = new_full
+            for rn in para.runs[1:]:
+                rn.text = ""
+        print("    [D] Added penultimate-admission caveat")
+        break
+else:
+    print("    [D] ⚠️  penultimate anchor not found")
+
+# Edit E: Table 3 footnote (insert paragraph after Table 3)
+E_FOOTNOTE = ("Pattern ranking on the test set is based entirely on label-free "
+              "ΣIG attribution.")
+t2_elem = doc.tables[2]._tbl
+parent  = t2_elem.getparent()
+idx_in_parent = list(parent).index(t2_elem)
+new_p  = OxmlElement("w:p")
+new_r  = OxmlElement("w:r")
+new_t  = OxmlElement("w:t")
+new_t.text = E_FOOTNOTE
+new_r.append(new_t)
+new_p.append(new_r)
+parent.insert(idx_in_parent + 1, new_p)
+print("    [E] Added Table 3 footnote")
+
+# Edit F: Masking caveat — add to p29 (Token masking paragraph)
+F_CAVEAT = (
+    " Masking changes inputs outside the training distribution; results are "
+    "interpreted as evidence of model sensitivity rather than causal reliance."
+)
+found_f = False
+for para in doc.paragraphs:
+    if para.text.startswith("Token masking:"):
+        append_to_para(para, F_CAVEAT)
+        found_f = True
+        print("    [F] Added masking caveat to Token masking paragraph")
+        break
+if not found_f:
+    print("    [F] ⚠️  Token masking paragraph not found")
+
+# Edit G: Figure 3 caption panel descriptions (append to Figure 3 caption)
+G_PANELS = (
+    " Panel A: which tokens matter at the population level "
+    "(prevalence-weighted). Panel B: which tokens have the strongest "
+    "attribution when present (conditional signal). Panel C: which temporal "
+    "configurations concentrate attribution among carriers (structured "
+    "narratives)."
+)
+found_g = False
+for para in doc.paragraphs:
+    t = para.text
+    if t.startswith("[Figure 3:") or t.startswith("[Figure 3."):
+        append_to_para(para, G_PANELS)
+        found_g = True
+        print("    [G] Appended panel descriptions to Figure 3 caption")
+        break
+if not found_g:
+    print("    [G] ⚠️  Figure 3 caption not found")
+
+
+# ── C7. Figure Legends section ──
+print("\n[C7] Appending Figure Legends section")
+FIGURE_LEGENDS = [
+    ("Figure Legends", "heading"),
+    ("Figure 1. AToP framework overview.", "figure_title"),
+    ("Four-stage pipeline illustrating the AToP framework: (1) Attribution — "
+     "per-token Integrated Gradients computed on the trained Transformer; "
+     "(2) Mapping — salient tokens mapped back to their admission-block "
+     "structure; (3) Mining — frequent cross-visit temporal patterns extracted "
+     "from training-set salient blocks; (4) Validation — patterns evaluated on "
+     "held-out test data via token masking.", "caption"),
+    ("Alt text: Horizontal four-stage diagram showing the AToP pipeline — "
+     "Attribution, Mapping, Mining, and Validation — connected by left-to-right "
+     "arrows.", "alt"),
+    ("", "spacer"),
+    ("Figure 2. Single-patient attribution example.", "figure_title"),
+    ("Token-level Integrated Gradients attributions for a representative "
+     "test-set patient. Tokens are ranked by absolute attribution magnitude. "
+     "Red bars indicate risk-driving tokens (positive IG); blue bars indicate "
+     "protective tokens (negative IG).", "caption"),
+    ("Alt text: Horizontal bar chart showing the top 15 salient tokens for one "
+     "patient, colored red for positive attribution and blue for negative "
+     "attribution.", "alt"),
+    ("", "spacer"),
+    ("Figure 3. Global attribution analysis.", "figure_title"),
+    ("Three-panel summary of population-level attribution on the test set. "
+     "Panel A: population-level token importance (prevalence-weighted mean "
+     "IG). Panel B: carrier-level conditional attribution (mean IG among "
+     "patients who carry each token). Panel C: cross-visit temporal patterns "
+     "ranked by summed attribution among carriers.", "caption"),
+    ("Alt text: Three-panel figure showing token and pattern importance at the "
+     "population level, carrier level, and as structured temporal sequences.",
+     "alt"),
+    ("", "spacer"),
+    ("Figure 4. Perturbation validation.", "figure_title"),
+    ("Dumbbell plot showing change in predicted 30-day readmission probability "
+     "(Δŷ) after masking each of the top 15 temporal patterns from Panel C. "
+     "Positive Δŷ indicates the masked tokens were protective; negative Δŷ "
+     "indicates risk-driving tokens. Arrow color reflects direction of change: "
+     "red for increase, blue for decrease.", "caption"),
+    ("Alt text: Dumbbell plot with 15 rows — one per pattern — each showing "
+     "baseline and masked predicted probability connected by a colored arrow "
+     "indicating the direction of change after masking.", "alt"),
 ]
-for old, new in caption_notes:
-    n = replace_in_doc(doc, old, new)
-    if n:
-        print(f"  Caption note: replaced ({n} occurrences)")
+for text, style in FIGURE_LEGENDS:
+    p = doc.add_paragraph()
+    run = p.add_run(text)
+    if style == "heading":
+        run.bold = True
+        run.font.size = Pt(14)
+        p.paragraph_format.space_before = Pt(20)
+    elif style == "figure_title":
+        run.bold = True
+        run.font.size = Pt(11)
+        p.paragraph_format.space_before = Pt(10)
+    elif style == "alt":
+        run.italic = True
+        run.font.size = Pt(10)
+print("    Added 4 figure legends with alt text")
 
-print("\n[3b] Scanning for remaining [val] / [A-Z_] placeholders...")
-# Exclude known non-placeholder tokens (vocab tokens / method references)
-IGNORE_TOKENS = {"[VISIT]", "[CLS]", "[PAD]", "[IG]", "[CPD]"}
 
-
-def _real_placeholders(text: str):
-    raw = re.findall(r'\[val\]|\[[A-Z_]+\]', text)
-    return [m for m in raw if m not in IGNORE_TOKENS]
-
+# ── C8. Remaining placeholder scan ──
+print("\n[C8] Remaining placeholder scan")
+IGNORE = {"[VISIT]", "[CLS]", "[PAD]", "[IG]", "[CPD]"}
+def _placeholders(text):
+    raw = re.findall(r"\[val\]|\[[A-Z_]+\]", text)
+    return [m for m in raw if m not in IGNORE]
 
 remaining = []
 for i, para in enumerate(doc.paragraphs):
-    matches = _real_placeholders(para.text)
-    if matches:
-        remaining.append((i, para.text[:120], matches))
-for ti, table in enumerate(doc.tables):
-    for ri, row in enumerate(table.rows):
+    hits = _placeholders(para.text)
+    if hits:
+        remaining.append((f"p{i}", para.text[:120], hits))
+for ti, tbl in enumerate(doc.tables):
+    for ri, row in enumerate(tbl.rows):
         for ci, cell in enumerate(row.cells):
-            matches = _real_placeholders(cell.text)
-            if matches:
-                remaining.append((f"T{ti}r{ri}c{ci}", cell.text[:120], matches))
+            hits = _placeholders(cell.text)
+            if hits:
+                remaining.append((f"T{ti}r{ri}c{ci}", cell.text[:120], hits))
 
 if remaining:
-    print(f"  ⚠️  {len(remaining)} paragraph(s) still contain placeholders:")
-    for loc, snippet, matches in remaining:
-        print(f"    [{loc}] {matches}  |  '{snippet}'")
+    print(f"    ⚠️  {len(remaining)} placeholder(s) remain:")
+    for loc, snip, hits in remaining:
+        print(f"      [{loc}] {hits}  |  '{snip}'")
 else:
-    print("  ✅ No [val] placeholders remaining")
+    print("    ✅ None remaining")
 
-# ── Step 4: Check JAMIA section order ─────────────────────────────────────────
-print("\n[4] Checking document structure...")
-section_keywords = [
-    "abstract", "background", "objective", "methods", "results",
-    "discussion", "conclusion", "limitation", "acknowledg",
-    "funding", "conflict", "data availability", "author contrib",
-    "reference", "figure legend", "figure caption"
-]
-found_sections = []
-for i, para in enumerate(doc.paragraphs):
-    text = para.text.strip().lower()
-    if any(kw in text for kw in section_keywords) and len(text) < 80:
-        found_sections.append((i, para.text.strip()))
 
-print("  Sections found (in order):")
-for idx, title in found_sections:
-    print(f"    [{idx:4d}] {title}")
-
-ref_idx = None
-fig_legend_idx = None
-for i, para in enumerate(doc.paragraphs):
-    t = para.text.strip().lower()
-    if t.startswith("reference") and len(t) < 20:
-        ref_idx = i
-    if ("figure legend" in t or "figure caption" in t) and len(t) < 40:
-        fig_legend_idx = i
-
-if ref_idx and fig_legend_idx:
-    if fig_legend_idx > ref_idx:
-        print(f"\n  ✅ Figure legends ({fig_legend_idx}) are AFTER references ({ref_idx})")
-    else:
-        print(f"\n  ⚠️  Figure legends ({fig_legend_idx}) appear BEFORE references ({ref_idx})")
-elif fig_legend_idx is None:
-    print("\n  ⚠️  No 'Figure Legends' section heading found")
-
-# ── Step 5: Check alt text in figure legends ──────────────────────────────────
-print("\n[5] Checking for alt text in figure legends...")
-fig_pattern = re.compile(r'^Figure\s+\d+', re.IGNORECASE)
-alt_pattern = re.compile(r'alt\s*text', re.IGNORECASE)
-in_legends = False
-fig_entries = []
+# ── C9. Abstract word count ──
+print("\n[C9] Abstract word count")
+MAJOR = ("background and significance", "introduction", "keywords")
+in_abs, count = False, 0
 for para in doc.paragraphs:
     t = para.text.strip()
-    if "figure legend" in t.lower() or "figure caption" in t.lower():
-        in_legends = True
+    if not in_abs and t.lower() == "abstract":
+        in_abs = True
         continue
-    if in_legends:
-        if fig_pattern.match(t):
-            fig_entries.append({"title": t[:80], "has_alt": False})
-        if alt_pattern.search(t) and fig_entries:
-            fig_entries[-1]["has_alt"] = True
-
-for entry in fig_entries:
-    status = "✅" if entry["has_alt"] else "⚠️  MISSING alt text"
-    print(f"    {status}  {entry['title']}")
-
-if not fig_entries:
-    print("  ⚠️  No figure legend entries found — check document structure")
-
-# ── Step 6: Abstract word count ───────────────────────────────────────────────
-# JAMIA structured abstracts contain "Objective:", "Materials and Methods:",
-# "Results:", "Discussion:", "Conclusion:" as inline subheadings — we count
-# everything between the "Abstract" heading and the first major section
-# heading (Background and Significance / Introduction / Keywords).
-print("\n[6] Estimating abstract word count...")
-MAJOR_SECTION_STARTS = (
-    "background and significance", "introduction", "keywords",
-)
-in_abstract = False
-abstract_words = 0
-for para in doc.paragraphs:
-    t = para.text.strip()
-    if not in_abstract and t.lower() == "abstract":
-        in_abstract = True
-        continue
-    if in_abstract:
-        if any(t.lower().startswith(kw) for kw in MAJOR_SECTION_STARTS):
+    if in_abs:
+        if any(t.lower().startswith(k) for k in MAJOR):
             break
-        abstract_words += len(t.split())
+        count += len(t.split())
+print(f"    ~{count} words  " + ("✅ ≤250" if count <= 250 else f"⚠️ over by {count-250}"))
 
-print(f"  Abstract word count: ~{abstract_words}")
-if abstract_words > 250:
-    print(f"  ⚠️  JAMIA limit is 250 words — please trim {abstract_words - 250} words")
-elif abstract_words > 0:
-    print(f"  ✅ Within JAMIA 250-word limit")
 
-# ── Save ───────────────────────────────────────────────────────────────────────
-print(f"\n[7] Saving to {DST}...")
+# ── D. Save ──
+print("\n" + "=" * 70)
+print(f"[D] Saving → {DST}")
+print("=" * 70)
 doc.save(DST)
-print(f"  ✅ Saved")
-print(f"  Total direct replacements made: {total_changes}")
+print(f"    ✅ Saved ({os.path.getsize(DST)/1024:.0f} KB)")
+
+print("\n" + "=" * 70)
+print("TABLE 1 — numbers written to docx (copy into any external text):")
+print("=" * 70)
+print(f"  N total:       {n_total:,}")
+print(f"  N readmitted:  {n_r:,}")
+print(f"  N not readmit: {n_nr:,}")
+for row_name, vals in [
+    ("Age",           T1["age"]),
+    ("Female",        T1["female"]),
+    ("Emergency/Urg", T1["emergency"]),
+    ("LOS (days)",    T1["los"]),
+    ("CCI",           T1["cci"]),
+    ("ED visits 6mo", T1["ed"]),
+    ("Prior adm",     T1["prior_adm"]),
+    ("LACE score",    T1["lace"]),
+]:
+    print(f"  {row_name:<14} overall={vals[0]:<18}  readmit={vals[1]:<18}  no_readm={vals[2]}")
