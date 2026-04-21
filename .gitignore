@@ -43,3 +43,8 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Repo boundary guards (these live at the AToP parent, but ignore them
+# defensively in case anyone ever places them inside atop_package/)
+archive/
+manuscript/
