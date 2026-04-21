@@ -13,7 +13,7 @@ from __future__ import annotations
 import os, re
 from docx import Document
 
-SRC = "../manuscript/claude files/AToP_paper_v6.docx"
+SRC = "../manuscript/atop_v5.5/AToP_paper_v6.docx"
 DST = "../manuscript/jamia_submission/AToP_JAMIA_submission.docx"
 os.makedirs(os.path.dirname(DST), exist_ok=True)
 
@@ -142,29 +142,42 @@ def set_cell(cell, text):
     return True
 
 
-# ── Table 0: Cohort characteristics ──
-# Columns: [Characteristic, Overall (N=218,196), Readmitted (n=...), Not Readmitted (n=...), P]
+# ── Table 0: Cohort characteristics — FULL 218,196 cohort ──
+# Computed by scripts/compute_table1_full_cohort.py using the model's exact
+# index-admission rule (penultimate if ≥2 admissions, else first;
+# exclude_elective_readmissions=True). These match summary.json exactly.
+# Columns: [Characteristic, Overall (N=218,196), Readmitted (n=27,508), Not Readmitted (n=190,688), P]
 if len(doc.tables) > 0:
     t0 = doc.tables[0]
-    # Header row: fix the n=[val] placeholders in the column headers
-    header_map = {
-        "Readmitted (n=[val])":      "Readmitted (n=24,876)",
-        "Not Readmitted (n=[val])":  "Not Readmitted (n=171,501)",
+    # Header row: the v5.5 docx has a literal newline between "Readmitted"
+    # and "(n=[val])", so replace on the joined text rather than exact match.
+    HEADER_COHORT = {
+        "Readmitted":      "Readmitted\n(n=27,508)",
+        "Not Readmitted":  "Not Readmitted\n(n=190,688)",
     }
     for cell in t0.rows[0].cells:
-        for old, new in header_map.items():
-            if old in cell.text:
-                set_cell(cell, new)
+        # Match on the first word(s) and an "[val]" presence
+        text = cell.text.strip()
+        if "[val]" in text:
+            for label, new_text in HEADER_COHORT.items():
+                if text.startswith(label):
+                    set_cell(cell, new_text)
+                    break
 
     # row_idx -> (Overall, Readmitted, Not Readmitted, P)
-    # P-values are not available — keep as "—" for manual entry
+    # P-values are not available — keep as "—" for manual entry.
+    # r8 (Acuity, emergency) = same values as r5 (Emergency/Urgent) — binary
+    # component of LACE maps 1:1 to non-elective admissions; the two rows are
+    # clinically redundant per co-author note.
     t0_rows = {
-        2:  ("57 (38–71)",        "60 (44–73)",        "57 (37–71)",        "—"),  # Age
-        3:  ("115,461 (52.9%)",   "12,489 (50.2%)",    "91,370 (53.3%)",    "—"),  # Female
-        5:  ("171,168 (78.4%)",   "21,444 (86.2%)",    "132,043 (77.1%)",   "—"),  # Emergency
-        7:  ("4.0 (2.0–8.0)",     "6.0 (3.0–11.0)",    "4.0 (2.0–7.0)",     "—"),  # LOS
-        9:  ("2.0 (0.0–5.0)",     "4.0 (1.0–7.0)",     "2.0 (0.0–4.0)",     "—"),  # CCI
-        10: ("0.0 (0.0–1.0)",     "1.0 (0.0–2.0)",     "0.0 (0.0–1.0)",     "—"),  # ED visits
+        2:  ("57 (38–71)",         "58 (40–72)",         "57 (38–71)",         "—"),  # Age
+        3:  ("115,344 (52.9%)",    "14,141 (51.4%)",     "101,203 (53.1%)",    "—"),  # Female
+        5:  ("195,500 (89.6%)",    "24,852 (90.3%)",     "170,648 (89.5%)",    "—"),  # Emergency/Urgent
+        7:  ("2.6 (1.0–5.1)",      "3.2 (1.2–6.8)",      "2.6 (1.0–4.9)",      "—"),  # LOS (days)
+        8:  ("195,500 (89.6%)",    "24,852 (90.3%)",     "170,648 (89.5%)",    "—"),  # Acuity (emergency) — same as r5
+        9:  ("1 (0–2)",            "1 (0–4)",            "1 (0–2)",            "—"),  # CCI
+        10: ("0 (0–1)",            "0 (0–1)",            "0 (0–1)",            "—"),  # ED visits 6mo
+        11: ("1 (1–2)",            "2 (1–4)",            "1 (1–1)",            "—"),  # Prior admissions (n_visits)
     }
     for ri, values in t0_rows.items():
         if ri >= len(t0.rows):
@@ -174,9 +187,7 @@ if len(doc.tables) > 0:
         for ci, val in enumerate(values, start=1):
             if ci < len(row.cells):
                 set_cell(row.cells[ci], val)
-    # Acuity (emergency) r8 and Prior admissions r11 -> not in confirmed-values table
-    # Leave existing [val] in those rows; reported under "unfilled" below.
-    print("  [Table 0] Filled rows: header + Age/Female/Emergency/LOS/CCI/ED (r8 Acuity, r11 Prior admissions left for manual entry)")
+    print("  [Table 0] Filled header + all 8 data rows (Age, Female, Emergency, LOS, Acuity, CCI, ED visits, Prior admissions) with FULL 218,196 cohort")
 
 # ── Table 1: Mining summary ──
 # Columns: [Metric, Train, Test]
