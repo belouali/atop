@@ -12,9 +12,12 @@ What this does (in order):
   4. Removes the Acuity (emergency) row from Table 1 (redundant with
      Emergency/Urgent).
   5. Fixes XGB PR-AUC 0.32 -> 0.31 everywhere.
-  6. Applies text edits B-G at real docx anchors.
-  7. Appends a Figure Legends section with alt text for all 4 figures.
-  8. Saves AToP_JAMIA_submission.docx.
+  6. Saves AToP_JAMIA_submission.docx.
+
+Text edits B-G and the Figure Legends section are applied by the
+companion script scripts/jamia_final_edits.py (see TASKS/jamia_final_edits.md)
+so that the number-audit pass can also catch any stale prose values
+(e.g. "2%" → "0.1%" for the mining support threshold).
 
 Run from atop_package/:
     python scripts/prepare_jamia_submission.py
@@ -404,177 +407,6 @@ for old, new in [
      "(Values sourced from runs/full_CPD/explain/ cached CSVs.)"),
 ]:
     replace_all(doc, old, new)
-
-
-# ── C6. Text edits B-G ──
-print("\n[C6] Applying text edits B-G")
-
-# Edit B: Mining methods — replace "with minimum support filtering" sentence
-#         with the case/control-separate wording
-B_APPENDIX = (
-    " Episode mining was applied separately to readmitted and non-readmitted "
-    "training patients, each with a minimum support threshold of 2% of its "
-    "group; discovered patterns were pooled and cross-verified across groups."
-)
-for para in doc.paragraphs:
-    if "minimum support filtering" in para.text:
-        # insert after the ";" at "with minimum support filtering; and (4)..."
-        full = "".join(r.text for r in para.runs)
-        # Insert after the "mining [3] with minimum support filtering"
-        anchor = "with minimum support filtering"
-        idx = full.find(anchor) + len(anchor)
-        new_full = full[:idx] + B_APPENDIX + full[idx:]
-        if para.runs:
-            para.runs[0].text = new_full
-            for rn in para.runs[1:]:
-                rn.text = ""
-        print("    [B] Appended mining clarification to pipeline paragraph")
-        break
-else:
-    print("    [B] ⚠️  anchor 'minimum support filtering' not found")
-
-# Edit C: LACE+ — reframe as "ML classifiers trained on LACE-derived features"
-C_OLD = ("outperforming the LACE+ index [7], a widely used readmission risk score "
-         "incorporating length of stay, acuity, comorbidity, ED utilization, age, "
-         "sex, and prior admissions: LACE+ logistic regression")
-C_NEW = ("outperforming logistic regression and XGBoost classifiers trained on "
-         "LACE-derived features (length of stay, acuity, Charlson Comorbidity "
-         "Index, ED visits in the prior 6 months, age, sex, and prior admission "
-         "count): LACE+ logistic regression")
-if replace_all(doc, C_OLD, C_NEW):
-    print("    [C] Reframed LACE+ as ML classifiers on LACE-derived features")
-else:
-    print("    [C] ⚠️  LACE+ sentence not matched")
-
-# Edit D: Penultimate admission caveat
-D_CAVEAT = (
-    " This ensures an observed future window for readmission ascertainment "
-    "within the dataset, though it may under-represent end-of-trajectory "
-    "clinical patterns."
-)
-anchor = "with all prior admissions serving as longitudinal history."
-for para in doc.paragraphs:
-    if anchor in para.text:
-        full = "".join(r.text for r in para.runs)
-        new_full = full.replace(anchor, anchor + D_CAVEAT)
-        if para.runs:
-            para.runs[0].text = new_full
-            for rn in para.runs[1:]:
-                rn.text = ""
-        print("    [D] Added penultimate-admission caveat")
-        break
-else:
-    print("    [D] ⚠️  penultimate anchor not found")
-
-# Edit E: Table 3 footnote (insert paragraph after Table 3)
-E_FOOTNOTE = ("Pattern ranking on the test set is based entirely on label-free "
-              "ΣIG attribution.")
-t2_elem = doc.tables[2]._tbl
-parent  = t2_elem.getparent()
-idx_in_parent = list(parent).index(t2_elem)
-new_p  = OxmlElement("w:p")
-new_r  = OxmlElement("w:r")
-new_t  = OxmlElement("w:t")
-new_t.text = E_FOOTNOTE
-new_r.append(new_t)
-new_p.append(new_r)
-parent.insert(idx_in_parent + 1, new_p)
-print("    [E] Added Table 3 footnote")
-
-# Edit F: Masking caveat — add to p29 (Token masking paragraph)
-F_CAVEAT = (
-    " Masking changes inputs outside the training distribution; results are "
-    "interpreted as evidence of model sensitivity rather than causal reliance."
-)
-found_f = False
-for para in doc.paragraphs:
-    if para.text.startswith("Token masking:"):
-        append_to_para(para, F_CAVEAT)
-        found_f = True
-        print("    [F] Added masking caveat to Token masking paragraph")
-        break
-if not found_f:
-    print("    [F] ⚠️  Token masking paragraph not found")
-
-# Edit G: Figure 3 caption panel descriptions (append to Figure 3 caption)
-G_PANELS = (
-    " Panel A: which tokens matter at the population level "
-    "(prevalence-weighted). Panel B: which tokens have the strongest "
-    "attribution when present (conditional signal). Panel C: which temporal "
-    "configurations concentrate attribution among carriers (structured "
-    "narratives)."
-)
-found_g = False
-for para in doc.paragraphs:
-    t = para.text
-    if t.startswith("[Figure 3:") or t.startswith("[Figure 3."):
-        append_to_para(para, G_PANELS)
-        found_g = True
-        print("    [G] Appended panel descriptions to Figure 3 caption")
-        break
-if not found_g:
-    print("    [G] ⚠️  Figure 3 caption not found")
-
-
-# ── C7. Figure Legends section ──
-print("\n[C7] Appending Figure Legends section")
-FIGURE_LEGENDS = [
-    ("Figure Legends", "heading"),
-    ("Figure 1. AToP framework overview.", "figure_title"),
-    ("Four-stage pipeline illustrating the AToP framework: (1) Attribution — "
-     "per-token Integrated Gradients computed on the trained Transformer; "
-     "(2) Mapping — salient tokens mapped back to their admission-block "
-     "structure; (3) Mining — frequent cross-visit temporal patterns extracted "
-     "from training-set salient blocks; (4) Validation — patterns evaluated on "
-     "held-out test data via token masking.", "caption"),
-    ("Alt text: Horizontal four-stage diagram showing the AToP pipeline — "
-     "Attribution, Mapping, Mining, and Validation — connected by left-to-right "
-     "arrows.", "alt"),
-    ("", "spacer"),
-    ("Figure 2. Single-patient attribution example.", "figure_title"),
-    ("Token-level Integrated Gradients attributions for a representative "
-     "test-set patient. Tokens are ranked by absolute attribution magnitude. "
-     "Red bars indicate risk-driving tokens (positive IG); blue bars indicate "
-     "protective tokens (negative IG).", "caption"),
-    ("Alt text: Horizontal bar chart showing the top 15 salient tokens for one "
-     "patient, colored red for positive attribution and blue for negative "
-     "attribution.", "alt"),
-    ("", "spacer"),
-    ("Figure 3. Global attribution analysis.", "figure_title"),
-    ("Three-panel summary of population-level attribution on the test set. "
-     "Panel A: population-level token importance (prevalence-weighted mean "
-     "IG). Panel B: carrier-level conditional attribution (mean IG among "
-     "patients who carry each token). Panel C: cross-visit temporal patterns "
-     "ranked by summed attribution among carriers.", "caption"),
-    ("Alt text: Three-panel figure showing token and pattern importance at the "
-     "population level, carrier level, and as structured temporal sequences.",
-     "alt"),
-    ("", "spacer"),
-    ("Figure 4. Perturbation validation.", "figure_title"),
-    ("Dumbbell plot showing change in predicted 30-day readmission probability "
-     "(Δŷ) after masking each of the top 15 temporal patterns from Panel C. "
-     "Positive Δŷ indicates the masked tokens were protective; negative Δŷ "
-     "indicates risk-driving tokens. Arrow color reflects direction of change: "
-     "red for increase, blue for decrease.", "caption"),
-    ("Alt text: Dumbbell plot with 15 rows — one per pattern — each showing "
-     "baseline and masked predicted probability connected by a colored arrow "
-     "indicating the direction of change after masking.", "alt"),
-]
-for text, style in FIGURE_LEGENDS:
-    p = doc.add_paragraph()
-    run = p.add_run(text)
-    if style == "heading":
-        run.bold = True
-        run.font.size = Pt(14)
-        p.paragraph_format.space_before = Pt(20)
-    elif style == "figure_title":
-        run.bold = True
-        run.font.size = Pt(11)
-        p.paragraph_format.space_before = Pt(10)
-    elif style == "alt":
-        run.italic = True
-        run.font.size = Pt(10)
-print("    Added 4 figure legends with alt text")
 
 
 # ── C8. Remaining placeholder scan ──
