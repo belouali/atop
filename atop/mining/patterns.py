@@ -549,11 +549,26 @@ def mine_patterns(seqs_flat, seqs_visit_blocks, y, method, min_support_frac,
                   episode_min_steps=1,
                   cap_by_or_per_length=0,
                   cap_metric="or",
-                  jaccard_dedup=0.0, jaccard_rep="support") -> pd.DataFrame:
+                  jaccard_dedup=0.0, jaccard_rep="support",
+                  scoring_min_support_frac=-1) -> pd.DataFrame:
     n_total = len(y)
     case_idx = np.where(y == 1)[0]
     ctrl_idx = np.where(y == 0)[0]
-    min_sup_full = max(1, int(np.ceil(min_support_frac * n_total)))
+
+    # Scoring-level support: separate from mining-level support
+    if scoring_min_support_frac < 0:
+        # Default: use same fraction as mining, applied to full cohort
+        min_sup_scoring = max(1, int(np.ceil(min_support_frac * n_total)))
+    elif scoring_min_support_frac == 0:
+        # No scoring filter
+        min_sup_scoring = 1
+    else:
+        min_sup_scoring = max(1, int(np.ceil(scoring_min_support_frac * n_total)))
+    
+    print(f"[mining] Scoring min support: {min_sup_scoring} ({scoring_min_support_frac})")
+
+    # Mining-level support: per group
+    min_sup_full = min_sup_scoring  # used at scoring stage
 
     if method == "episode":
         db_case = [seqs_visit_blocks[i] for i in case_idx]

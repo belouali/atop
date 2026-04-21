@@ -460,6 +460,7 @@ class AToPExplainer:
         scored_hash_params = {
             "method": self._mining_method,
             "min_support_frac": min_support_frac,
+            "scoring_min_support_frac": kwargs.get("scoring_min_support_frac", cfg.scoring_min_support_frac),
             "episode_max_len": episode_max_len,
             "episode_topn": episode_topn,
             "n_train": n_train,
@@ -554,14 +555,22 @@ class AToPExplainer:
             # ── OR scoring ───────────────────────────────────────────────
             from atop.mining.patterns import _score_patterns_admission_level
             n_patients = len(seqs_vb)
-            min_sup_full = max(1, int(np.ceil(min_support_frac * n_train)))
+            # Scoring-level support: configurable separately from mining support
+            scoring_frac = kwargs.get("scoring_min_support_frac", cfg.scoring_min_support_frac)
+            if scoring_frac < 0:
+                min_sup_scoring = max(1, int(np.ceil(min_support_frac * n_train)))
+            elif scoring_frac == 0:
+                min_sup_scoring = 1
+            else:
+                min_sup_scoring = max(1, int(np.ceil(scoring_frac * n_train)))
+            print(f"[mining] Scoring min support: {min_sup_scoring} (frac={scoring_frac})")
             admission_sets = [set() for _ in range(n_patients)]
             for pk, pidxs in pat_patients.items():
                 for pi in pidxs:
                     admission_sets[pi].add(pk)
 
             print(f"[mining] Scoring {len(all_pattern_keys)} patterns...")
-            df_scored = _score_patterns_admission_level(admission_sets, y, all_pattern_keys, min_sup_full)
+            df_scored = _score_patterns_admission_level(admission_sets, y, all_pattern_keys, min_sup_scoring)
 
             # Save scored CSV
             df_scored.to_csv(scored_csv, index=False)
