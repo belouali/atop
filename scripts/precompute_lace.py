@@ -9,8 +9,8 @@ Usage:
   python scripts/precompute_lace.py --mimic_dir /data/mimiciv/2.2/hosp
   python scripts/precompute_lace.py --mimic_dir /data/mimiciv/2.2/hosp --out lace_scores_all.csv
 
-Then pass to AToP:
-  python scripts/run_atop.py --lace_csv lace_scores_all.csv ...
+Then pass to baseline comparison:
+  python scripts/compare_baselines.py --lace_csv lace_scores_all.csv ...
 """
 from __future__ import annotations
 

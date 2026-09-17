@@ -6,7 +6,13 @@ from typing import Any, Dict, List, Tuple
 
 import numpy as np
 import pandas as pd
-import torch
+# torch is imported lazily inside each perturbation/prediction function so
+# torch-free callers (``run_reversed_order_analysis``, which is pure pandas)
+# can import this module without pulling torch. The four functions that
+# need it (``mask_positions``, ``shuffle_within_visits``,
+# ``shuffle_visit_blocks``, ``predict_batch``) each ``import torch`` in
+# their first line, cheap after the first call (Python caches the module
+# in ``sys.modules``).
 
 from atop.config import PAD_IDX, CLS_IDX, VISIT_IDX, SPECIAL_TOKENS
 from atop.utils import predict_one, format_token_readable
@@ -95,8 +101,9 @@ def find_episode_occurrence(combined_full, combined_map, episode_pattern):
 # ============================================================================
 
 
-def mask_positions(input_ids: torch.Tensor, positions: List[int]) -> torch.Tensor:
+def mask_positions(input_ids: "torch.Tensor", positions: List[int]) -> "torch.Tensor":
     """Zero out specific positions in input_ids (B=1, L)."""
+    import torch  # noqa: F401  (lazy, see module-level note)
     masked = input_ids.clone()
     for pos in positions:
         masked[0, pos] = PAD_IDX
@@ -104,9 +111,10 @@ def mask_positions(input_ids: torch.Tensor, positions: List[int]) -> torch.Tenso
 
 
 
-def shuffle_within_visits(input_ids: torch.Tensor, vocab: Dict[str, int],
-                          vocab_inv: Dict[int, str]) -> torch.Tensor:
+def shuffle_within_visits(input_ids: "torch.Tensor", vocab: Dict[str, int],
+                          vocab_inv: Dict[int, str]) -> "torch.Tensor":
     """Shuffle non-special tokens within each visit block."""
+    import torch  # noqa: F401  (lazy, see module-level note)
     out = input_ids.clone()
     ids = out[0].numpy().tolist()
 
@@ -129,17 +137,18 @@ def shuffle_within_visits(input_ids: torch.Tensor, vocab: Dict[str, int],
     return out
 
 
-def shuffle_visit_blocks(input_ids: torch.Tensor) -> torch.Tensor:
+def shuffle_visit_blocks(input_ids: "torch.Tensor") -> "torch.Tensor":
     """Permute visit blocks while keeping tokens within each block intact.
-    
+
     This tests whether the model learned cross-visit temporal structure.
     If the model only cares about which codes are present (bag-of-codes),
     shuffling visits won't change the prediction. If it learned temporal
     patterns (e.g. HTN in visit 1 → CKD in visit 3), shuffling will
     degrade predictions for patients with those patterns.
-    
+
     Preserves [CLS] at position 0. Each visit block = [VISIT] + tokens.
     """
+    import torch  # noqa: F401  (lazy, see module-level note)
     out = input_ids.clone()
     ids = out[0].numpy().tolist()
     
@@ -186,9 +195,10 @@ def shuffle_visit_blocks(input_ids: torch.Tensor) -> torch.Tensor:
 # ============================================================================
 
 
-def predict_batch(model, device: torch.device, batch_tensors: List[torch.Tensor],
+def predict_batch(model, device: "torch.device", batch_tensors: "List[torch.Tensor]",
                   batch_size: int = 64) -> np.ndarray:
     """Run batched forward passes. Each tensor is (1, L). Returns array of probabilities."""
+    import torch  # noqa: F401  (lazy, see module-level note)
     if not batch_tensors:
         return np.array([])
 
@@ -224,22 +234,52 @@ def predict_batch(model, device: torch.device, batch_tensors: List[torch.Tensor]
 def run_validation(model, device, df_seq_test, df_patterns_train, tensors_by_key_test,
                    icd_titles, vocab, vocab_inv, top_k, max_adm_per_pattern,
                    n_shuffle_draws, mining_method, out_dir,
-                   df_ig=None, pattern_whitelist=None) -> pd.DataFrame:
+                   df_ig=None, pattern_whitelist=None,
+                   checkpoint_path: str = None,
+                   checkpoint_every: int = 5) -> pd.DataFrame:
     """Validate top patterns via masking, within-visit shuffle, and visit-block shuffle.
-    
+
     Pattern selection: If pattern_whitelist is provided, only those patterns are
     validated (ensuring alignment with fig3 Panel C). Otherwise, patterns are
     ranked by |mean Σ IG_i| (consistent with fig3/fig6), or falls back to OR.
+
+    Resilience: If ``checkpoint_path`` is set, the public-column results are
+    flushed to that CSV every ``checkpoint_every`` patterns via an atomic
+    write (``.tmp`` then ``os.replace``). On Colab disconnect / kernel
+    crash, callers can re-invoke with the same ``pattern_whitelist`` minus
+    the patterns now present in the checkpoint and skip already-done work.
     """
     from atop.explain.matching import PatternIndex
-    
+
     is_episode = (mining_method == "episode")
     contiguous = (mining_method == "ngram")
     res = []
 
+    def _flush_checkpoint(rows: list) -> None:
+        """Atomic write of accumulated results so far. Merges with any
+        existing rows in checkpoint_path (so partial earlier runs aren't
+        clobbered by a fresh restart)."""
+        if not checkpoint_path or not rows:
+            return
+        df_now = pd.DataFrame(rows)
+        public = [c for c in df_now.columns if not c.startswith("_")]
+        df_now = df_now[public]
+        if os.path.exists(checkpoint_path):
+            try:
+                df_prev = pd.read_csv(checkpoint_path)
+                df_now = pd.concat([df_prev, df_now], ignore_index=True)
+                df_now = df_now.drop_duplicates(subset=["pattern"], keep="last")
+            except Exception as e:
+                print(f"\n  [checkpoint] WARN: couldn't merge with existing "
+                      f"{checkpoint_path}: {e}")
+        os.makedirs(os.path.dirname(checkpoint_path) or ".", exist_ok=True)
+        tmp = checkpoint_path + ".tmp"
+        df_now.to_csv(tmp, index=False)
+        os.replace(tmp, checkpoint_path)
+
     # ── Pattern selection ────────────────────────────────────────────────
     if pattern_whitelist is not None:
-        # Use fig3's pattern list — but limit to top_k by |IG| for validation
+        # Use fig3's pattern list, but limit to top_k by |IG| for validation
         top = df_patterns_train[df_patterns_train["pattern"].isin(pattern_whitelist)].copy()
         print(f"  [validate] Using fig3 whitelist: {len(top)}/{len(pattern_whitelist)} patterns found in mined set")
         
@@ -294,7 +334,7 @@ def run_validation(model, device, df_seq_test, df_patterns_train, tensors_by_key
             top = pd.concat([top_risk, top_prot], ignore_index=True)
             print(f"  [validate] Selected {len(top_risk)} risk + {len(top_prot)} protective from whitelist")
     elif df_ig is not None and not df_ig.empty and not df_seq_test.empty:
-        # Rank by |mean signed IG sum| — same metric as fig3/fig6
+        # Rank by |mean signed IG sum|, same metric as fig3/fig6
         print("  [validate] Ranking patterns by |mean Σ IG_i| for selection...")
         ig_col = "ig_signed" if "ig_signed" in df_ig.columns else "ig_abs"
         from atop.explain.figures import _build_ig_cache_by_block, _score_pattern_instance
@@ -453,7 +493,16 @@ def run_validation(model, device, df_seq_test, df_patterns_train, tensors_by_key
         })
         print(f"\r  [validate] Pattern {pi+1}/{n_patterns}: {len(matches)} matches", end="", flush=True)
 
+        # Resilience: flush partial results every checkpoint_every patterns
+        # so a Colab disconnect / kernel crash doesn't lose the run.
+        if checkpoint_path and (pi + 1) % checkpoint_every == 0:
+            _flush_checkpoint(res)
+
     print()
+    # Final flush so the last <checkpoint_every patterns make it to disk.
+    if checkpoint_path:
+        _flush_checkpoint(res)
+
     dfv = pd.DataFrame(res)
     if not dfv.empty:
         dfv = dfv.sort_values("mean_delta_mask", ascending=False)
@@ -489,7 +538,7 @@ def run_reversed_order_analysis(
 
     is_episode = (mining_method == "episode")
     if not is_episode:
-        print("  [reversed] Skipping — only implemented for episode mining")
+        print("  [reversed] Skipping, only implemented for episode mining")
         return pd.DataFrame()
 
     # Filter to multi-token patterns only (reversal is meaningless for single tokens)
