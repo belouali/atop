@@ -96,7 +96,8 @@ def build() -> None:
               "authors have approved the submission and agree to be "
               "accountable for the work. We declare no competing interests. "
               "The framework code is publicly available at "
-              "https://github.com/belouali/atop, and all analytic outputs "
+              "https://github.com/belouali/atop (release v1.0.0), and all "
+              "analytic outputs "
               "reported in the manuscript can be regenerated from MIMIC-IV "
               "v3.1 using those scripts.")
 
