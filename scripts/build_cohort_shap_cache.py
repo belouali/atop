@@ -39,19 +39,19 @@ Compute estimate (Colab T4):
 Colab usage (from atop_package/):
     # First run: build 500 patients
     !python scripts/build_cohort_shap_cache.py \\
-        --run_dir ../runs/full_CPD_v2 \\
+        --run_dir ../runs/mimiciv_readmission_30d \\
         --mimic_dir ../data/mimiciv/3.1/hosp \\
         --device cuda --sample_n 500
 
     # Later: extend to 1000 (only computes the 500 new patients)
     !python scripts/build_cohort_shap_cache.py \\
-        --run_dir ../runs/full_CPD_v2 \\
+        --run_dir ../runs/mimiciv_readmission_30d \\
         --mimic_dir ../data/mimiciv/3.1/hosp \\
         --device cuda --sample_n 1000
 
     # All: extend until every test patient is covered
     !python scripts/build_cohort_shap_cache.py \\
-        --run_dir ../runs/full_CPD_v2 \\
+        --run_dir ../runs/mimiciv_readmission_30d \\
         --mimic_dir ../data/mimiciv/3.1/hosp \\
         --device cuda --sample_n all
 """

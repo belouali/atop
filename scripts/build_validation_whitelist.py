@@ -22,14 +22,14 @@ Legacy ``--top_n`` mode is preserved for back-compat: pass
 instead of the manuscript-derived logic.
 
 Usage (canonical, manuscript-driven):
-    python scripts/build_validation_whitelist.py --run_dir ../runs/full_CPD_v2
+    python scripts/build_validation_whitelist.py --run_dir ../runs/mimiciv_readmission_30d
 
 Usage (legacy):
-    python scripts/build_validation_whitelist.py --run_dir ../runs/full_CPD_v2 \\
+    python scripts/build_validation_whitelist.py --run_dir ../runs/mimiciv_readmission_30d \\
         --legacy_topn 50
 
 After running this, run the GPU validation top-up:
-    python scripts/run_validation_topup.py --run_dir ../runs/full_CPD_v2 \\
+    python scripts/run_validation_topup.py --run_dir ../runs/mimiciv_readmission_30d \\
         --mimic_dir ../data/mimiciv/3.1/hosp --device cuda
 """
 from __future__ import annotations
@@ -224,7 +224,7 @@ def legacy_topn(args: argparse.Namespace, out_path: str) -> None:
 def main() -> None:
     p = argparse.ArgumentParser(
         description="Build the validation whitelist for masking Δŷ.")
-    p.add_argument("--run_dir", default="../runs/full_CPD_v2")
+    p.add_argument("--run_dir", default="../runs/mimiciv_readmission_30d")
     p.add_argument("--split", default="test")
     p.add_argument("--jaccard_threshold", type=float, default=0.2,
                     help="Used by --legacy_topn mode.")

@@ -27,8 +27,8 @@ CPU-only. Fast (~30 s).
 
 Usage:
     python scripts/build_shap_aggregations.py \\
-        --run_dir ../runs/full_CPD_v2 \\
-        --shap_cache ../runs/full_CPD_v2/3_attribution/cohort_shap_test_n500.pkl
+        --run_dir ../runs/mimiciv_readmission_30d \\
+        --shap_cache ../runs/mimiciv_readmission_30d/3_attribution/cohort_shap_test_n500.pkl
 """
 from __future__ import annotations
 
@@ -212,7 +212,7 @@ def _aggregate_pattern_level(cache: dict, sample_pids: set,
 def main() -> None:
     p = argparse.ArgumentParser(
         description="Aggregate cohort SHAP cache into Fig 3-shaped CSVs.")
-    p.add_argument("--run_dir", default="../runs/full_CPD_v2")
+    p.add_argument("--run_dir", default="../runs/mimiciv_readmission_30d")
     p.add_argument("--split", default="test")
     p.add_argument("--shap_cache", default=None,
                    help="Path to cohort SHAP cache (default: "

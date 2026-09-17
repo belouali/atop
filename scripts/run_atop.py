@@ -11,7 +11,7 @@ diagnostic figures to ``7_outputs/figures/``.
 from the data this pipeline produces.
 
 Usage:
-    python scripts/run_atop.py --run_dir runs/full_CPD_v2 \\
+    python scripts/run_atop.py --run_dir runs/mimiciv_readmission_30d \\
         --mimic_dir ../data/mimiciv/3.1/hosp \\
         --steps mine_global,validate
 """

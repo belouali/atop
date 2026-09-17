@@ -18,7 +18,7 @@ Idempotent. Re-running on the same whitelist replays the same matching
 
 Local usage (CPU):
     python scripts/run_reversed_order_topup.py \\
-        --run_dir ../runs/full_CPD_v2 \\
+        --run_dir ../runs/mimiciv_readmission_30d \\
         --mimic_dir ../data/mimiciv/3.1/hosp
 """
 from __future__ import annotations

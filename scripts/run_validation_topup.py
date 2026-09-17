@@ -30,7 +30,7 @@ Idempotent, re-running after success is a no-op.
 
 Colab usage (from the repo root after ``%cd atop_package``):
     !python scripts/run_validation_topup.py \
-        --run_dir ../runs/full_CPD_v2 \
+        --run_dir ../runs/mimiciv_readmission_30d \
         --mimic_dir ../data/mimiciv/3.1/hosp \
         --device cuda
 """

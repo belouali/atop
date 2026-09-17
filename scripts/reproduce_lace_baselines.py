@@ -24,7 +24,7 @@ from xgboost import XGBClassifier
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-FULL_RUN  = "../runs/full_CPD_v2"
+FULL_RUN  = "../runs/mimiciv_readmission_30d"
 MIMIC_DIR = "../data/mimiciv/3.1/hosp"
 SEQ_DIR   = f"{FULL_RUN}/explain/data"
 OUT_DIR   = f"{FULL_RUN}/baselines"

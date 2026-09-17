@@ -27,7 +27,7 @@ from atop.run_layout import RunLayout
 
 import argparse
 _p = argparse.ArgumentParser(description="Select exemplar patients (main_tp / alt_tp / confident_tn / disagreement)")
-_p.add_argument("--run_dir", default="../runs/full_CPD_v2",
+_p.add_argument("--run_dir", default="../runs/mimiciv_readmission_30d",
                 help="Run directory (v2 layout: reads from 3_attribution/4_mining/2_predictions, writes to 5_analysis)")
 _p.add_argument("--output", default=None,
                 help="Override exemplars.json output path (default: <run_dir>/5_analysis/exemplars.json)")
