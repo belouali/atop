@@ -19,7 +19,7 @@ import torch
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from atop.models.single_stream_transformer import SingleStreamTransformer
 
-FULL_RUN = "../runs/full_CPD"
+FULL_RUN = "../runs/full_CPD_v2"
 OUT_CSV  = f"{FULL_RUN}/test_predictions.csv"
 
 print("[1] Loading model weights...")

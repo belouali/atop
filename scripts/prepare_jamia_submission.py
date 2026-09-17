@@ -47,7 +47,7 @@ FIG_DIR    = f"{SUBMIT_DIR}/figures"
 DST        = f"{SUBMIT_DIR}/AToP_JAMIA_submission.docx"
 os.makedirs(FIG_DIR, exist_ok=True)
 
-FULL_RUN   = "../runs/full_CPD"
+FULL_RUN   = "../runs/full_CPD_v2"
 MIMIC_DIR  = "../data/mimiciv/3.1/hosp"
 PKL_CACHE  = f"{MIMIC_DIR}/.atop_cache"
 

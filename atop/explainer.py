@@ -979,7 +979,7 @@ class AToPExplainer:
                     ].copy()
                 if not df_val_main.empty:
                     print(f"  [validate] {len(df_val_main)} patterns validated and cached "
-                          f"(aligned with fig3); render dumbbell with scripts/replot_validation.py")
+                          f"(aligned with fig3); render dumbbell with scripts/make_fig5.py")
 
                 # Supplement: OOD diagnostic, REMOVED (Apr 2026 cleanup).
                 # The OOD validity story is narrated in the manuscript text
