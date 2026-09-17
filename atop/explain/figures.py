@@ -7,7 +7,10 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 
 import numpy as np
 import pandas as pd
-import torch
+# torch is imported lazily inside the few functions that actually use it
+# (SHAP panel in fig6_global_importance_comparison). Keeps this module
+# importable without torch for the torch-free paths (reversed-order,
+# label/helper utilities).
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -201,10 +204,10 @@ def _build_ig_cache_by_block(df_ig: pd.DataFrame, df_seq: pd.DataFrame
     has_visit_idx = "visit_idx" in df_ig.columns
     has_salient = "is_salient" in df_ig.columns
     if not has_visit_idx:
-        print("  [WARN] df_ig missing visit_idx — instance-based scoring unavailable. "
+        print("  [WARN] df_ig missing visit_idx, instance-based scoring unavailable. "
               "Re-run IG computation to enable position-aware scoring.")
     if not has_salient:
-        print("  [WARN] df_ig missing is_salient — block cache includes all tokens in salient visits. "
+        print("  [WARN] df_ig missing is_salient, block cache includes all tokens in salient visits. "
               "Re-run IG computation to restrict to salient tokens only.")
 
     # Build visit_to_block lookup per patient
@@ -232,13 +235,13 @@ def _build_ig_cache_by_block(df_ig: pd.DataFrame, df_seq: pd.DataFrame
 
             if vidx < 0:
                 continue
-            # Skip non-salient tokens — ensures scoring uses the same
+            # Skip non-salient tokens, ensures scoring uses the same
             # token universe as mining/matching
             if has_salient and not row["is_salient"]:
                 continue
             bi = v2b.get(vidx)
             if bi is None:
-                # Token's visit is not a salient block — skip
+                # Token's visit is not a salient block, skip
                 continue
 
             if tok in block_ig[bi]:
@@ -254,9 +257,9 @@ def _score_pattern_instance(pattern_fsets, matched_blocks, block_ig_list):
     """Compute instance-based IG for a pattern match.
 
     Args:
-        pattern_fsets: List[frozenset] — the pattern's itemsets
+        pattern_fsets: List[frozenset], the pattern's itemsets
         matched_blocks: List[(pattern_idx, block_idx)] from _match_subpattern
-        block_ig_list: List[Dict[str, float]] — per-block IG for this patient
+        block_ig_list: List[Dict[str, float]], per-block IG for this patient
 
     Returns:
         float: sum of signed IG for the tokens in the matched blocks only
@@ -380,305 +383,11 @@ def fig1_dataset_performance(out_dir, summary, test_metrics, y_true, y_prob):
 
 
 
-def fig2_patient_ig(out_dir, df_ig_long, pick, icd_titles, split="test"):
-    pid = pick["patient_id"]
-    hadm_id = pick["index_hadm_id"]
-
-    # Coerce types for matching (int vs str mismatch)
-    df = df_ig_long.copy()
-    df["patient_id"] = df["patient_id"].astype(str)
-    df["index_hadm_id"] = df["index_hadm_id"].astype(str)
-    pid_s = str(pid)
-    hadm_s = str(hadm_id)
-
-    sub = df[(df.patient_id == pid_s) & (df.index_hadm_id == hadm_s)].copy()
-    if sub.empty:
-        print(f"  [fig2_{split}] EMPTY — no IG rows for pid={pid_s}, hadm={hadm_s}")
-        print(f"    df_ig has {len(df_ig_long)} rows, {df_ig_long['patient_id'].nunique()} patients")
-        print(f"    sample pids: {df_ig_long['patient_id'].head(3).tolist()}, types: {df_ig_long['patient_id'].dtype}")
-        return False
-
-    ig_col = "ig_signed" if "ig_signed" in sub.columns else "ig_abs"
-
-    # Top tokens by |IG| but display signed values
-    sub["_abs"] = sub[ig_col].abs()
-    sub2 = sub.sort_values("_abs", ascending=False).head(20)
-    sub2 = sub2.sort_values(ig_col, ascending=True)  # bottom-to-top by signed
-
-    labels = [_fmt_tok(t, icd_titles) for t in sub2["token_str"]]
-    vals = sub2[ig_col].values
-    colors = ["#c44e52" if v > 0 else "#4c72b0" for v in vals]
-
-    fig = plt.figure(figsize=(14, 10))
-    ax = fig.add_subplot(1, 1, 1)
-    ax.barh(range(len(labels)), vals, color=colors)
-    ax.set_yticks(range(len(labels)))
-    ax.set_yticklabels(labels, fontsize=8)
-    ax.axvline(0, color="black", linewidth=0.8)
-    ax.set_title(f"Top IG tokens ({split.upper()})\npatient={pid} | index_hadm={hadm_id} | "
-                 f"readmission={pick['readmission']} | n_visits={pick.get('n_visits', '?')}")
-    ax.set_xlabel("Signed IG\n← protective          risk →")
-
-    from matplotlib.patches import Patch
-    legend_elements = [
-        Patch(facecolor="#c44e52", label="Risk (IG > 0)"),
-        Patch(facecolor="#4c72b0", label="Protective (IG < 0)"),
-    ]
-    legend_elements.extend(active_stream_legend(sub2["token_str"].tolist(), "line"))
-    ax.legend(handles=legend_elements, loc="lower right", fontsize=9)
-    fig.tight_layout()
-    fig.savefig(os.path.join(out_dir, f"fig2_patient_ig_{split}.png"), dpi=300)
-    plt.close(fig)
-    print(f"  [fig2_{split}] Saved fig2_patient_ig_{split}.png")
-
-    # Save backing CSV
-    sub2.to_csv(os.path.join(out_dir, f"fig2_patient_ig_{split}.csv"), index=False)
-    return True
-
-
-
-def fig3_top_patterns(out_dir, df_patterns, icd_titles, mining_method,
-                      df_ig=None, df_seq=None, split="train", n_show=15):
-    """Top mined patterns ranked by mean signed IG mass.
-    
-    If df_ig and df_seq are provided, computes mean IG mass per pattern
-    and ranks by that. Otherwise falls back to OR ranking.
-    """
-    if df_patterns.empty:
-        return
-    method_labels = {"prefixspan": "PrefixSpan", "ngram": "n-gram", "episode": "Episode"}
-    method_label = method_labels.get(mining_method, mining_method)
-    is_episode = (mining_method == "episode")
-
-    # Compute mean signed IG per pattern if IG data available
-    df_p = df_patterns.copy()
-    if df_ig is not None and df_seq is not None and not df_seq.empty:
-        ig_cache = _build_ig_cache(df_ig)
-
-        pat_index = PatternIndex.from_df(df_seq)
-        seq_rows = df_seq.reset_index(drop=True)
-
-        ig_means = []
-        ig_medians = []
-        abs_shares = []
-        cond_impacts = []
-        n_concordants = []
-        n_presents = []
-        carrier_sets = {}  # pattern_str → set of matched row indices
-        for _, pat_row in df_p.iterrows():
-            pat_str = pat_row["pattern"]
-            if is_episode:
-                ep = _parse_episode_pattern(pat_str)
-                pat_fsets = [frozenset(s) for s in ep]
-                pat_tokens = set()
-                for s in ep:
-                    pat_tokens.update(s)
-            else:
-                flat = [p.strip() for p in pat_str.split(" -> ")]
-                pat_fsets = [frozenset([t]) for t in flat]
-                pat_tokens = set(flat)
-
-            matched = pat_index.patients_matching_pattern(pat_fsets, pat_tokens, is_episode)
-            carrier_sets[pat_str] = set(matched)
-            or_val = pat_row.get("odds_ratio", None)
-            stats = _compute_pattern_ig_stats(ig_cache, pat_tokens, matched, seq_rows,
-                                              odds_ratio=or_val)
-            if stats:
-                ig_means.append(stats["ig_signed_mean"])
-                ig_medians.append(stats["ig_signed_median"])
-                abs_shares.append(stats["ig_abs_share_mean"])
-                cond_impacts.append(stats["ig_cond_impact"])
-                n_concordants.append(stats["n_concordant"])
-                n_presents.append(stats["n_matched"])
-            else:
-                ig_means.append(0.0)
-                ig_medians.append(0.0)
-                abs_shares.append(0.0)
-                cond_impacts.append(0.0)
-                n_concordants.append(0)
-                n_presents.append(0)
-
-        df_p["ig_signed_mean"] = ig_means
-        df_p["ig_signed_median"] = ig_medians
-        df_p["ig_abs_share_mean"] = abs_shares
-        df_p["ig_cond_impact"] = cond_impacts
-        df_p["n_concordant"] = n_concordants
-        df_p["n_present"] = n_presents
-        rank_col = "ig_signed_mean"
-    else:
-        # Fallback: use OR-derived pseudo-score
-        df_p["ig_signed_mean"] = np.where(df_p["odds_ratio"] > 1, df_p["odds_ratio"], -1/df_p["odds_ratio"])
-        rank_col = "ig_signed_mean"
-
-    # Split into risk (positive IG mass) and protective (negative)
-    half = max(1, n_show // 2)
-    df_risk = df_p[df_p[rank_col] > 0].nlargest(half, rank_col).copy()
-    df_prot = df_p[df_p[rank_col] < 0].nsmallest(half, rank_col).copy()
-
-    n_risk = len(df_risk)
-    n_prot = len(df_prot)
-    if n_risk + n_prot == 0:
-        return
-
-    fig, axes = plt.subplots(1, 2, figsize=(24, max(6, max(n_risk, n_prot) * 0.45)),
-                              gridspec_kw={"width_ratios": [1, 1]})
-
-    title_note = ("Within-visit items are unordered sets; cross-visit ordering is chronological"
-                  if mining_method == "episode" else
-                  "Patterns reflect genuine cross-visit temporal ordering")
-    fig.suptitle(f"Top mined patterns ({split.upper()}, {method_label})\n"
-                 f"Ranked by mean signed IG contribution: IG(P) = Σ IG_i for tokens in pattern\n{title_note}",
-                 fontsize=11, fontweight="bold", y=1.02)
-
-    # Left: Risk patterns
-    ax_risk = axes[0]
-    if n_risk > 0:
-        df_risk = df_risk.sort_values(rank_col, ascending=True).reset_index(drop=True)
-        labels_risk = []
-        for _, r in df_risk.iterrows():
-            pat_label = _fmt_pat(r["pattern"], icd_titles, max_tok_len=55)
-            n = int(r.get("n_present", r.get("n_admissions_present", 0)))
-            labels_risk.append(f"{pat_label}  (n={n})")
-        ax_risk.barh(range(n_risk), df_risk[rank_col].values, color="#c44e52")
-        ax_risk.set_yticks(range(n_risk))
-        ax_risk.set_yticklabels(labels_risk, fontsize=8)
-    ax_risk.set_xlabel("Mean signed IG(P) over pattern carriers\n→ pushes logit toward readmission")
-    ax_risk.set_title("Risk patterns (IG > 0)", fontsize=10)
-
-    # Right: Protective patterns
-    ax_prot = axes[1]
-    if n_prot > 0:
-        df_prot = df_prot.sort_values(rank_col, ascending=False).reset_index(drop=True)
-        labels_prot = []
-        for _, r in df_prot.iterrows():
-            pat_label = _fmt_pat(r["pattern"], icd_titles, max_tok_len=55)
-            n = int(r.get("n_present", r.get("n_admissions_present", 0)))
-            labels_prot.append(f"{pat_label}  (n={n})")
-        ax_prot.barh(range(n_prot), df_prot[rank_col].abs().values, color="#4c72b0")
-        ax_prot.set_yticks(range(n_prot))
-        ax_prot.set_yticklabels(labels_prot, fontsize=8)
-    else:
-        ax_prot.text(0.5, 0.5, "No protective patterns found",
-                     ha="center", va="center", fontsize=10)
-    ax_prot.set_xlabel("|Mean signed IG(P)| over pattern carriers\n← pushes logit away from readmission")
-    ax_prot.set_title("Protective patterns (IG < 0)", fontsize=10)
-
-    fig.tight_layout()
-    fig.savefig(os.path.join(out_dir, f"fig3_top_patterns_{split}.png"), dpi=300, bbox_inches="tight")
-    plt.close(fig)
-
-    df_p.to_csv(os.path.join(out_dir, f"fig3_top_patterns_{split}.csv"), index=False)
-
-
-
-def fig5_validation(out_dir, dfv, n_shuffle_draws, icd_titles=None, split="test",
-                    n_show=15):
-    dfv_clean = dfv.dropna(subset=["mean_delta_mask"]).copy()
-    if dfv_clean.empty:
-        return
-
-    # Show top patterns — split by IG direction (risk vs protective)
-    # If ig_direction available, use it; otherwise fall back to mean_delta_mask
-    if "ig_direction" in dfv_clean.columns:
-        df_risk = dfv_clean[dfv_clean["ig_direction"] > 0].head(n_show)
-        df_prot = dfv_clean[dfv_clean["ig_direction"] <= 0].head(n_show)
-    else:
-        df_risk = dfv_clean[dfv_clean["mean_delta_mask"] > 0].head(n_show)
-        df_prot = dfv_clean[dfv_clean["mean_delta_mask"] <= 0].head(n_show)
-    # Take balanced set, up to n_show total
-    n_each = n_show // 2
-    df_risk = df_risk.head(n_each + n_show % 2)
-    df_prot = df_prot.head(n_each)
-    top = pd.concat([df_risk, df_prot], ignore_index=True)
-
-    if top.empty:
-        return
-    top = top.sort_values("mean_delta_mask", ascending=True)
-
-    # Check if we have the visit-shuffle column (v4+)
-    has_visit_shuffle = "mean_delta_shuffle_visits" in top.columns
-    # Handle old column name for backward compat
-    within_col = "mean_delta_shuffle_within" if "mean_delta_shuffle_within" in top.columns else "mean_delta_shuffle"
-
-    y = np.arange(len(top))
-    n_bars = 3 if has_visit_shuffle else 2
-    bar_h = 0.8 / n_bars
-
-    fig = plt.figure(figsize=(18, max(7, len(top) * 0.75)))
-    ax = fig.add_subplot(1, 1, 1)
-
-    # Determine direction: prefer IG, fallback to OR
-    def _is_risk(row):
-        if "ig_direction" in row.index and not pd.isna(row.get("ig_direction")):
-            return row["ig_direction"] > 0
-        return row["odds_ratio"] > 1
-
-    # Bar 1: Mask pattern tokens
-    mask_colors = ["#c44e52" if _is_risk(r) else "#4c72b0" for _, r in top.iterrows()]
-    offset = -(n_bars - 1) * bar_h / 2
-    ax.barh(y + offset, top["mean_delta_mask"], height=bar_h,
-            color=mask_colors, edgecolor="white")
-
-    # Bar 2: Shuffle visit order (the temporal test)
-    if has_visit_shuffle:
-        visit_colors = ["#e8a0a2" if _is_risk(r) else "#a0b8d0" for _, r in top.iterrows()]
-        ax.barh(y + offset + bar_h, top["mean_delta_shuffle_visits"], height=bar_h,
-                color=visit_colors, edgecolor="white")
-
-    # Bar 3: Shuffle within visits (control — should be ~0)
-    within_colors = ["#f0c8c8" if _is_risk(r) else "#c8d8e8" for _, r in top.iterrows()]
-    last_offset = offset + bar_h * (n_bars - 1)
-    ax.barh(y + last_offset, top[within_col], height=bar_h,
-            color=within_colors, edgecolor="white")
-
-    labels = []
-    _titles = icd_titles or {}
-    for _, r in top.iterrows():
-        direction = "\u25B2" if _is_risk(r) else "\u25BC"
-        pat_label = _fmt_pat(r["pattern"], _titles, max_tok_len=55)
-        or_str = f"OR={r['odds_ratio']:.2f}" if not pd.isna(r.get("odds_ratio")) else ""
-        labels.append(f"{direction} {pat_label} ({or_str})")
-    ax.set_yticks(y)
-    ax.set_yticklabels(labels, fontsize=8.5)
-    ax.axvline(0, color="gray", linestyle="--", linewidth=0.8)
-    ax.set_xlabel("Mean \u0394 probability (baseline \u2212 perturbed)\n"
-                  "Positive = pattern supports prediction; Negative = pattern opposes prediction")
-
-    if has_visit_shuffle:
-        ax.set_title(
-            f"Pattern validation ({split.upper()}): three perturbation tests\n"
-            "Mask tokens: does model rely on these codes?\n"
-            "Shuffle visits: is model sensitive to cross-visit order?\n"
-            "Shuffle within: control (within-visit order is arbitrary)",
-            fontsize=9)
-    else:
-        ax.set_title(
-            f"Pattern validation ({split.upper()}): masking vs shuffling\n"
-            "\u25B2 = risk patterns, \u25BC = protective patterns",
-            fontsize=9)
-
-    # Custom legend showing both perturbation type and risk/protective color
-    from matplotlib.patches import Patch
-    if has_visit_shuffle:
-        legend_handles = [
-            Patch(facecolor="#c44e52", label="Mask pattern tokens (\u25B2 risk)"),
-            Patch(facecolor="#4c72b0", label="Mask pattern tokens (\u25BC protective)"),
-            Patch(facecolor="#e8a0a2", label=f"Shuffle visit order ({n_shuffle_draws} draws, \u25B2 risk)"),
-            Patch(facecolor="#a0b8d0", label=f"Shuffle visit order ({n_shuffle_draws} draws, \u25BC protective)"),
-            Patch(facecolor="#f0c8c8", label=f"Shuffle within visits ({n_shuffle_draws} draws, \u25B2 risk)"),
-            Patch(facecolor="#c8d8e8", label=f"Shuffle within visits ({n_shuffle_draws} draws, \u25BC protective)"),
-        ]
-    else:
-        legend_handles = [
-            Patch(facecolor="#c44e52", label="Mask pattern tokens (\u25B2 risk)"),
-            Patch(facecolor="#4c72b0", label="Mask pattern tokens (\u25BC protective)"),
-            Patch(facecolor="#f0c8c8", label=f"Shuffle within ({n_shuffle_draws} draws, \u25B2 risk)"),
-            Patch(facecolor="#c8d8e8", label=f"Shuffle within ({n_shuffle_draws} draws, \u25BC protective)"),
-        ]
-    ax.legend(handles=legend_handles, fontsize=8, loc="lower right")
-    fig.tight_layout()
-    fig.savefig(os.path.join(out_dir, f"fig4_temporal_validation_{split}.png"), dpi=300)
-    plt.close(fig)
+# ── Removed (Apr 2026 cleanup) ──────────────────────────────────────────────
+# fig2_patient_ig (~55 LOC) and fig3_top_patterns (~130 LOC) used to live
+# here. Both were AMIA-era single-panel figures replaced by make_fig2.py
+# (3-panel patient exemplar) and make_fig3.py (3-panel global comparison)
+# respectively. Neither had any live caller in atop_package/.
 
 
 # ============================================================================
@@ -811,7 +520,7 @@ def build_shap_comparison_figure(out_dir, model, device, icd_titles, pick, input
     # ── Build figure ─────────────────────────────────────────────────────
     fig = plt.figure(figsize=(20, 16))
     fig.suptitle(
-        f"Representative {split} patient — {pick.get('n_visits', '?')} visits, "
+        f"Representative {split} patient, {pick.get('n_visits', '?')} visits, "
         f"readmitted, {len(all_matched)} matched patterns",
         fontsize=11, fontweight="bold", y=0.98)
 
@@ -871,7 +580,7 @@ def build_shap_comparison_figure(out_dir, model, device, icd_titles, pick, input
         ax3.text(0.5, 0.5, "No salient tokens found", ha="center", va="center", fontsize=10)
 
     ax3.set_title(
-        f"C: AToP salient tokens — chronological visit order\n"
+        f"C: AToP salient tokens, chronological visit order\n"
         f"({len(salient_visit_blocks)} visits, "
         f"{sum(len(b) for b in salient_visit_blocks)} tokens; "
         f"visit structure preserved for temporal context)",
@@ -952,10 +661,10 @@ def _render_fig6(out_dir, icd_titles, ig_global, shap_global, df_pathways,
     N = n_show
     fig, axes = plt.subplots(1, 3, figsize=(32, max(10, N * 0.6)))
 
-    suffix = f" — {panel_c_label}" if panel_c_label else ""
+    suffix = f", {panel_c_label}" if panel_c_label else ""
     fig.suptitle(
         f"Global importance comparison: IG vs GradientSHAP vs AToP ({split.upper()}){suffix}\n"
-        "All panels computed on the same test cohort — "
+        "All panels computed on the same test cohort, "
         "single-token (A, B) vs occurrence-aggregated pattern attribution (C)",
         fontsize=12, fontweight="bold", y=1.02,
     )
@@ -1038,452 +747,34 @@ def _render_fig6(out_dir, icd_titles, ig_global, shap_global, df_pathways,
     return fig
 
 
-def _render_fig6_split(out_dir, icd_titles, ig_global, shap_global, df_pathways,
-                       n_show, n_shap_patients, split, panel_c_label=""):
-    """Render 3-panel fig6 with Panel C split into risk (top) and protective (bottom).
-    
-    Panels A and B are identical to _render_fig6. Panel C shows N/2 risk + N/2 protective
-    side by side, ensuring both directions are visible even when one dominates by |IG|.
-    """
-    N = n_show
-    half = max(1, N // 2)
-    fig, axes = plt.subplots(1, 3, figsize=(32, max(10, N * 0.6)))
-
-    suffix = f" — {panel_c_label}" if panel_c_label else ""
-    fig.suptitle(
-        f"Global importance comparison: IG vs GradientSHAP vs AToP ({split.upper()}){suffix}\n"
-        "Panel C: top risk + top protective patterns (balanced view)",
-        fontsize=12, fontweight="bold", y=1.02,
-    )
-
-    # --- Panel A: Global IG (same as _render_fig6) ---
-    ax = axes[0]
-    if not ig_global.empty:
-        ig_top = ig_global.reindex(ig_global.abs().sort_values(ascending=False).head(N).index)
-        ig_top = ig_top.reindex(ig_top.abs().sort_values(ascending=True).index)
-        labels_a = [_fmt_tok(t, icd_titles) for t in ig_top.index]
-        vals_a = ig_top.values.tolist()
-        colors_a = ["#c44e52" if v > 0 else "#4c72b0" for v in vals_a]
-        ax.barh(range(len(labels_a)), vals_a, color=colors_a, edgecolor="white", linewidth=0.5)
-        ax.set_yticks(range(len(labels_a)))
-        ax.set_yticklabels(labels_a, fontsize=8.5)
-    ax.axvline(0, color="black", linewidth=0.8)
-    ax.set_xlabel("Mean IG\n\u2190 protective    risk \u2192", fontsize=9)
-    ax.set_title(f"A: Integrated Gradients\n(single-token, all {split} patients)", fontsize=10)
-
-    # --- Panel B: Global SHAP (same as _render_fig6) ---
-    ax = axes[1]
-    if not shap_global.empty:
-        shap_top = shap_global.reindex(shap_global.abs().sort_values(ascending=False).head(N).index)
-        shap_top = shap_top.reindex(shap_top.abs().sort_values(ascending=True).index)
-        labels_b = [_fmt_tok(t, icd_titles) for t in shap_top.index]
-        vals_b = shap_top.values.tolist()
-        colors_b = ["#c44e52" if v > 0 else "#4c72b0" for v in vals_b]
-        ax.barh(range(len(labels_b)), vals_b, color=colors_b, edgecolor="white", linewidth=0.5)
-        ax.set_yticks(range(len(labels_b)))
-        ax.set_yticklabels(labels_b, fontsize=8.5)
-    ax.axvline(0, color="black", linewidth=0.8)
-    ax.set_xlabel(f"Mean GradientSHAP ({n_shap_patients} patients)\n\u2190 protective    risk \u2192", fontsize=9)
-    ax.set_title(f"B: GradientSHAP\n(single-token, all {split} patients)", fontsize=10)
-
-    # --- Panel C: Split risk/protective ---
-    ax = axes[2]
-    if not df_pathways.empty:
-        df_pw = df_pathways.copy()
-        df_pw["_abs_ig"] = df_pw["ig_signed_mean"].abs()
-        df_pw["_n_blocks"] = df_pw["pattern"].apply(_count_pattern_blocks)
-
-        # Top risk
-        df_risk = (df_pw[df_pw["ig_signed_mean"] > 0]
-                   .sort_values("_abs_ig", ascending=False)
-                   .head(half))
-        # Top protective
-        df_prot = (df_pw[df_pw["ig_signed_mean"] < 0]
-                   .sort_values("_abs_ig", ascending=False)
-                   .head(half))
-        
-        top_paths = pd.concat([df_risk, df_prot]).sort_values(
-            "ig_signed_mean", ascending=True)
-
-        labels_c = []
-        colors_c = []
-        for _, r in top_paths.iterrows():
-            pat_label = _fmt_pat(r["pattern"], icd_titles, max_tok_len=55)
-            direction = "\u25B2" if r["ig_signed_mean"] > 0 else "\u25BC"
-            labels_c.append(f"{direction} {pat_label}  (n={r['n_present']})")
-            colors_c.append("#c44e52" if r["ig_signed_mean"] > 0 else "#4c72b0")
-        ax.barh(range(len(labels_c)), top_paths["ig_signed_mean"].values,
-                color=colors_c, edgecolor="white", linewidth=0.5)
-        ax.set_yticks(range(len(labels_c)))
-        ax.set_yticklabels(labels_c, fontsize=8)
-    else:
-        ax.text(0.5, 0.5, "No patterns with presence in this split",
-                ha="center", va="center")
-    ax.axvline(0, color="black", linewidth=0.8)
-    ax.set_xlabel("Mean \u03A3IG over pattern carriers (n shown per bar)\n\u2190 protective    risk \u2192", fontsize=9)
-    c_title = f"C: AToP temporal patterns\n(top {half} risk + top {half} protective)"
-    if panel_c_label:
-        c_title += f" — {panel_c_label}"
-    ax.set_title(c_title, fontsize=10)
-
-    from matplotlib.patches import Patch
-    legend_elements = [
-        Patch(facecolor="#c44e52", label="\u25B2 Risk (positive IG)"),
-        Patch(facecolor="#4c72b0", label="\u25BC Protective (negative IG)"),
-    ]
-    fig.legend(handles=legend_elements, loc="lower center", ncol=2,
-               fontsize=10, framealpha=0.9, bbox_to_anchor=(0.5, -0.02))
-    fig.tight_layout(rect=[0, 0.03, 1, 0.96])
-    return fig
-
-
-def fig_supp_conditional_impact(out_dir, df_pathways, icd_titles, n_show=15,
-                                 split="test", min_concordant=5,
-                                 n_test_patients=None):
-    """Supplementary figure: conditional impact score for temporal patterns.
-
-    Ranks patterns by E[IG | present, IG concordant with OR direction],
-    highlighting patterns that are rare but powerful when present. This
-    adapts the conditional SHAP impact score (Appendix E) to AToP's
-    pattern-level IG framework.
-
-    For risk patterns (OR > 1): shows E[IG | present, IG > 0]
-    For protective patterns (OR <= 1): shows E[|IG| | present, IG < 0]
-
-    Patterns must have at least min_concordant patients to avoid noisy
-    estimates from very small samples.
-    """
-    if df_pathways is None or df_pathways.empty:
-        return
-    if "ig_cond_impact" not in df_pathways.columns:
-        print("  [supp_cond] No conditional impact scores — skipping")
-        return
-
-    df = df_pathways[df_pathways["n_concordant"] >= min_concordant].copy()
-    if df.empty:
-        print(f"  [supp_cond] No patterns with >= {min_concordant} concordant patients — skipping")
-        return
-
-    # Split risk and protective, take top of each
-    df_risk = df[df["odds_ratio"] > 1].nlargest(n_show, "ig_cond_impact")
-    df_prot = df[df["odds_ratio"] <= 1].nsmallest(n_show, "ig_cond_impact")
-
-    n_risk = len(df_risk)
-    n_prot = len(df_prot)
-    if n_risk + n_prot == 0:
-        return
-
-    fig, axes = plt.subplots(1, 2, figsize=(24, max(6, max(n_risk, n_prot) * 0.5)),
-                              gridspec_kw={"width_ratios": [1, 1]})
-
-    fig.suptitle(
-        f"Conditional impact: patterns ranked by E[IG | present, direction-consistent] ({split.upper()})\n"
-        f"Highlights rare-but-powerful patterns — restricted to patients where pattern "
-        f"pushes prediction in the expected direction\n"
-        f"(min {min_concordant} direction-consistent patients required)",
-        fontsize=11, fontweight="bold", y=1.02)
-
-    _titles = icd_titles or {}
-
-    # Left: Risk patterns
-    ax = axes[0]
-    if n_risk > 0:
-        df_r = df_risk.sort_values("ig_cond_impact", ascending=True)
-        labels = []
-        for _, r in df_r.iterrows():
-            pat_label = _fmt_pat(r["pattern"], _titles, max_tok_len=50)
-            labels.append(f"\u25B2 {pat_label}\n    IG>0 in {r['n_concordant']}/{r['n_present']}, "
-                          f"OR={r['odds_ratio']:.2f}")
-        ax.barh(range(n_risk), df_r["ig_cond_impact"].values, color="#c44e52",
-                edgecolor="white", linewidth=0.5)
-        ax.set_yticks(range(n_risk))
-        ax.set_yticklabels(labels, fontsize=8)
-    ax.axvline(0, color="black", linewidth=0.8)
-    ax.set_xlabel("E[IG | present, IG > 0]\n\u2192 risk contribution when active")
-    ax.set_title("Risk patterns (OR > 1)", fontsize=10)
-
-    # Right: Protective patterns
-    ax = axes[1]
-    if n_prot > 0:
-        df_pr = df_prot.sort_values("ig_cond_impact", ascending=False)
-        labels = []
-        for _, r in df_pr.iterrows():
-            pat_label = _fmt_pat(r["pattern"], _titles, max_tok_len=50)
-            labels.append(f"\u25BC {pat_label}\n    IG<0 in {r['n_concordant']}/{r['n_present']}, "
-                          f"OR={r['odds_ratio']:.2f}")
-        ax.barh(range(n_prot), df_pr["ig_cond_impact"].abs().values, color="#4c72b0",
-                edgecolor="white", linewidth=0.5)
-        ax.set_yticks(range(n_prot))
-        ax.set_yticklabels(labels, fontsize=8)
-    else:
-        ax.text(0.5, 0.5, "No protective patterns met threshold",
-                ha="center", va="center", fontsize=10)
-    ax.axvline(0, color="black", linewidth=0.8)
-    ax.set_xlabel("|E[IG | present, IG < 0]|\n\u2190 protective contribution when active")
-    ax.set_title("Protective patterns (OR \u2264 1)", fontsize=10)
-
-    fig.tight_layout()
-    path = os.path.join(out_dir, f"supp_conditional_impact_{split}.png")
-    fig.savefig(path, dpi=300, bbox_inches="tight")
-    plt.close(fig)
-    print(f"  [supp_cond] Saved \u2192 {path}")
-
-    # --- Prevalence vs Conditional Impact scatter (reviewer suggestion #6) ---
-    if df.empty:
-        return
-    fig2, ax2 = plt.subplots(1, 1, figsize=(8, 6))
-
-    n_test = n_test_patients or 1
-    df_scatter = df.copy()
-    df_scatter["prevalence"] = df_scatter["n_present"] / n_test
-    df_scatter["is_risk"] = df_scatter["odds_ratio"] > 1
-
-    for is_risk, grp in df_scatter.groupby("is_risk"):
-        color = "#c44e52" if is_risk else "#4c72b0"
-        label = "Risk (OR > 1)" if is_risk else "Protective (OR \u2264 1)"
-        ax2.scatter(
-            grp["prevalence"], grp["ig_cond_impact"].abs(),
-            s=grp["n_concordant"].clip(lower=5) * 3,
-            c=color, alpha=0.6, edgecolors="white", linewidth=0.5,
-            label=label)
-
-    ax2.set_xlabel(f"Prevalence (fraction of {split} patients)", fontsize=10)
-    ax2.set_ylabel("Conditional impact |I_j|", fontsize=10)
-    ax2.set_xscale("log")
-    ax2.legend(fontsize=9)
-    ax2.set_title(
-        f"Prevalence vs conditional impact ({split.upper()})\n"
-        f"Point size = n direction-consistent patients",
-        fontsize=11, fontweight="bold")
-    ax2.grid(True, alpha=0.3)
-
-    fig2.tight_layout()
-    path2 = os.path.join(out_dir, f"supp_prevalence_vs_impact_{split}.png")
-    fig2.savefig(path2, dpi=300, bbox_inches="tight")
-    plt.close(fig2)
-    print(f"  [supp_prev_impact] Saved \u2192 {path2}")
-
-
-def fig_supp_jaccard_clusters(out_dir, df_pathways, icd_titles, n_show=15,
-                               split="test", jaccard_threshold=0.5, short_names=False,
-                               csv_dir=None):
-    """Supplementary figure: Jaccard-clustered pattern representatives.
-
-    Groups patterns by carrier-set overlap (Jaccard similarity > threshold),
-    then shows one representative per cluster (highest |ig_signed_mean|).
-    Annotated with cluster size and member count.
-    """
-    if df_pathways is None or df_pathways.empty:
-        return
-    if "_carrier_keys" not in df_pathways.columns:
-        print("  [supp_jaccard] No carrier sets available — skipping")
-        return
-
-    df = df_pathways[df_pathways["n_present"] >= 3].copy()
-    if df.empty:
-        return
-
-    # Compute Jaccard and greedily cluster (numpy bit-vector optimized)
-    patterns = df.sort_values("ig_signed_mean", key=abs, ascending=False).reset_index(drop=True)
-
-    # Build dense patient index mapping for bit vectors
-    all_patients = set()
-    carrier_list = []
-    size_list = []
-    for i, row in patterns.iterrows():
-        ck = row["_carrier_keys"]
-        if isinstance(ck, set):
-            all_patients.update(ck)
-            carrier_list.append(ck)
-            size_list.append(len(ck))
-        else:
-            carrier_list.append(set())
-            size_list.append(0)
-
-    patient_to_idx = {p: i for i, p in enumerate(sorted(all_patients))}
-    n_patients = len(patient_to_idx)
-
-    # Pack carrier sets into bit vectors
-    print(f"  [supp_jaccard] Building bit vectors for {len(patterns)} patterns...")
-    bitvecs = []
-    for carriers in carrier_list:
-        bits = np.zeros(n_patients, dtype=np.bool_)
-        for p in carriers:
-            bits[patient_to_idx[p]] = True
-        bitvecs.append(np.packbits(bits))
-
-    clusters = []  # list of (representative_idx, member_indices)
-    assigned = set()
-    n_total = len(patterns)
-    report_interval = max(1, n_total // 10)
-
-    for i in range(n_total):
-        if i in assigned:
-            continue
-        if i > 0 and i % report_interval == 0:
-            print(f"  [supp_jaccard] {i}/{n_total} processed, {len(clusters)} clusters...")
-
-        if size_list[i] == 0:
-            assigned.add(i)
-            clusters.append((i, [i]))
-            continue
-
-        bv_i = bitvecs[i]
-        sz_i = size_list[i]
-        members = [i]
-
-        for j in range(i + 1, n_total):
-            if j in assigned:
-                continue
-            sz_j = size_list[j]
-            if sz_j == 0:
-                continue
-
-            # Quick reject: upper bound on Jaccard
-            upper_bound = min(sz_i, sz_j) / max(sz_i, sz_j)
-            if upper_bound < jaccard_threshold:
-                continue
-
-            # Exact Jaccard via bit operations
-            intersection = int(np.unpackbits(bv_i & bitvecs[j]).sum())
-            union = int(np.unpackbits(bv_i | bitvecs[j]).sum())
-            if union == 0:
-                continue
-            jaccard = intersection / union
-            if jaccard >= jaccard_threshold:
-                members.append(j)
-                assigned.add(j)
-
-        assigned.add(i)
-        clusters.append((i, members))
-
-    # Build representative DataFrame
-    rep_rows = []
-    for rep_idx, member_idxs in clusters:
-        rep = patterns.loc[rep_idx].copy()
-        rep["cluster_size"] = len(member_idxs)
-        rep["cluster_total_patients"] = len(
-            set().union(*(patterns.loc[m, "_carrier_keys"] for m in member_idxs))
-        )
-        rep_rows.append(rep)
-
-    df_reps = pd.DataFrame(rep_rows)
-    if df_reps.empty:
-        return
-
-    # Split risk/protective, take top of each
-    df_risk = df_reps[df_reps["ig_signed_mean"] > 0].nlargest(n_show, "ig_signed_mean")
-    df_prot = df_reps[df_reps["ig_signed_mean"] < 0].nsmallest(n_show, "ig_signed_mean")
-    n_risk = len(df_risk)
-    n_prot = len(df_prot)
-    if n_risk + n_prot == 0:
-        return
-
-    _titles = icd_titles or {}
-    fig, axes = plt.subplots(1, 2, figsize=(24, max(6, max(n_risk, n_prot) * 0.55)),
-                              gridspec_kw={"width_ratios": [1, 1]})
-
-    fig.suptitle(
-        f"Jaccard-clustered pattern representatives ({split.upper()})\n"
-        f"Patterns grouped by carrier-set overlap (Jaccard ≥ {jaccard_threshold}), "
-        f"one representative per cluster\n"
-        f"{len(clusters)} clusters from {len(patterns)} patterns",
-        fontsize=11, fontweight="bold", y=1.02)
-
-    # Left: Risk
-    ax = axes[0]
-    if n_risk > 0:
-        df_r = df_risk.sort_values("ig_signed_mean", ascending=True)
-        labels = []
-        for _, r in df_r.iterrows():
-            if "pattern_readable" in r.index and pd.notna(r.get("pattern_readable")):
-                pat_label = r["pattern_readable"]
-            else:
-                pat_label = _fmt_pat(r["pattern"], _titles, max_tok_len=45)
-            if short_names:
-                pat_label = _strip_codes(pat_label)
-            labels.append(f"\u25B2 {pat_label}\n    cluster={r['cluster_size']}, "
-                          f"patients={r['cluster_total_patients']}, n={r['n_present']}")
-        ax.barh(range(n_risk), df_r["ig_signed_mean"].values, color="#c44e52",
-                edgecolor="white", linewidth=0.5)
-        ax.set_yticks(range(n_risk))
-        ax.set_yticklabels(labels, fontsize=8)
-    ax.set_xlabel("Mean signed IG(P)\n\u2192 risk contribution")
-    ax.set_title("Risk clusters (IG > 0)", fontsize=10)
-
-    # Right: Protective
-    ax = axes[1]
-    if n_prot > 0:
-        df_pr = df_prot.sort_values("ig_signed_mean", ascending=False)
-        labels = []
-        for _, r in df_pr.iterrows():
-            if "pattern_readable" in r.index and pd.notna(r.get("pattern_readable")):
-                pat_label = r["pattern_readable"]
-            else:
-                pat_label = _fmt_pat(r["pattern"], _titles, max_tok_len=45)
-            if short_names:
-                pat_label = _strip_codes(pat_label)
-            labels.append(f"\u25BC {pat_label}\n    cluster={r['cluster_size']}, "
-                          f"patients={r['cluster_total_patients']}, n={r['n_present']}")
-        ax.barh(range(n_prot), df_pr["ig_signed_mean"].abs().values, color="#4c72b0",
-                edgecolor="white", linewidth=0.5)
-        ax.set_yticks(range(n_prot))
-        ax.set_yticklabels(labels, fontsize=8)
-    ax.set_xlabel("|Mean signed IG(P)|\n\u2192 protective contribution")
-    ax.set_title("Protective clusters (IG < 0)", fontsize=10)
-
-    fig.tight_layout()
-    jt_str = f"_{jaccard_threshold:.2f}".replace(".", "")
-    path = os.path.join(out_dir, f"supp_jaccard_clusters_{split}{jt_str}.png")
-    fig.savefig(path, dpi=300, bbox_inches="tight")
-    plt.close(fig)
-    print(f"  [supp_jaccard] Saved \u2192 {path}")
-
-    # Save full cluster assignments as CSV (for downstream network analysis)
-    cluster_rows = []
-    for ci, (rep_idx, member_idxs) in enumerate(clusters):
-        rep_pat = patterns.loc[rep_idx, "pattern"]
-        rep_ig = patterns.loc[rep_idx, "ig_signed_mean"]
-        cluster_patients = set().union(*(patterns.loc[m, "_carrier_keys"] for m in member_idxs))
-        for m_idx in member_idxs:
-            row = patterns.loc[m_idx]
-            cluster_rows.append({
-                "cluster_id": ci,
-                "is_representative": m_idx == rep_idx,
-                "pattern": row["pattern"],
-                "ig_signed_mean": row["ig_signed_mean"],
-                "n_present": row["n_present"],
-                "odds_ratio": row.get("odds_ratio", None),
-                "cluster_size": len(member_idxs),
-                "cluster_total_patients": len(cluster_patients),
-                "cluster_rep_pattern": rep_pat,
-                "cluster_rep_ig": rep_ig,
-                "cluster_direction": "risk" if rep_ig > 0 else "protective",
-            })
-    df_clusters = pd.DataFrame(cluster_rows)
-    _csv_dir = csv_dir if csv_dir else out_dir
-    csv_path = os.path.join(_csv_dir, f"jaccard_clusters_{split}{jt_str}.csv")
-    df_clusters.drop(columns=["_carrier_keys"], errors="ignore").to_csv(csv_path, index=False)
-    print(f"  [supp_jaccard] Cluster assignments saved \u2192 {csv_path} "
-          f"({len(clusters)} clusters, {len(cluster_rows)} pattern-cluster pairs)")
+# ── Removed (Apr 2026 cleanup) ──────────────────────────────────────────────
+# fig_supp_conditional_impact (~125 LOC) and fig_supp_jaccard_clusters
+# (~200 LOC) used to live here. Both had zero live callers in atop_package
+# and produced supplementary figures explicitly marked "skip" in
+# TASKS/_shared_context.md (overlapped Fig S5 / methodology detail).
+# fig_supp_jaccard_clusters in particular hosted a slow O(N\u00B2) Jaccard sweep
+# that was the 3-hour bottleneck on 2026-04-23. Inline jaccard clustering
+# for the fig3 \u2192 fig4 whitelist now lives in atop/explainer.py.
 
 
 def _compute_panel_c(df_patterns, df_seq, df_ig, mining_method, label=""):
     """Compute Panel C pattern results using occurrence-aggregated attribution.
 
-    For each pattern, scans all test patients in df_ig for occurrences
-    where the pattern tokens appear in the correct temporal order (by
-    visit_idx). For each patient containing the pattern, computes a
-    patient-level score = sum of signed IG at the matched positions
-    (first occurrence, greedy left-to-right). The global pattern
-    importance is the mean of these patient-level scores over all
-    patients who contain the pattern.
+    Vectorized version (Apr 2026): builds a sparse boolean
+    ``patients × tokens`` presence matrix once, then per-pattern uses a
+    single vectorized boolean reduction to filter to candidate carriers
+    before doing the (still-Python) temporal matching. At v5.5 scale
+    (~40k patterns × ~43k patients) this is roughly 5-15× faster than
+    the previous nested-Python-loop implementation. The output is
+    bit-identical to the legacy version.
 
-    This makes Panel C directly comparable to Panel A (mean IG per token
-    over all test patients): both are computed on the same cohort using
-    the same IG values, just at different granularity (single-token vs
-    multi-token sequential pattern).
+    For each pattern, finds patients whose token set ⊇ pattern tokens,
+    then runs greedy left-to-right temporal matching using ``visit_idx``
+    ordering. Patient-level score = sum of signed IG at matched
+    positions. Global pattern importance = mean across carrying patients.
     """
+    from scipy.sparse import csr_matrix
+
     is_episode = (mining_method == "episode")
     pattern_results = []
     if df_patterns.empty or df_ig.empty:
@@ -1492,7 +783,7 @@ def _compute_panel_c(df_patterns, df_seq, df_ig, mining_method, label=""):
     ig_col = "ig_signed" if "ig_signed" in df_ig.columns else "ig_abs"
     has_visit_idx = "visit_idx" in df_ig.columns
     if not has_visit_idx:
-        print(f"  [{label}] WARNING: df_ig missing visit_idx — "
+        print(f"  [{label}] WARNING: df_ig missing visit_idx, "
               "cannot verify temporal order, falling back to token co-occurrence only")
 
     # ── Build per-patient token→[(visit_idx, ig_value)] lookup ───────────
@@ -1517,11 +808,38 @@ def _compute_panel_c(df_patterns, df_seq, df_ig, mining_method, label=""):
 
     n_patients_total = len(patient_tokens)
     prefix = f"    [{label}] " if label else "    "
-    print(f"{prefix}{n_patients_total} test patients indexed")
+    print(f"{prefix}{n_patients_total} test patients indexed", flush=True)
+
+    # ── Build sparse patient × token presence matrix for vectorized lookup ─
+    # Replaces the per-pattern `set.issubset(tok_occ.keys())` check (O(N×T)
+    # Python) with a single sparse-matrix sum (vectorized C). Typically
+    # rejects 99%+ of patients per pattern in microseconds instead of
+    # milliseconds.
+    print(f"  [{label}] Building sparse presence matrix for vectorized carrier lookup...", flush=True)
+    patient_keys = list(patient_tokens.keys())          # stable ordering
+    pat_key_to_row = {k: i for i, k in enumerate(patient_keys)}
+    all_tokens = sorted({t for tok_occ in patient_tokens.values() for t in tok_occ})
+    tok_to_col = {t: j for j, t in enumerate(all_tokens)}
+    rows, cols = [], []
+    for k, tok_occ in patient_tokens.items():
+        r = pat_key_to_row[k]
+        for tok in tok_occ:
+            rows.append(r)
+            cols.append(tok_to_col[tok])
+    presence = csr_matrix(
+        (np.ones(len(rows), dtype=np.int8), (rows, cols)),
+        shape=(len(patient_keys), len(all_tokens)),
+    )
+    print(f"{prefix}presence matrix: {presence.shape[0]} patients × "
+          f"{presence.shape[1]} tokens, {presence.nnz:,} non-zeros "
+          f"({100 * presence.nnz / (presence.shape[0] * presence.shape[1]):.2f}% density)",
+          flush=True)
 
     # ── Score each pattern ───────────────────────────────────────────────
     n_no_match = 0
-    for pat_idx, pat_row in df_patterns.iterrows():
+    n_total_patterns = len(df_patterns)
+    progress_step = max(1000, n_total_patterns // 20)  # ~20 progress lines
+    for pat_idx, (_, pat_row) in enumerate(df_patterns.iterrows()):
         pat_str = pat_row["pattern"]
         orr = pat_row["odds_ratio"]
         sup = pat_row["n_admissions_present"]
@@ -1544,10 +862,29 @@ def _compute_panel_c(df_patterns, df_seq, df_ig, mining_method, label=""):
         n_concordant = 0
         matched_patient_keys = set()
 
-        for key, tok_occ in patient_tokens.items():
-            # Quick check: does this patient have all required tokens?
-            if not all_tokens_needed.issubset(tok_occ.keys()):
-                continue
+        # Vectorized carrier filter: patients with ALL required tokens.
+        # If any required token isn't in the global vocab, no patient can carry → skip.
+        needed_cols = [tok_to_col[t] for t in all_tokens_needed if t in tok_to_col]
+        if len(needed_cols) != len(all_tokens_needed):
+            n_no_match += 1
+            if (pat_idx + 1) % progress_step == 0:
+                print(f"{prefix}{pat_idx + 1}/{n_total_patterns} patterns scored "
+                      f"({len(pattern_results)} with carriers, {n_no_match} no match)",
+                      flush=True)
+            continue
+        sub = presence[:, needed_cols]                              # n_patients × n_needed
+        per_patient_count = np.asarray(sub.sum(axis=1)).ravel()     # int per patient
+        candidate_rows = np.where(per_patient_count == len(needed_cols))[0]
+
+        # Periodic progress print (every ~5%)
+        if (pat_idx + 1) % progress_step == 0:
+            print(f"{prefix}{pat_idx + 1}/{n_total_patterns} patterns scored "
+                  f"({len(pattern_results)} with carriers, {n_no_match} no match)",
+                  flush=True)
+
+        for r in candidate_rows:
+            key = patient_keys[r]
+            tok_occ = patient_tokens[key]
 
             # Greedy left-to-right matching: for each itemset in order,
             # find the earliest visit_idx ≥ previous match where all
@@ -1662,9 +999,9 @@ def fig6_global_importance_comparison(
         csv_dir = out_dir
     import shap
 
-    print(f"[fig6] Building global 3-panel importance comparison ({split})...")
+    print(f"[mine_global] Building global 3-panel importance comparison ({split})...")
     if df_ig.empty:
-        print(f"  [fig6] Skipped: no IG data available.")
+        print(f"  [mine_global] Skipped: no IG data available.")
         return
 
     ig_col = "ig_signed" if "ig_signed" in df_ig.columns else "ig_abs"
@@ -1672,16 +1009,16 @@ def fig6_global_importance_comparison(
     # ── Panel A: IG on all test patients ─────────────────────────────────
     # Consistent with Panel C: for each token, sum IG per patient (across
     # all salient positions of that token), then average across patients.
-    # This makes Panel A and Panel C directly comparable — both report
+    # This makes Panel A and Panel C directly comparable, both report
     # mean patient-level IG contribution.
-    print(f"  [fig6] Panel A: aggregating IG (signed, all {split} patients)...")
+    print(f"  [mine_global] Panel A: aggregating IG (signed, all {split} patients)...")
     ig_filtered = df_ig[~df_ig["token_str"].isin(SPECIAL_TOKENS)].copy()
     tok_patient_counts = ig_filtered.groupby("token_str")["patient_id"].nunique()
     common_tokens = set(tok_patient_counts[tok_patient_counts >= 10].index)
     ig_common = ig_filtered[ig_filtered["token_str"].isin(common_tokens)]
-    # Step 1: sum IG per (patient, token) — a patient with SI at 3 positions gets one sum
+    # Step 1: sum IG per (patient, token), a patient with SI at 3 positions gets one sum
     ig_per_patient = ig_common.groupby(["token_str", "patient_id"])[ig_col].sum().reset_index()
-    # Step 2: mean across patients — each patient contributes equally
+    # Step 2: mean across patients, each patient contributes equally
     ig_global = ig_per_patient.groupby("token_str")[ig_col].mean()
 
     # ── Panel B: GradientSHAP ─────────────────────────────────────────────────
@@ -1690,9 +1027,9 @@ def fig6_global_importance_comparison(
     test_keys = list(tensors_by_key.keys()) if tensors_by_key else []
 
     if not test_keys:
-        print("  [fig6] Panel B: skipping GradientSHAP (no tensors available)")
+        print("  [mine_global] Panel B: skipping GradientSHAP (no tensors available)")
     else:
-        print(f"  [fig6] Panel B: computing GradientSHAP (all {len(test_keys)} patients)...")
+        print(f"  [mine_global] Panel B: computing GradientSHAP (all {len(test_keys)} patients)...")
         rng = np.random.RandomState(42)
 
         # Background: small random subset for reference distribution
@@ -1729,7 +1066,7 @@ def fig6_global_importance_comparison(
             out = self.transformer(x)
             cls_out = out[:, 0, :]
             logits = self.classifier(cls_out)
-            # Return (B, 1) — GradientExplainer indexes output with 2D indexing
+            # Return (B, 1), GradientExplainer indexes output with 2D indexing
             probs = torch.sigmoid(logits.view(-1, 1))
             return probs
 
@@ -1741,17 +1078,17 @@ def fig6_global_importance_comparison(
         # Check for cached SHAP results
         shap_cache_path = os.path.join(csv_dir, f"shap_global_{split}.csv") if csv_dir else None
         if shap_cache_path and os.path.exists(shap_cache_path):
-            print(f"  [fig6] Panel B: loading cached GradientSHAP from {shap_cache_path}")
+            print(f"  [mine_global] Panel B: loading cached GradientSHAP from {shap_cache_path}")
             _shap_df = pd.read_csv(shap_cache_path)
             shap_global = pd.Series(_shap_df["shap_mean"].values, index=_shap_df["token"].values)
             _skip_shap = True  # skip computation, use cached
         elif shap_cache_path and os.path.exists(shap_cache_path + ".partial"):
-            print(f"  [fig6] Panel B: found partial SHAP cache — loading as fallback")
+            print(f"  [mine_global] Panel B: found partial SHAP cache, loading as fallback")
             _shap_df = pd.read_csv(shap_cache_path + ".partial")
             shap_global = pd.Series(_shap_df["shap_mean"].values, index=_shap_df["token"].values)
-            # Save as full cache — partial is good enough for global ranking
+            # Save as full cache, partial is good enough for global ranking
             _shap_df.to_csv(shap_cache_path, index=False)
-            print(f"  [fig6] Panel B: promoted partial ({len(_shap_df)} tokens) to full cache")
+            print(f"  [mine_global] Panel B: promoted partial ({len(_shap_df)} tokens) to full cache")
             _skip_shap = True
 
         if not _skip_shap:
@@ -1860,17 +1197,20 @@ def fig6_global_importance_comparison(
             if shap_cache_path and not shap_global.empty:
                 _shap_out = pd.DataFrame({"token": shap_global.index, "shap_mean": shap_global.values})
                 _shap_out.to_csv(shap_cache_path, index=False)
-                print(f"  [fig6] Panel B: cached GradientSHAP → {shap_cache_path}")
+                print(f"  [mine_global] Panel B: cached GradientSHAP → {shap_cache_path}")
 
     # ── Panel C: occurrence-aggregated pattern attribution ──────────────
-    # Check for cached carrier sets — skip expensive recomputation if available
-    print("  [fig6] Panel C: computing occurrence-aggregated pattern IG...")
+    # Check for cached carrier sets, skip expensive recomputation if available
+    print("  [mine_global] Panel C: computing occurrence-aggregated pattern IG...")
     
     _panel_c_cached = False
     if csv_dir:
         import pickle as _pkl
         _all_pkl = os.path.join(csv_dir, f"carrier_sets_{split}_all.pkl")
-        _all_csv = os.path.join(csv_dir, f"fig3_pathway_importance_{split}_all.csv")
+        # Cache file: prefer migrated/canonical name; fall back to legacy fig3_ prefix.
+        _all_csv_v2 = os.path.join(csv_dir, f"pathway_importance_{split}_all.csv")
+        _all_csv_legacy = os.path.join(csv_dir, f"fig3_pathway_importance_{split}_all.csv")
+        _all_csv = _all_csv_v2 if os.path.exists(_all_csv_v2) else _all_csv_legacy
         if os.path.exists(_all_pkl) and os.path.exists(_all_csv):
             try:
                 with open(_all_pkl, "rb") as _f:
@@ -1883,14 +1223,14 @@ def fig6_global_importance_comparison(
                     # Restore carrier keys
                     _df_cached["_carrier_keys"] = _df_cached["pattern"].map(_carriers_all)
                     df_pathways_all = _df_cached
-                    print(f"  [fig6] Panel C: loaded {len(df_pathways_all)} cached patterns "
+                    print(f"  [mine_global] Panel C: loaded {len(df_pathways_all)} cached patterns "
                           f"from {_all_csv}")
                     _panel_c_cached = True
                 else:
-                    print(f"  [fig6] Panel C: cache mismatch ({len(cached_pats)} cached vs "
-                          f"{len(current_pats)} current) — recomputing")
+                    print(f"  [mine_global] Panel C: cache mismatch ({len(cached_pats)} cached vs "
+                          f"{len(current_pats)} current), recomputing")
             except Exception as e:
-                print(f"  [fig6] Panel C: cache load failed ({e}) — recomputing")
+                print(f"  [mine_global] Panel C: cache load failed ({e}), recomputing")
     
     if not _panel_c_cached:
         df_pathways_all = _compute_panel_c(df_patterns, df_seq, df_ig, mining_method, label="all")
@@ -1898,70 +1238,23 @@ def fig6_global_importance_comparison(
     # Main figure: multi-token patterns (≥2 tokens, incl. same-visit co-occurrences)
     df_patterns_multi_set = set(_filter_multi_token(df_patterns, min_tokens=2)["pattern"].tolist())
     n_multi = len(df_patterns_multi_set)
-    print(f"  [fig6] Panel C multi-token: {n_multi}/{len(df_patterns)} patterns with \u22652 tokens")
+    print(f"  [mine_global] Panel C multi-token: {n_multi}/{len(df_patterns)} patterns with \u22652 tokens")
     df_pathways_multi = df_pathways_all[df_pathways_all["pattern"].isin(df_patterns_multi_set)].copy()
 
     # Supplement: cross-visit only (≥2 visit blocks, ≥2 tokens)
     df_patterns_xvisit_set = set(_filter_cross_visit(
         _filter_multi_token(df_patterns, min_tokens=2), min_blocks=2)["pattern"].tolist())
     n_xvisit = len(df_patterns_xvisit_set)
-    print(f"  [fig6] Panel C cross-visit: {n_xvisit}/{len(df_patterns)} patterns "
+    print(f"  [mine_global] Panel C cross-visit: {n_xvisit}/{len(df_patterns)} patterns "
           f"with \u22652 tokens AND \u22652 visit blocks")
     df_pathways_xvisit = df_pathways_all[df_pathways_all["pattern"].isin(df_patterns_xvisit_set)].copy()
 
-    # ── Render: multi-token (main paper figure) ──────────────────────────
-    fig = _render_fig6(out_dir, icd_titles, ig_global, shap_global,
-                       df_pathways_multi, n_show, len(test_keys), split,
-                       panel_c_label="\u22652-token patterns (incl. same-visit)")
-    path_main = os.path.join(out_dir, f"fig3_global_comparison_{split}.png")
-    fig.savefig(path_main, dpi=300, bbox_inches="tight")
-    plt.close(fig)
-    print(f"  [fig3] Saved (main) \u2192 {path_main}")
-
-    # ── Render: balanced risk/protective (supplement) ─────────────────────
-    fig = _render_fig6_split(supp_dir, icd_titles, ig_global, shap_global,
-                             df_pathways_multi, n_show, len(test_keys), split,
-                             panel_c_label="\u22652-token patterns")
-    path_split = os.path.join(supp_dir, f"fig3_global_comparison_{split}_split.png")
-    fig.savefig(path_split, dpi=300, bbox_inches="tight")
-    plt.close(fig)
-    print(f"  [fig3] Saved (supplement split) \u2192 {path_split}")
-
-    # ── Render: cross-visit supplement ────────────────────────────────────
-    fig = _render_fig6(supp_dir, icd_titles, ig_global, shap_global,
-                       df_pathways_xvisit, n_show, len(test_keys), split,
-                       panel_c_label="cross-visit patterns only")
-    path_supp_xvisit = os.path.join(supp_dir, f"fig3_global_comparison_{split}_xvisit.png")
-    fig.savefig(path_supp_xvisit, dpi=300, bbox_inches="tight")
-    plt.close(fig)
-    print(f"  [fig3] Saved (supplement cross-visit) \u2192 {path_supp_xvisit}")
-
-    # ── Render: all patterns (supplement) ─────────────────────────────────
-    fig = _render_fig6(supp_dir, icd_titles, ig_global, shap_global,
-                       df_pathways_all, n_show, len(test_keys), split,
-                       panel_c_label="all patterns (incl. single-token)")
-    path_supp = os.path.join(supp_dir, f"fig3_global_comparison_{split}_all.png")
-    fig.savefig(path_supp, dpi=300, bbox_inches="tight")
-    plt.close(fig)
-    print(f"  [fig3] Saved (supplement all) \u2192 {path_supp}")
-
-    # ── Supplementary: conditional impact (rare-but-powerful patterns) ────
-    try:
-        fig_supp_conditional_impact(supp_dir, df_pathways_multi, icd_titles,
-                                     n_show=n_show, split=split,
-                                     n_test_patients=len(test_keys))
-    except Exception as e:
-        print(f"  [WARN] Conditional impact figure failed: {e}")
-
-    # ── Supplementary: Jaccard-clustered representatives ──────────────────
-    try:
-        fig_supp_jaccard_clusters(supp_dir, df_pathways_multi, icd_titles,
-                                   n_show=n_show, split=split, csv_dir=csv_dir)
-    except Exception as e:
-        print(f"  [WARN] Jaccard cluster figure failed: {e}")
-
-    # ── CSVs ──────────────────────────────────────────────────────────────
-    n_test_total = len(test_keys)
+    # ── CSVs (written FIRST so an interrupt during render doesn't lose work) ─
+    # Test cohort size for prevalence denominator. ``test_keys`` is the set
+    # of stored input-id tensors and is empty under the ``mine_global``
+    # step (we skip GradientSHAP to save 8h). Fall back to ``len(df_seq)``
+    # so prevalence stays a fraction in either path.
+    n_test_total = len(test_keys) or len(df_seq)
     for lbl, df_pw, sfx in [("all", df_pathways_all, "_all"),
                              ("multi", df_pathways_multi, ""),
                              ("xvisit", df_pathways_xvisit, "_xvisit")]:
@@ -1971,7 +1264,7 @@ def fig6_global_importance_comparison(
             df_out["pattern_readable"] = df_out["pattern"].apply(
                 lambda p: _fmt_pat(p, icd_titles, max_tok_len=80))
             df_out.to_csv(
-                os.path.join(csv_dir, f"fig3_pathway_importance_{split}{sfx}.csv"), index=False)
+                os.path.join(csv_dir, f"pathway_importance_{split}{sfx}.csv"), index=False)
 
             # Save carrier sets for offline Jaccard analysis / replot
             if "_carrier_keys" in df_pw.columns:
@@ -1983,11 +1276,13 @@ def fig6_global_importance_comparison(
                     pkl_path = os.path.join(csv_dir, f"carrier_sets_{split}{sfx}.pkl")
                     with open(pkl_path, "wb") as f:
                         pickle.dump(carriers, f)
-                    print(f"  [carriers] Saved {len(carriers)} carrier sets → {pkl_path}")
+                    print(f"  [carriers] Saved {len(carriers)} carrier sets \u2192 {pkl_path}")
 
     all_toks = sorted(set(ig_global.index) | set(shap_global.index))
     tok_rows = []
-    n_test_total = len(test_keys) if test_keys else 0
+    # Same fallback as above so token_importance.csv prevalence is a fraction
+    # under both ``mine_global`` (no tensors) and the SHAP path (tensors).
+    n_test_total = len(test_keys) or len(df_seq)
     for tok in all_toks:
         n_pr = int(tok_patient_counts.get(tok, 0))
         tok_rows.append({
@@ -1998,7 +1293,27 @@ def fig6_global_importance_comparison(
             "prevalence": n_pr / max(n_test_total, 1),
         })
     pd.DataFrame(tok_rows).to_csv(
-        os.path.join(csv_dir, f"fig3_token_importance_{split}.csv"), index=False)
+        os.path.join(csv_dir, f"token_importance_{split}.csv"), index=False)
+
+    # ── Render: multi-token sanity-check PNG (NOT the manuscript figure) ──
+    # All CSVs above are already on disk by now \u2014 if this render is interrupted
+    # or fails, Panel C work is preserved. The submission's Figure 3 is
+    # rendered by scripts/make_fig3.py from those CSVs; this PNG exists only
+    # as a quick eyeball-check after a fresh mining run.
+    #
+    # Removed in Apr 2026 cleanup: 3 supplementary PNG variants
+    # (_split / _xvisit / _all) and three supplementary functions
+    # (supp_conditional_impact, supp_prevalence_vs_impact, supp_jaccard_clusters)
+    # \u2014 none shipped, all replaced by make_*.py scripts. supp_jaccard in
+    # particular hosted an O(N\u00B2) Jaccard sweep that was the 3-hour bottleneck
+    # on 2026-04-23.
+    fig = _render_fig6(out_dir, icd_titles, ig_global, shap_global,
+                       df_pathways_multi, n_show, len(test_keys), split,
+                       panel_c_label="\u22652-token patterns (incl. same-visit)")
+    path_main = os.path.join(out_dir, f"fig3_global_comparison_{split}.png")
+    fig.savefig(path_main, dpi=300, bbox_inches="tight")
+    plt.close(fig)
+    print(f"  [mine_global] Saved sanity-check PNG \u2192 {path_main}")
 
     return df_pathways_multi
 
@@ -2017,7 +1332,7 @@ def fig5_reversed_order(out_dir, df_rev, icd_titles=None, split="test",
     ordering, forward-matched patients should show different attribution.
     """
     if df_rev is None or df_rev.empty:
-        print("  [fig5] No reversed-order data — skipping")
+        print("  [reversed_order] No reversed-order data, skipping")
         return
     if csv_dir is None:
         csv_dir = out_dir
@@ -2027,7 +1342,7 @@ def fig5_reversed_order(out_dir, df_rev, icd_titles=None, split="test",
     # Filter to patterns with both forward and reversed matches
     df_plot = df_rev[(df_rev["n_forward"] > 0) & (df_rev["n_reversed"] > 0)].copy()
     if df_plot.empty:
-        print("  [fig5] No patterns with both forward and reversed matches — skipping")
+        print("  [reversed_order] No patterns with both forward and reversed matches, skipping")
         return
 
     # Sort by |ig_diff| descending
@@ -2082,7 +1397,7 @@ def fig5_reversed_order(out_dir, df_rev, icd_titles=None, split="test",
     path = os.path.join(out_dir, f"fig5_reversed_order_{split}.png")
     fig.savefig(path, dpi=300, bbox_inches="tight")
     plt.close(fig)
-    print(f"  [fig5] Saved \u2192 {path}")
+    print(f"  [reversed_order] Saved \u2192 {path}")
 
     # CSV
     df_rev.to_csv(os.path.join(csv_dir, f"fig5_reversed_order_{split}.csv"), index=False)
@@ -2093,301 +1408,18 @@ def fig5_reversed_order(out_dir, df_rev, icd_titles=None, split="test",
 # ============================================================================
 
 
-def fig_supp_ig_heatmap_multi_patient(out_dir, df_ig_long, icd_titles,
-                                       n_patients=10, n_tokens=15, split="test"):
-    if df_ig_long.empty:
-        return
-    ig_col = "ig_signed" if "ig_signed" in df_ig_long.columns else "ig_abs"
-
-    # Select top 5 readmitted + top 5 non-readmitted by total |IG|
-    patient_ig = (df_ig_long.groupby(["patient_id", "index_hadm_id", "readmission"])[ig_col]
-                  .apply(lambda x: x.abs().sum()).reset_index(name="_total_ig"))
-    n_half = n_patients // 2
-    readmitted = patient_ig[patient_ig["readmission"] == 1].nlargest(n_half, "_total_ig")
-    not_readmitted = patient_ig[patient_ig["readmission"] == 0].nlargest(n_half, "_total_ig")
-    top_patients = pd.concat([readmitted, not_readmitted], ignore_index=True)
-
-    sub = df_ig_long.merge(top_patients[["patient_id", "index_hadm_id"]],
-                           on=["patient_id", "index_hadm_id"])
-    # Top tokens by mean |signed IG|
-    token_importance = sub.groupby("token_str")[ig_col].apply(lambda x: x.abs().mean())
-    token_importance = token_importance.sort_values(ascending=False)
-    top_tokens = token_importance.head(n_tokens).index.tolist()
-
-    rows, row_labels = [], []
-    for _, p in top_patients.iterrows():
-        psub = sub[(sub.patient_id == p["patient_id"]) & (sub.index_hadm_id == p["index_hadm_id"])]
-        tok_vals = {r["token_str"]: r[ig_col] for _, r in psub.iterrows()}
-        rows.append([tok_vals.get(t, 0.0) for t in top_tokens])
-        row_labels.append(f"{'✓' if p['readmission'] == 1 else '✗'} P{str(p['patient_id'])[-4:]}")
-
-    mat = np.array(rows)
-    col_labels = [_fmt_tok(t, icd_titles) for t in top_tokens]
-    # Truncate long labels
-    col_labels = [l if len(l) <= 55 else l[:54] + "…" for l in col_labels]
-
-    vmax = max(abs(mat.min()), abs(mat.max())) or 1.0
-    fig, ax = plt.subplots(figsize=(max(10, n_tokens * 0.8), max(4, n_patients * 0.5)))
-    im = ax.imshow(mat, aspect="auto", cmap="RdBu_r", interpolation="nearest",
-                   vmin=-vmax, vmax=vmax)
-    ax.set_xticks(range(len(col_labels)))
-    ax.set_xticklabels(col_labels, rotation=45, ha="right", fontsize=8.5)
-    ax.set_yticks(range(len(row_labels)))
-    ax.set_yticklabels(row_labels, fontsize=8)
-    ax.set_title(f"Signed IG heatmap: top patients × top tokens ({split.upper()})\n"
-                 f"Top {n_half} readmitted (✓) + top {n_half} non-readmitted (✗)",
-                 fontsize=11)
-    fig.colorbar(im, ax=ax, label="Signed IG\n← protective    risk →", shrink=0.8)
-    fig.tight_layout()
-    fig.savefig(os.path.join(out_dir, f"fig_supp_ig_heatmap_{split}.png"), dpi=300)
-    plt.close(fig)
+# ── Removed (Apr 2026 cleanup) ──────────────────────────────────────────────
+# fig_supp_ig_heatmap_multi_patient (~50 LOC) and fig_supp_ig_stream_heatmap
+# (~30 LOC) used to live here. Both had `def` + an unused import in
+# explainer.py and zero call sites. Not part of the JAMIA submission.
 
 
-def fig_supp_ig_stream_heatmap(out_dir, df_ig_long, split="test"):
-    if df_ig_long.empty:
-        return
-    ig_col = "ig_signed" if "ig_signed" in df_ig_long.columns else "ig_abs"
-    grouped = (df_ig_long.groupby(["patient_id", "index_hadm_id", "readmission", "stream"])[ig_col]
-               .apply(lambda x: x.abs().sum()).reset_index(name="_total"))
-    pivot = grouped.pivot_table(index="readmission", columns="stream", values="_total", aggfunc="mean")
-    col_order = [c for c in ["C", "P", "D"] if c in pivot.columns]
-    if not col_order:
-        print("  [WARN] fig_supp_ig_stream_heatmap: no stream columns found, skipping")
-        return
-    pivot = pivot[col_order]
-    col_labels = {"C": "Conditions (C:)", "P": "Procedures (P:)", "D": "Drugs (D:)"}
-    pivot.columns = [col_labels.get(c, c) for c in pivot.columns]
-    pivot.index = ["Not readmitted (0)" if v == 0 else "Readmitted (1)" for v in pivot.index]
-
-    fig, ax = plt.subplots(figsize=(max(6, len(col_order) * 3), 3))
-    im = ax.imshow(pivot.values, aspect="auto", cmap="YlOrRd", interpolation="nearest")
-    ax.set_xticks(range(len(pivot.columns)))
-    ax.set_xticklabels(pivot.columns, fontsize=10)
-    ax.set_yticks(range(len(pivot.index)))
-    ax.set_yticklabels(pivot.index, fontsize=10)
-    for i in range(pivot.shape[0]):
-        for j in range(pivot.shape[1]):
-            val = pivot.values[i, j]
-            color = "white" if val > pivot.values.max() * 0.6 else "black"
-            ax.text(j, i, f"{val:.2f}", ha="center", va="center", fontsize=11, color=color)
-    ax.set_title(f"Mean total |IG| per sample by stream and readmission status ({split.upper()})",
-                 fontsize=11)
-    fig.colorbar(im, ax=ax, label="Mean |IG|", shrink=0.8)
-    fig.tight_layout()
-    fig.savefig(os.path.join(out_dir, f"fig_supp_ig_stream_heatmap_{split}.png"), dpi=300)
-    plt.close(fig)
-
-
-def fig_supp_pattern_admission_heatmap(out_dir, df_patterns, df_seq, icd_titles,
-                                        mining_method, df_ig=None, top_k=10,
-                                        max_admissions=30, split="test"):
-    if df_patterns.empty or df_seq.empty:
-        return
-    is_episode = (mining_method == "episode")
-
-    # Compute mean signed IG per pattern for ranking
-    df_p = df_patterns.copy()
-    if df_ig is not None and not df_ig.empty:
-        ig_cache = _build_ig_cache(df_ig)
-
-        pat_index = PatternIndex.from_df(df_seq)
-        seq_rows = df_seq.reset_index(drop=True)
-
-        ig_vals = []
-        for _, pr in df_p.iterrows():
-            pat_str = pr["pattern"]
-            if is_episode:
-                ep = _parse_episode_pattern(pat_str)
-                pat_fsets = [frozenset(s) for s in ep]
-                pat_tokens = set()
-                for s in ep:
-                    pat_tokens.update(s)
-            else:
-                flat = [p.strip() for p in pat_str.split(" -> ")]
-                pat_fsets = [frozenset([t]) for t in flat]
-                pat_tokens = set(flat)
-
-            matched = pat_index.patients_matching_pattern(pat_fsets, pat_tokens, is_episode)
-            stats = _compute_pattern_ig_stats(ig_cache, pat_tokens, matched, seq_rows)
-            ig_vals.append(stats["ig_signed_mean"] if stats else 0.0)
-        df_p["ig_signed_mean"] = ig_vals
-        top = df_p.reindex(df_p["ig_signed_mean"].abs().nlargest(top_k).index)
-    else:
-        top = df_p.head(top_k)
-
-    patterns = []
-    for _, row in top.iterrows():
-        pat_str = row["pattern"]
-        if is_episode:
-            ep = _parse_episode_pattern(pat_str)
-            pat_fsets = [frozenset(s) for s in ep]
-            pat_tokens = set()
-            for s in ep:
-                pat_tokens.update(s)
-        else:
-            flat = [p.strip() for p in pat_str.split(" -> ")]
-            pat_fsets = [frozenset([t]) for t in flat]
-            pat_tokens = set(flat)
-        pat_readable = _fmt_pat(pat_str, icd_titles, max_tok_len=40)
-        ig_val = row.get("ig_signed_mean", 0.0)
-        patterns.append((pat_fsets, pat_tokens, pat_readable, ig_val))
-
-    df_sorted = df_seq.sort_values("readmission", ascending=False).head(max_admissions)
-
-    # Use PatternIndex for fast matching
-    pat_index2 = PatternIndex.from_df(df_sorted.reset_index(drop=True))
-
-    mat = np.zeros((len(patterns), len(df_sorted)))
-    for i, (pf, pt, _, _) in enumerate(patterns):
-        matched = pat_index2.patients_matching_pattern(pf, pt, is_episode)
-        for j in matched:
-            mat[i, j] = 1.0
-
-    adm_labels = [f"{'✓' if r['readmission'] == 1 else '✗'}" for _, r in df_sorted.iterrows()]
-    pat_labels = [f"{pr} (IG={ig_val:+.3f})" for _, _, pr, ig_val in patterns]
-
-    fig, ax = plt.subplots(figsize=(max(8, len(df_sorted) * 0.3), max(5, len(patterns) * 0.55)))
-    ax.imshow(mat, aspect="auto", cmap="Blues", interpolation="nearest", vmin=0, vmax=1)
-    ax.set_xticks(range(len(adm_labels)))
-    ax.set_xticklabels(adm_labels, fontsize=6)
-    ax.set_xlabel("Samples (✓ = readmitted, ✗ = not)")
-    ax.set_yticks(range(len(pat_labels)))
-    ax.set_yticklabels(pat_labels, fontsize=7.5)
-    ax.set_title(f"Pattern presence across samples ({split.upper()}, top {top_k} by |mean IG mass|)",
-                 fontsize=10)
-    n_readmit = int(df_sorted["readmission"].sum())
-    if 0 < n_readmit < len(df_sorted):
-        ax.axvline(n_readmit - 0.5, color="red", linewidth=1.5, linestyle="--")
-    fig.tight_layout()
-    fig.savefig(os.path.join(out_dir, f"fig_supp_pattern_presence_{split}.png"), dpi=300,
-                bbox_inches="tight")
-    plt.close(fig)
-
-
-def fig_supp_pattern_decomposition(out_dir, df_patterns, df_seq, df_ig, icd_titles,
-                                    mining_method, top_k=10, split="test"):
-    """Pattern × constituent tokens heatmap, colored by mean signed IG.
-    
-    Rows = top patterns (by |mean signed IG sum|)
-    Columns = union of constituent tokens (aligned so shared tokens line up)
-    Cells = mean signed IG of that token across patients where that pattern is present
-    """
-    if df_patterns.empty or df_seq.empty or df_ig is None or df_ig.empty:
-        return
-    is_episode = (mining_method == "episode")
-
-    # Raw signed IG cache
-    ig_cache = _build_ig_cache(df_ig)
-
-    pat_index = PatternIndex.from_df(df_seq)
-    seq_rows = df_seq.reset_index(drop=True)
-
-    # Compute per-token mean IG and overall signed sum per pattern
-    pattern_info = []
-    for _, pr in df_patterns.iterrows():
-        pat_str = pr["pattern"]
-        if is_episode:
-            ep = _parse_episode_pattern(pat_str)
-            pat_fsets = [frozenset(s) for s in ep]
-            pat_tokens = set()
-            for s in ep:
-                pat_tokens.update(s)
-        else:
-            flat = [p.strip() for p in pat_str.split(" -> ")]
-            pat_fsets = [frozenset([t]) for t in flat]
-            pat_tokens = set(flat)
-
-        matched = pat_index.patients_matching_pattern(pat_fsets, pat_tokens, is_episode)
-
-        # Per-token mean IG across matched patients
-        tok_ig_accum = {t: [] for t in pat_tokens}
-        signed_sums = []
-        for ri in matched:
-            row = seq_rows.iloc[ri]
-            key = (str(row["patient_id"]), str(row["index_hadm_id"]))
-            tok_ig = ig_cache.get(key, {})
-            pat_vals = []
-            for t in pat_tokens:
-                if t in tok_ig:
-                    tok_ig_accum[t].append(tok_ig[t])
-                    pat_vals.append(tok_ig[t])
-            if pat_vals:
-                signed_sums.append(sum(pat_vals))
-
-        tok_mean_ig = {t: float(np.mean(v)) if v else 0.0 for t, v in tok_ig_accum.items()}
-        ig_signed_mean = float(np.mean(signed_sums)) if signed_sums else 0.0
-
-        pattern_info.append({
-            "pattern": pat_str,
-            "pat_tokens": pat_tokens,
-            "tok_mean_ig": tok_mean_ig,
-            "ig_signed_mean": ig_signed_mean,
-            "n_matched": len(matched),
-        })
-
-    if not pattern_info:
-        return
-
-    # Rank by |mean signed IG sum|, take top_k
-    pattern_info.sort(key=lambda x: abs(x["ig_signed_mean"]), reverse=True)
-    pattern_info = pattern_info[:top_k]
-
-    # Collect all unique tokens across selected patterns
-    all_tokens = []
-    seen = set()
-    for pi in pattern_info:
-        for t in sorted(pi["pat_tokens"]):
-            if t not in seen:
-                all_tokens.append(t)
-                seen.add(t)
-
-    # Build matrix
-    mat = np.full((len(pattern_info), len(all_tokens)), np.nan)
-    for i, pi in enumerate(pattern_info):
-        for j, tok in enumerate(all_tokens):
-            if tok in pi["tok_mean_ig"]:
-                mat[i, j] = pi["tok_mean_ig"][tok]
-
-    # Labels
-    row_labels = [_fmt_pat(pi["pattern"], icd_titles, max_tok_len=45) +
-                  f" (n={pi['n_matched']})" for pi in pattern_info]
-    col_labels = [_fmt_tok(t, icd_titles) for t in all_tokens]
-    col_labels = [l if len(l) <= 40 else l[:39] + "…" for l in col_labels]
-
-    # Plot
-    vmax = np.nanmax(np.abs(mat)) or 1.0
-    fig, ax = plt.subplots(figsize=(max(8, len(all_tokens) * 1.0),
-                                     max(4, len(pattern_info) * 0.6)))
-
-    # Use masked array for NaN cells
-    masked_mat = np.ma.masked_invalid(mat)
-    cmap = plt.cm.RdBu_r.copy()
-    cmap.set_bad(color="#f0f0f0")  # light gray for cells where token not in pattern
-
-    im = ax.imshow(masked_mat, aspect="auto", cmap=cmap, interpolation="nearest",
-                   vmin=-vmax, vmax=vmax)
-
-    # Add text values
-    for i in range(mat.shape[0]):
-        for j in range(mat.shape[1]):
-            if not np.isnan(mat[i, j]):
-                val = mat[i, j]
-                color = "white" if abs(val) > vmax * 0.6 else "black"
-                ax.text(j, i, f"{val:+.2f}", ha="center", va="center",
-                        fontsize=7, color=color)
-
-    ax.set_xticks(range(len(col_labels)))
-    ax.set_xticklabels(col_labels, rotation=45, ha="right", fontsize=8)
-    ax.set_yticks(range(len(row_labels)))
-    ax.set_yticklabels(row_labels, fontsize=7.5)
-    ax.set_title(f"Pattern decomposition: token-level IG within top patterns ({split.upper()})\n"
-                 f"Gray = token not in pattern",
-                 fontsize=10)
-    fig.colorbar(im, ax=ax, label="Mean signed IG\n← protective    risk →", shrink=0.8)
-    fig.tight_layout()
-    fig.savefig(os.path.join(out_dir, f"fig_supp_pattern_decomposition_{split}.png"),
-                dpi=300, bbox_inches="tight")
-    plt.close(fig)
+# ── Removed (Apr 2026 cleanup) ──────────────────────────────────────────────
+# fig_supp_pattern_admission_heatmap (~85 LOC) and fig_supp_pattern_decomposition
+# (~125 LOC) used to live here. Both were gated behind the `supp_heatmap` and
+# `supp_decomposition` step names \u2014 locked decision: skip ("methodology
+# detail / not in submission"). Their step branches in atop/explainer.py
+# report() were removed in the same pass.
 
 
 # ============================================================================
@@ -2411,85 +1443,12 @@ def save_table1(df_seq_all, summary, out_path):
     pd.DataFrame(tab, columns=["Characteristic", "Value"]).to_csv(out_path, index=False)
 
 
-def fig_supp_ood_diagnostic(out_dir, df_val, split="test"):
-    """Supplementary: OOD diagnostic for perturbation validation.
-
-    Shows distribution of predicted probabilities under each perturbation type
-    vs baseline. If perturbed predictions remain in a reasonable range (not
-    collapsing to 0/1), perturbation results reflect genuine model reliance
-    rather than OOD confusion.
-    """
-    if df_val is None or df_val.empty:
-        return
-    # Check if raw probs are available
-    if "_base_probs" not in df_val.columns:
-        print("  [supp_ood] No raw predictions stored — skipping")
-        return
-
-    # Collect all predictions across patterns
-    base_all, masked_all, shuffle_within_all, shuffle_visit_all = [], [], [], []
-    for _, row in df_val.iterrows():
-        bp = row.get("_base_probs")
-        mp = row.get("_masked_probs")
-        sw = row.get("_shuffled_within_probs_flat")
-        sv = row.get("_shuffled_visit_probs_flat")
-        if bp is not None and isinstance(bp, list):
-            base_all.extend(bp)
-        if mp is not None and isinstance(mp, list):
-            masked_all.extend(mp)
-        if sw is not None and isinstance(sw, list):
-            shuffle_within_all.extend(sw)
-        if sv is not None and isinstance(sv, list):
-            shuffle_visit_all.extend(sv)
-
-    if not base_all:
-        return
-
-    fig, axes = plt.subplots(1, 4, figsize=(20, 5), sharey=True)
-    bins = np.linspace(0, 1, 41)
-
-    data_sets = [
-        ("Baseline\n(unperturbed)", base_all, "#555555"),
-        ("Mask pattern\ntokens with PAD", masked_all, "#c44e52"),
-        ("Shuffle visit\nblock order", shuffle_visit_all, "#e8a0a2"),
-        ("Shuffle within\nvisits (control)", shuffle_within_all, "#a0b8d0"),
-    ]
-
-    for ax, (title, data, color) in zip(axes, data_sets):
-        if not data:
-            ax.set_title(title, fontsize=9)
-            ax.text(0.5, 0.5, "N/A", ha="center", va="center", transform=ax.transAxes)
-            continue
-        arr = np.array(data)
-        ax.hist(arr, bins=bins, color=color, edgecolor="white", alpha=0.85)
-        ax.set_title(title, fontsize=9)
-        ax.set_xlabel("Predicted P(readmission)")
-        ax.axvline(arr.mean(), color="black", linestyle="--", linewidth=1.0,
-                   label=f"mean={arr.mean():.3f}")
-        # OOD indicators
-        pct_extreme = float(((arr < 0.01) | (arr > 0.99)).mean() * 100)
-        pct_reasonable = float(((arr >= 0.05) & (arr <= 0.95)).mean() * 100)
-        ax.text(0.97, 0.95,
-                f"N={len(arr):,}\n"
-                f"mean={arr.mean():.3f}\n"
-                f"std={arr.std():.3f}\n"
-                f"in [0.05,0.95]: {pct_reasonable:.0f}%\n"
-                f"extreme (<0.01 or >0.99): {pct_extreme:.1f}%",
-                transform=ax.transAxes, fontsize=7.5,
-                va="top", ha="right",
-                bbox=dict(boxstyle="round,pad=0.3", facecolor="white", alpha=0.8))
-
-    axes[0].set_ylabel("Count")
-    fig.suptitle(
-        f"OOD diagnostic ({split.upper()}): prediction distributions under perturbation\n"
-        "If perturbed distributions remain well-spread (not collapsing to 0 or 1),\n"
-        "perturbation Δŷ reflects model reliance, not out-of-distribution confusion.",
-        fontsize=10)
-    fig.tight_layout(rect=[0, 0, 1, 0.90])
-    path = os.path.join(out_dir, f"supp_ood_diagnostic_{split}.png")
-    fig.savefig(path, dpi=300, bbox_inches="tight")
-    plt.close(fig)
-    print(f"  [supp_ood] Saved → {path}")
+# ── Removed (Apr 2026 cleanup) ──────────────────────────────────────────────
+# fig_supp_ood_diagnostic (~75 LOC) used to live here. Gated behind the
+# `supp_ood` step name \u2014 not in submission. The OOD validity story is now
+# narrated in the manuscript text via the validation-distribution stats
+# from validation_test.csv (no separate figure shipped). Its step branch in
+# atop/explainer.py report() was removed in the same pass.
 
 
 def fig_train_curves(out_dir: str, train_log: list) -> None:
@@ -2519,6 +1478,8 @@ def fig_train_curves(out_dir: str, train_log: list) -> None:
     fig.savefig(os.path.join(out_dir, "fig_train_curves.png"), dpi=200, bbox_inches="tight")
     plt.close(fig)
     print(f"  Saved fig_train_curves.png")
+
+
 
 
 # ============================================================================

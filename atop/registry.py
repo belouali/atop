@@ -29,22 +29,33 @@ def save_bundle(
     """
     Save a complete model bundle to run_dir.
 
-    Bundle contents:
-        config.json         Full AToPConfig (includes tokenization params)
-        tokenization.json   Tokenization-specific subset for quick reference
-        model.pt            Model state dict
-        vocab.pkl           Token→index vocabulary
-        splits.json         Patient ID lists for train/val/test
-        metrics.json        Test AUROC/PR-AUC
-        summary.json        Dataset summary stats
-        train_log.csv       Per-epoch training metrics
+    Bundle contents (v2 layout):
+        0_inputs/config.json         Full AToPConfig
+        0_inputs/tokenization.json   Tokenization subset
+        0_inputs/vocab.pkl           Token → index map
+        0_inputs/splits.json         Train/val/test patient IDs
+        1_model/model.pt             Model state dict
+        1_model/train_log.csv        Per-epoch training metrics
+        2_predictions/metrics.json   Test AUROC/PR-AUC
+        2_predictions/summary.json   Dataset summary stats
+
+    Falls back to writing everything to ``run_dir/`` root for legacy callers
+    that haven't created the v2 stage folders yet.
     """
     os.makedirs(run_dir, exist_ok=True)
 
-    # Config (full)
-    config.save(os.path.join(run_dir, "config.json"))
+    # ── Resolve target sub-folders (create if missing for first save) ────
+    inputs_dir      = os.path.join(run_dir, "0_inputs")
+    model_dir       = os.path.join(run_dir, "1_model")
+    predictions_dir = os.path.join(run_dir, "2_predictions")
+    use_v2 = True
+    for d in (inputs_dir, model_dir, predictions_dir):
+        os.makedirs(d, exist_ok=True)
 
-    # Tokenization subset (for quick reference without loading full config)
+    # Config (full) → 0_inputs/
+    config.save(os.path.join(inputs_dir, "config.json"))
+
+    # Tokenization subset → 0_inputs/
     tok_meta = {
         "token_types": config.token_types,
         "max_visits": config.max_visits,
@@ -54,47 +65,67 @@ def save_bundle(
         "one_per_patient": config.one_per_patient,
         "exclude_elective_readmissions": config.exclude_elective_readmissions,
     }
-    with open(os.path.join(run_dir, "tokenization.json"), "w") as f:
+    with open(os.path.join(inputs_dir, "tokenization.json"), "w") as f:
         json.dump(tok_meta, f, indent=2)
 
-    # Model weights
-    torch.save(model.state_dict(), os.path.join(run_dir, "model.pt"))
+    # Model weights → 1_model/
+    torch.save(model.state_dict(), os.path.join(model_dir, "model.pt"))
 
-    # Vocabulary
-    with open(os.path.join(run_dir, "vocab.pkl"), "wb") as f:
+    # Vocabulary → 0_inputs/
+    with open(os.path.join(inputs_dir, "vocab.pkl"), "wb") as f:
         pickle.dump(vocab, f)
 
-    # Splits
+    # Splits → 0_inputs/
     splits = {"train": train_ids, "val": val_ids, "test": test_ids}
-    with open(os.path.join(run_dir, "splits.json"), "w") as f:
+    with open(os.path.join(inputs_dir, "splits.json"), "w") as f:
         json.dump(splits, f)
 
-    # Metrics
+    # Metrics → 2_predictions/
     if metrics:
-        with open(os.path.join(run_dir, "metrics.json"), "w") as f:
+        with open(os.path.join(predictions_dir, "metrics.json"), "w") as f:
             json.dump(metrics, f, indent=2)
 
-    # Summary
+    # Summary → 2_predictions/
     if summary:
-        with open(os.path.join(run_dir, "summary.json"), "w") as f:
+        with open(os.path.join(predictions_dir, "summary.json"), "w") as f:
             json.dump(summary, f, indent=2)
 
-    # Training log
+    # Training log → 1_model/
     if train_log:
         import pandas as pd
-        pd.DataFrame(train_log).to_csv(os.path.join(run_dir, "train_log.csv"), index=False)
+        pd.DataFrame(train_log).to_csv(os.path.join(model_dir, "train_log.csv"), index=False)
 
-    print(f"[bundle] Saved to {run_dir}")
+    print(f"[bundle] Saved to {run_dir} (v2 layout)")
+
+
+def _resolve_bundle_path(run_dir: str, basename: str, *subfolders: str) -> str:
+    """Locate a bundle file in either the v2 layout (sub-folder per stage) or
+    the legacy layout (everything at run_dir root). Tries each subfolder in
+    order, then falls back to ``<run_dir>/<basename>``."""
+    for sub in subfolders:
+        candidate = os.path.join(run_dir, sub, basename)
+        if os.path.exists(candidate):
+            return candidate
+    return os.path.join(run_dir, basename)
 
 
 def load_bundle(
     run_dir: str,
     device: torch.device = torch.device("cpu"),
 ) -> Tuple[AToPConfig, SingleStreamTransformer, Dict[str, int], Dict]:
-    """Load a model bundle and return (config, model, vocab, splits)."""
-    config = AToPConfig.load(os.path.join(run_dir, "config.json"))
+    """Load a model bundle and return (config, model, vocab, splits).
 
-    with open(os.path.join(run_dir, "vocab.pkl"), "rb") as f:
+    Layout-aware: prefers v2 sub-folders (``0_inputs/``, ``1_model/``) when
+    present; falls back to legacy ``run_dir`` root.
+    """
+    config_path = _resolve_bundle_path(run_dir, "config.json", "0_inputs")
+    vocab_path  = _resolve_bundle_path(run_dir, "vocab.pkl",   "0_inputs")
+    splits_path = _resolve_bundle_path(run_dir, "splits.json", "0_inputs")
+    model_path  = _resolve_bundle_path(run_dir, "model.pt",    "1_model")
+
+    config = AToPConfig.load(config_path)
+
+    with open(vocab_path, "rb") as f:
         vocab = pickle.load(f)
 
     model = SingleStreamTransformer(
@@ -105,13 +136,11 @@ def load_bundle(
         num_layers=config.num_layers,
         dropout=config.dropout,
     )
-    model.load_state_dict(torch.load(
-        os.path.join(run_dir, "model.pt"), map_location=device, weights_only=True))
+    model.load_state_dict(torch.load(model_path, map_location=device, weights_only=True))
     model.to(device)
     model.eval()
 
     splits = {}
-    splits_path = os.path.join(run_dir, "splits.json")
     if os.path.exists(splits_path):
         with open(splits_path) as f:
             splits = json.load(f)
@@ -121,7 +150,7 @@ def load_bundle(
 
 
 # ============================================================================
-# Experiment registry — auto-generated lab notebook at runs/index.csv
+# Experiment registry, auto-generated lab notebook at runs/index.csv
 # ============================================================================
 
 def register_experiment(

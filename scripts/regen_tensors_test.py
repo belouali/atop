@@ -5,7 +5,7 @@ The tensors are just encoded input_ids produced by MIMICReadmissionDataset;
 they don't depend on model gradients. When the model hash changes (e.g.
 after a re-unpack updates model.pt's mtime) explainer.py wipes the IG
 cache entirely, but the tensors themselves are still valid for the same
-vocabulary/sequences — so we just rebuild them and avoid the ~2 hour
+vocabulary/sequences, so we just rebuild them and avoid the ~2 hour
 full IG compute on 43k test patients.
 """
 from __future__ import annotations
@@ -15,7 +15,7 @@ from torch.utils.data import DataLoader
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from atop.data.datasets import MIMICReadmissionDataset, collate_fn
 
-BUNDLE = "../runs/full_CPD"
+BUNDLE = "../runs/full_CPD_v2"
 OUT    = f"{BUNDLE}/ig_cache/tensors_test.pt"
 
 print("[1] Loading vocab.pkl...")
@@ -30,7 +30,7 @@ print(f"    shape: {df.shape}")
 
 # MIMICReadmissionDataset expects a list of sample dicts with keys
 # matching the one-per-patient cache schema. The DataFrame has the
-# required columns already — convert rows to dicts the dataset can use.
+# required columns already, convert rows to dicts the dataset can use.
 print("[3] Building sample list for the test dataset...")
 samples = []
 for _, r in df.iterrows():
@@ -46,7 +46,7 @@ for _, r in df.iterrows():
     })
 print(f"    built {len(samples):,} samples")
 
-# We don't have max_seq_len directly — get it from config.json
+# We don't have max_seq_len directly, get it from config.json
 import json
 with open(f"{BUNDLE}/config.json") as f:
     cfg = json.load(f)

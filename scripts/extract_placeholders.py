@@ -8,7 +8,7 @@ import pandas as pd
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-FULL_RUN  = "../runs/full_CPD"
+FULL_RUN  = "../runs/full_CPD_v2"
 MIMIC_DIR = "../data/mimiciv/3.1/hosp"
 SEQ_DIR   = f"{FULL_RUN}/explain/data"
 CSV_DIR   = f"{FULL_RUN}/explain/figures/csv"
@@ -274,8 +274,8 @@ if os.path.exists(pred_csv):
     print(f"  AUROC:  {np.mean(aurocs):.4f}  (95% CI: {np.percentile(aurocs,2.5):.4f}–{np.percentile(aurocs,97.5):.4f})")
     print(f"  PR-AUC: {np.mean(praucs):.4f}  (95% CI: {np.percentile(praucs,2.5):.4f}–{np.percentile(praucs,97.5):.4f})")
 else:
-    print(f"  [skip] {pred_csv} not found — run scripts/infer_test.py first to generate predictions")
+    print(f"  [skip] {pred_csv} not found, run scripts/infer_test.py first to generate predictions")
 
 print("\n" + "=" * 70)
-print("DONE — copy values above into AToP_paper_v6.docx")
+print("DONE, copy values above into AToP_paper_v6.docx")
 print("=" * 70)

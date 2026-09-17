@@ -3,7 +3,7 @@
 Preprocess MIMIC-IV data and cache the result.
 
 Run this on a CPU runtime (free) to build and cache the preprocessed samples.
-Then run train_model.py on a GPU runtime — it will load from cache in seconds.
+Then run train_model.py on a GPU runtime, it will load from cache in seconds.
 
 Usage:
     python scripts/preprocess.py \

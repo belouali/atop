@@ -1,5 +1,5 @@
 """
-AToPExplainer — the main user-facing API for AToP.
+AToPExplainer, the main user-facing API for AToP.
 
 Usage mirrors SHAP / Captum / LIME:
 
@@ -49,11 +49,9 @@ from atop.mining.patterns import mine_patterns
 from atop.explain.matching import _match_all_patterns, _compute_pattern_mass
 from atop.explain.validation import run_validation
 from atop.explain.figures import (
-    fig1_dataset_performance, fig2_patient_ig, fig3_top_patterns,
-    fig5_validation, build_shap_comparison_figure,
+    fig1_dataset_performance,
+    build_shap_comparison_figure,
     fig6_global_importance_comparison,
-    fig_supp_ig_heatmap_multi_patient, fig_supp_ig_stream_heatmap,
-    fig_supp_pattern_admission_heatmap, fig_supp_pattern_decomposition,
     save_table1, _filter_multi_token,
 )
 from atop.baselines.lace import load_lace_scores, run_lace_comparison
@@ -133,7 +131,7 @@ class AToPExplainer:
         """
         Load a trained model bundle and prepare data for explanation.
 
-        This is the primary constructor — mirrors SHAP's pattern of
+        This is the primary constructor, mirrors SHAP's pattern of
         ``shap.Explainer(model, data)``.
 
         Args:
@@ -170,7 +168,7 @@ class AToPExplainer:
         # Reproduce splits from bundle
         train_pids = set(str(p) for p in splits.get("train", []))
         if train_pids:
-            # Bundle has explicit splits — use them directly as the patient filter
+            # Bundle has explicit splits, use them directly as the patient filter
             # (this supersedes max_patients since the bundle already applied it)
             val_pids = set(str(p) for p in splits.get("val", []))
             test_pids = set(str(p) for p in splits.get("test", []))
@@ -183,7 +181,7 @@ class AToPExplainer:
             val_s = [s for s in samples if str(s["patient_id"]) in val_pids]
             test_s = [s for s in samples if str(s["patient_id"]) in test_pids]
         else:
-            # No splits in bundle — apply max_patients then split fresh
+            # No splits in bundle, apply max_patients then split fresh
             if config.max_patients > 0:
                 all_pids = list(set(s["patient_id"] for s in samples))
                 if len(all_pids) > config.max_patients:
@@ -225,12 +223,17 @@ class AToPExplainer:
         max_train = ig_max_train_samples or cfg.ig_max_train_samples
 
         # ── Cache directory ─────────────────────────────────────────────
-        cache_dir = os.path.join(self._bundle_dir, "ig_cache")
+        # Prefer v2 layout (3_attribution/), fall back to legacy ig_cache/
+        v2_dir = os.path.join(self._bundle_dir, "3_attribution")
+        legacy_dir = os.path.join(self._bundle_dir, "ig_cache")
+        cache_dir = v2_dir if os.path.isdir(v2_dir) else legacy_dir
         os.makedirs(cache_dir, exist_ok=True)
 
         # Model identity marker: invalidate IG cache if model changed
         import hashlib
-        model_pt = os.path.join(self._bundle_dir, "model.pt")
+        model_pt = (os.path.join(self._bundle_dir, "1_model", "model.pt")
+                    if os.path.exists(os.path.join(self._bundle_dir, "1_model", "model.pt"))
+                    else os.path.join(self._bundle_dir, "model.pt"))
         if os.path.exists(model_pt):
             mtime = str(os.path.getmtime(model_pt))
             vsize = str(len(self.vocab))
@@ -239,14 +242,14 @@ class AToPExplainer:
             model_hash = "unknown"
         cache_marker = os.path.join(cache_dir, f".model_{model_hash}")
         if not os.path.exists(cache_marker):
-            # Model changed — invalidate all cached IG
+            # Model changed, invalidate all cached IG
             import glob
             for old_file in glob.glob(os.path.join(cache_dir, "*")):
                 if os.path.isfile(old_file):
                     os.remove(old_file)
             with open(cache_marker, "w") as f:
                 f.write(f"vocab_size={len(self.vocab)}\n")
-            print(f"[IG cache] Model changed (hash={model_hash}) — cleared stale cache")
+            print(f"[IG cache] Model changed (hash={model_hash}), cleared stale cache")
 
         if "train" in splits:
             cache_train = os.path.join(cache_dir, "sequences_train.pkl")
@@ -368,7 +371,10 @@ class AToPExplainer:
         ctrl_idx = np.where(y == 0)[0]
 
         # ── Level 1: Raw mining cache ────────────────────────────────────
-        cache_dir = os.path.join(self._bundle_dir, "mining_cache")
+        # Prefer v2 layout (4_mining/), fall back to legacy mining_cache/
+        v2_mine = os.path.join(self._bundle_dir, "4_mining")
+        legacy_mine = os.path.join(self._bundle_dir, "mining_cache")
+        cache_dir = v2_mine if os.path.isdir(v2_mine) else legacy_mine
         os.makedirs(cache_dir, exist_ok=True)
         raw_prefix = f"raw_{self._mining_method}_{episode_max_len}_{n_train}"
 
@@ -435,7 +441,7 @@ class AToPExplainer:
                     }, f)
                 print(f"[mining cache] Saved {n_raw} raw patterns → {cache_path}")
             else:
-                print(f"[mining cache] {n_raw} exceeds kill switch ({MAX_CACHEABLE}) — not caching")
+                print(f"[mining cache] {n_raw} exceeds kill switch ({MAX_CACHEABLE}), not caching")
 
         # ── Post-mining filter: episode_topn ─────────────────────────────
         if episode_topn > 0:
@@ -447,7 +453,7 @@ class AToPExplainer:
             print(f"  [topn={episode_topn}] cases: {n_c} → {len(freq_case)}, "
                   f"controls: {n_k} → {len(freq_ctrl)}")
 
-        # Note: min_steps is NOT applied here — all patterns (single-token,
+        # Note: min_steps is NOT applied here, all patterns (single-token,
         # same-visit, cross-visit) are scored and cached. min_steps is applied
         # as a display filter when generating figures.
 
@@ -577,7 +583,7 @@ class AToPExplainer:
             print(f"[mining cache] Saved {len(df_scored)} scored patterns → {scored_csv}")
 
         # ── Post-scoring filters (cheap, from cached CSV) ────────────────
-        # Jaccard dedup (on scored df — uses n_present as proxy, not carrier sets)
+        # Jaccard dedup (on scored df, uses n_present as proxy, not carrier sets)
         # Note: post-hoc Jaccard in figures uses test carrier sets for display
         if episode_min_steps > 1 and not df_scored.empty:
             n_before = len(df_scored)
@@ -675,44 +681,50 @@ class AToPExplainer:
 
     # ── Reporting ────────────────────────────────────────────────────────
 
-    def report(self, out_dir: str, figures: Optional[List[str]] = None, **kwargs) -> None:
+    def report(self, out_dir: str, steps: Optional[List[str]] = None, **kwargs) -> None:
         """
-        Generate figures, tables, and data CSVs.
+        Run analysis steps + write artifacts.
 
         Args:
             out_dir: Base output directory.
-            figures: List of figure names to generate. Default (None) = all.
-                     Valid names: "fig2", "fig3", "fig4", "fig5",
-                                  "supp_heatmap", "supp_decomposition",
-                                  "supp_ood", "tables", "data"
-                     Example: figures=["fig3", "fig5"] regenerates only those.
+            steps:   List of step names. ``None`` runs every branch. Valid:
+                     ``"patient_ig"``, ``"mine_global"``, ``"validate"``,
+                     ``"reversed_order"``, ``"tables"``, ``"data"``.
 
         Output structure:
-            out_dir/
-                figures/
-                    main/       ← Paper figures (test split only)
-                    supplement/ ← Supplementary figures
-                    csv/        ← CSVs backing figures
-                tables/         ← Summary tables
-                data/           ← Raw data (pickles, IG CSVs)
+            (v2 layout), see ``atop.run_layout.RunLayout``
+            (legacy)    out_dir/figures/{main,supplement,csv}/, tables/, data/
         """
-        ALL_FIGURES = {"fig2", "fig3", "fig4", "fig5", "attn_flow",
-                       "supp_heatmap", "supp_decomposition", "supp_ood",
-                       "tables", "data"}
-        if figures is None:
-            selected = ALL_FIGURES
+        STEP_NAMES = {"patient_ig", "mine_global", "validate", "reversed_order",
+                      "tables", "data"}
+        if steps is None:
+            selected = set(STEP_NAMES)
         else:
-            selected = set(figures)
-            unknown = selected - ALL_FIGURES
+            selected = set(steps)
+            unknown = selected - STEP_NAMES
             if unknown:
-                print(f"  [WARN] Unknown figure names ignored: {unknown}")
-                print(f"         Valid names: {sorted(ALL_FIGURES)}")
-            selected = selected & ALL_FIGURES
-        main_dir = os.path.join(out_dir, "figures", "main")
-        supp_dir = os.path.join(out_dir, "figures", "supplement")
-        csv_dir = os.path.join(out_dir, "figures", "csv")
-        tbl_dir = os.path.join(out_dir, "tables")
-        dat_dir = os.path.join(out_dir, "data")
+                print(f"  [WARN] Unknown step names ignored: {unknown}")
+                print(f"         Valid names: {sorted(STEP_NAMES)}")
+            selected = selected & STEP_NAMES
+        # ── Output directory routing ─────────────────────────────────────
+        # Prefer the v2 layout when the run-dir has the numbered stage
+        # folders, write analysis CSVs straight into 5_analysis/, panel
+        # CSVs into 7_outputs/panels/, run-dir QA figures into
+        # 7_outputs/figures/. Falls back to legacy <out>/figures/* tree.
+        v2_analysis = os.path.join(self._bundle_dir, "5_analysis")
+        v2_outputs  = os.path.join(self._bundle_dir, "7_outputs")
+        if os.path.isdir(v2_analysis) and os.path.isdir(v2_outputs):
+            main_dir = os.path.join(v2_outputs, "figures")
+            supp_dir = os.path.join(v2_outputs, "figures")  # same dir; supplement PNGs co-mingled
+            csv_dir  = v2_analysis
+            tbl_dir  = os.path.join(v2_outputs, "tables")
+            dat_dir  = os.path.join(self._bundle_dir, "3_attribution")
+        else:
+            main_dir = os.path.join(out_dir, "figures", "main")
+            supp_dir = os.path.join(out_dir, "figures", "supplement")
+            csv_dir  = os.path.join(out_dir, "figures", "csv")
+            tbl_dir  = os.path.join(out_dir, "tables")
+            dat_dir  = os.path.join(out_dir, "data")
         for d in [main_dir, supp_dir, csv_dir, tbl_dir, dat_dir]:
             os.makedirs(d, exist_ok=True)
 
@@ -782,7 +794,7 @@ class AToPExplainer:
         split = "test"
 
         if df_seq is None or df_ig is None:
-            print("[WARN] No test data available — skipping main figures")
+            print("[WARN] No test data available, skipping main figures")
             return
 
         print(f"\n{'='*60}")
@@ -791,8 +803,8 @@ class AToPExplainer:
 
         # ── Fig 1: already generated during training ─────────────────────
 
-        # ── Fig 2: Patient exemplars — KernelSHAP vs IG vs visit tokens vs patterns
-        if "fig2" in selected:
+        # ── Fig 2: Patient exemplars, KernelSHAP vs IG vs visit tokens vs patterns
+        if "patient_ig" in selected:
             n_exemplars = kwargs.get("n_exemplars", 3)
             picks = self._pick_exemplar_patients_from(
                 df_seq, df_ig, df_pats, tensors, n=n_exemplars)
@@ -818,25 +830,32 @@ class AToPExplainer:
                             df_pats, df_seq,
                             cfg.shap_max_features, cfg.shap_nsamples, method,
                             split=split, csv_dir=csv_dir, filename_suffix=suffix)
-                        print(f"  [fig2] Exemplar {pi+1}/{len(picks)}: patient {pick['patient_id']} "
+                        print(f"  [patient_ig] Exemplar {pi+1}/{len(picks)}: patient {pick['patient_id']} "
                               f"(visits={pick['n_visits']}, matched={pick.get('n_matched','?')})")
                     except Exception as e:
                         import traceback
                         print(f"  [WARN] fig2 exemplar {pi+1} failed: {e}")
                         traceback.print_exc()
                 else:
-                    print(f"  [WARN] fig2 exemplar {pi+1} skipped — no stored tensor for {key}")
+                    print(f"  [WARN] fig2 exemplar {pi+1} skipped, no stored tensor for {key}")
             if not picks:
-                print(f"  [WARN] fig2 skipped — no exemplar patients found")
+                print(f"  [WARN] fig2 skipped, no exemplar patients found")
 
-        # ── Fig 3: Global IG vs DeepSHAP vs AToP (two versions)
+        # ── Fig 3: Global attribution analysis (writes Panel C data, what
+        # downstream make_fig3.py reads). Panel B's GradientSHAP step takes
+        # ~8 hr on the full test cohort and is no longer used by any
+        # submission figure (SHAP now lives in Notebook 1C as a per-patient
+        # KernelSHAP cache for Fig S3 only). Pass empty tensors {} to make
+        # fig6_global_importance_comparison skip Panel B's GradientSHAP,
+        # Panel A (IG) and Panel C (patterns) still run and write their CSVs.
         df_fig3_patterns = None
-        if "fig3" in selected and tensors and df_pats is not None and not df_pats.empty:
+        if "mine_global" in selected and df_pats is not None and not df_pats.empty:
             try:
                 df_fig3_patterns = fig6_global_importance_comparison(
                     main_dir, self.model, self.device, self.icd_titles,
                     self.vocab_inv, self._ig, df_ig, df_pats, df_seq,
-                    tensors, method, cfg.shap_nsamples, n_show=cfg.n_show,
+                    {},  # empty tensors → skips GradientSHAP (Panel B)
+                    method, cfg.shap_nsamples, n_show=cfg.n_show,
                     split=split, supp_dir=supp_dir, csv_dir=csv_dir)
             except Exception as e:
                 import traceback
@@ -848,16 +867,19 @@ class AToPExplainer:
         fig3_pattern_list = None
         if df_fig3_patterns is not None and not df_fig3_patterns.empty:
             fig3_pattern_list = set(df_fig3_patterns["pattern"].tolist())
-            print(f"  [fig3→fig4/fig5] Passing {len(fig3_pattern_list)} cross-visit patterns")
+            print(f"  [mine_global→validate] Passing {len(fig3_pattern_list)} cross-visit patterns")
 
             # Jaccard dedup: cluster patterns and use representatives as whitelist
             jaccard_thresh = kwargs.get("jaccard_dedup", cfg.jaccard_dedup)
             if jaccard_thresh > 0 and "_carrier_keys" in df_fig3_patterns.columns:
                 try:
-                    from atop.explain.figures import fig_supp_jaccard_clusters
                     import pickle as _pkl
 
                     # Load carrier sets if available (saved during fig3)
+                    # NB: the inline greedy clustering below replaces a former
+                    # call into atop.explain.figures.fig_supp_jaccard_clusters
+                    # (which was deleted in the Apr 2026 cleanup along with
+                    # the unused supplementary figure it produced).
                     carrier_pkl = os.path.join(csv_dir, f"carrier_sets_{split}.pkl")
                     if os.path.exists(carrier_pkl):
                         with open(carrier_pkl, "rb") as _f:
@@ -892,14 +914,14 @@ class AToPExplainer:
                                     _assigned.add(idx2)
                             _assigned.add(idx)
 
-                        print(f"  [fig3→fig4] Jaccard dedup (>={jaccard_thresh}): "
+                        print(f"  [mine_global→validate] Jaccard dedup (>={jaccard_thresh}): "
                               f"{len(fig3_pattern_list)} → {len(_reps)} cluster representatives")
                         fig3_pattern_list = _reps
                 except Exception as e:
-                    print(f"  [fig3→fig4] Jaccard dedup skipped: {e}")
+                    print(f"  [mine_global→validate] Jaccard dedup skipped: {e}")
 
         # ── Fig 4: Perturbation validation (multi-token only for main)
-        if "fig4" in selected and df_pats is not None and not df_pats.empty and tensors:
+        if "validate" in selected and df_pats is not None and not df_pats.empty and tensors:
             try:
                 from atop.explain.validation import run_validation
 
@@ -910,7 +932,7 @@ class AToPExplainer:
                 if os.path.exists(val_cache_path):
                     df_val_cached = pd.read_csv(val_cache_path)
                     cached_patterns = set(df_val_cached["pattern"].tolist())
-                    print(f"  [fig4] Loaded {len(cached_patterns)} cached validation results")
+                    print(f"  [validate] Loaded {len(cached_patterns)} cached validation results")
 
                 # Determine which patterns need validation
                 if fig3_pattern_list is not None:
@@ -919,11 +941,11 @@ class AToPExplainer:
                     needed_patterns = None  # validate all (no whitelist)
 
                 if needed_patterns is not None and len(needed_patterns) == 0:
-                    print(f"  [fig4] All patterns already validated — skipping model inference")
+                    print(f"  [validate] All patterns already validated, skipping model inference")
                     df_val = df_val_cached
                 else:
                     if needed_patterns is not None:
-                        print(f"  [fig4] {len(needed_patterns)} new patterns to validate "
+                        print(f"  [validate] {len(needed_patterns)} new patterns to validate "
                               f"({len(cached_patterns)} already cached)")
                     df_val_new = run_validation(
                         self.model, self.device, df_seq, df_pats,
@@ -956,25 +978,20 @@ class AToPExplainer:
                         (df_val["pattern"].apply(_count_pattern_blocks) >= 2)
                     ].copy()
                 if not df_val_main.empty:
-                    fig5_validation(main_dir, df_val_main, cfg.n_shuffle_draws,
-                                   icd_titles=self.icd_titles, split=split)
-                    print(f"  [fig4_validation] {len(df_val_main)} patterns validated (aligned with fig3)")
+                    print(f"  [validate] {len(df_val_main)} patterns validated and cached "
+                          f"(aligned with fig3); render dumbbell with scripts/make_fig5.py")
 
-                # Supplement: all patterns (incl. single-token)
-                fig5_validation(supp_dir, df_val, cfg.n_shuffle_draws,
-                               icd_titles=self.icd_titles, split=f"{split}_all")
-
-                # Supplement: OOD diagnostic
-                if "supp_ood" in selected:
-                    from atop.explain.figures import fig_supp_ood_diagnostic
-                    fig_supp_ood_diagnostic(supp_dir, df_val, split=split)
+                # Supplement: OOD diagnostic, REMOVED (Apr 2026 cleanup).
+                # The OOD validity story is narrated in the manuscript text
+                # using validation distribution stats from validation_*.csv;
+                # the standalone diagnostic figure isn't shipped.
             except Exception as e:
                 import traceback
                 print(f"  [WARN] fig4 failed: {e}")
                 traceback.print_exc()
 
         # ── Fig 5: Reversed-order analysis (temporal specificity)
-        if "fig5" in selected and df_pats is not None and not df_pats.empty:
+        if "reversed_order" in selected and df_pats is not None and not df_pats.empty:
             try:
                 from atop.explain.validation import run_reversed_order_analysis
                 from atop.explain.figures import fig5_reversed_order
@@ -994,122 +1011,38 @@ class AToPExplainer:
         # ══════════════════════════════════════════════════════════════════
         # SUPPLEMENTARY FIGURES
         # ══════════════════════════════════════════════════════════════════
-        print(f"\n{'='*60}")
-        print(f"[AToP] Generating SUPPLEMENTARY figures...")
-        print(f"{'='*60}")
+        # SUPPLEMENTARY FIGURES, REMOVED (Apr 2026 cleanup)
+        # ══════════════════════════════════════════════════════════════════
+        # Used to host four step-gated branches:
+        #   attn_flow            \u274C locked: skip ("ratio 1.09 too weak")
+        #                            \u2014 entire atop/explain/attention_flow.py
+        #                            module deleted with this branch
+        #   supp_heatmap         \u274C locked: skip (methodology detail)
+        #   supp_decomposition   \u274C locked: skip (methodology detail)
+        #   supp_ood             \u274C locked: skip (OOD story narrated in the
+        #                            manuscript text from validation_*.csv)
+        # Their backing functions (fig_attention_flow,
+        # fig_supp_pattern_admission_heatmap, fig_supp_pattern_decomposition,
+        # fig_supp_ood_diagnostic) were deleted from atop/explain/figures.py
+        # in the same pass. The matching step names were removed from
+        # STEP_NAMES below.
 
-        # Attention flow analysis
-        if "attn_flow" in selected and tensors:
-            # Load df_fig3_patterns from cache if not already set (e.g., --figures attn_flow)
-            if df_fig3_patterns is None:
-                _pw_cache = os.path.join(csv_dir, f"fig3_pathway_importance_{split}.csv")
-                if os.path.exists(_pw_cache):
-                    df_fig3_patterns = pd.read_csv(_pw_cache)
-                    print(f"  [attn_flow] Loaded {len(df_fig3_patterns)} patterns from cached CSV")
-                else:
-                    print(f"  [attn_flow] No cached pathway CSV found — run fig3 first")
-
-        if "attn_flow" in selected and tensors and df_fig3_patterns is not None:
-            try:
-                from atop.explain.attention_flow import compute_attention_flow, fig_attention_flow
-                attn_csv = os.path.join(csv_dir, f"attention_flow_{split}.csv")
-                if os.path.exists(attn_csv):
-                    df_attn = pd.read_csv(attn_csv)
-                    print(f"  [attn_flow] Loaded cached results: {len(df_attn)} patterns")
-                else:
-                    print(f"  [attn_flow] Computing attention flow for top patterns...")
-                    # Load carrier sets for targeted patient sampling
-                    _carrier_sets = None
-                    _carrier_pkl = os.path.join(csv_dir, f"carrier_sets_{split}.pkl")
-                    if os.path.exists(_carrier_pkl):
-                        import pickle as _pkl
-                        with open(_carrier_pkl, "rb") as _f:
-                            _carrier_sets = _pkl.load(_f)
-                        print(f"  [attn_flow] Loaded {len(_carrier_sets)} carrier sets for targeted sampling")
-                    # Force CPU — flash attention on CUDA doesn't return attention weights
-                    import copy
-                    _attn_model = copy.deepcopy(self.model).cpu()
-                    _attn_device = torch.device("cpu")
-                    _attn_tensors = {k: v.cpu() for k, v in tensors.items()}
-                    df_attn = compute_attention_flow(
-                        _attn_model, _attn_device, _attn_tensors, self.vocab_inv,
-                        df_pats, df_fig3_patterns,
-                        n_patterns=cfg.attention_n_patterns, max_patients=cfg.attention_max_patients,
-                        carrier_sets=_carrier_sets)
-                    del _attn_model, _attn_tensors
-                    if not df_attn.empty:
-                        df_attn.to_csv(attn_csv, index=False)
-                fig_attention_flow(supp_dir, df_attn, icd_titles=self.icd_titles,
-                                    n_show=cfg.n_show, split=split)
-            except Exception as e:
-                import traceback
-                print(f"  [WARN] attn_flow failed: {e}")
-                traceback.print_exc()
-
-        # Supp: Training curves (already generated during training as fig_train_curves)
-
-        # Supp: Pattern admission heatmap (multi-token)
-        if df_pats is not None and not df_pats.empty:
-            df_pats_multi = _filter_multi_token(df_pats, min_tokens=2)
-            if not df_pats_multi.empty:
-                if "supp_heatmap" in selected:
-                    try:
-                        fig_supp_pattern_admission_heatmap(
-                            supp_dir, df_pats_multi, df_seq, self.icd_titles,
-                            method, df_ig=df_ig, split=split)
-                    except Exception as e:
-                        print(f"  [WARN] supp_presence failed: {e}")
-
-                if "supp_decomposition" in selected:
-                    try:
-                        fig_supp_pattern_decomposition(
-                            supp_dir, df_pats_multi, df_seq, df_ig, self.icd_titles,
-                            method, split=split)
-                    except Exception as e:
-                        print(f"  [WARN] supp_decomposition failed: {e}")
-
-        # ── README for figures ─────────────────────────────────────────────
-        readme = (
-            "# Figure–Manuscript Mapping\n\n"
-            "| Manuscript | File | Description |\n"
-            "|---|---|---|\n"
-            "| Fig 1 | (run dir) `fig1_dataset_performance.png` | ROC, calibration, dataset summary |\n"
-            f"| Fig 2 | `main/fig2_patient_explanation_{split}.png` | Single patient: KernelSHAP vs IG vs visit timeline vs patterns |\n"
-            f"| Fig 3 | `main/fig3_global_comparison_{split}.png` | Global: IG vs DeepSHAP vs AToP (≥2-token patterns) |\n"
-            f"| Fig 4 | `main/fig4_temporal_validation_{split}.png` | Perturbation validation (≥2-token, mask/shuffle visits/shuffle within) |\n"
-            "| S1 | (run dir) `fig_train_curves.png` | Training curves |\n"
-            f"| S2 | `supplement/fig3_global_comparison_{split}_all.png` | Fig 3 with all patterns incl. single-token |\n"
-            f"| S3 | `supplement/fig3_global_comparison_train.png` | Fig 3 on TRAIN split (overfitting check) |\n"
-            f"| S4 | `supplement/fig4_temporal_validation_{split}_all.png` | Fig 4 with all patterns incl. single-token |\n"
-            f"| S5 | `supplement/supp_pattern_presence_{split}.png` | Pattern admission heatmap |\n"
-            f"| S6 | `supplement/supp_pattern_decomposition_{split}.png` | Per-token IG breakdown within patterns |\n"
-        )
-
-        # ── Train-split fig3 (supplement for reviewer comparison) ─────────
-        if ("fig3" in selected and self.df_ig_train is not None
-                and self.df_train is not None and df_pats is not None):
-            try:
-                print(f"\n{'='*60}")
-                print(f"[AToP] Generating TRAIN-split fig3 supplement...")
-                print(f"{'='*60}")
-                fig6_global_importance_comparison(
-                    supp_dir, self.model, self.device, self.icd_titles,
-                    self.vocab_inv, self._ig, self.df_ig_train, df_pats,
-                    self.df_train, {},  # empty tensors → skips GradientSHAP
-                    method, cfg.shap_nsamples, n_show=cfg.n_show,
-                    split="train", supp_dir=supp_dir, csv_dir=csv_dir)
-            except Exception as e:
-                import traceback
-                print(f"  [WARN] Train-split fig3 failed: {e}")
-                traceback.print_exc()
-        with open(os.path.join(out_dir, "figures", "README.md"), "w") as f:
-            f.write(readme)
+        # ── README writer + train-split fig3 supplement: REMOVED ──────────
+        # The auto-generated `<run_dir>/figures/README.md` had stale paths
+        # (assumed the legacy main/supplement/csv tree, broken under v2),
+        # nothing downstream consumed it, and it crashed the pipeline on
+        # v2 runs because <run_dir>/figures/ doesn't exist. Deleted in
+        # Apr 2026 cleanup (E.4 in TASKS/legacy_cleanup_inventory.md).
+        # The figure\u2194manuscript mapping now lives in TASKS/_shared_context.md.
+        #
+        # Train-split fig3 supplement (~60-90 min on A100) was removed in
+        # the same cleanup pass \u2014 see TASKS/refactor_mine_global_step.md.
 
         print(f"\n{'='*60}")
-        print(f"[AToP] All figures saved to {out_dir}/figures/")
-        print(f"  Main:         {main_dir}")
-        print(f"  Supplementary: {supp_dir}")
-        print(f"  CSVs:          {csv_dir}")
+        print(f"[AToP] Done.")
+        print(f"  Analysis CSVs/PKLs:  {csv_dir}")
+        print(f"  Sanity-check PNGs:   {main_dir}")
+        print(f"  Tables:              {tbl_dir}")
         print(f"{'='*60}")
 
     # ── LACE comparison ──────────────────────────────────────────────────
@@ -1126,7 +1059,7 @@ class AToPExplainer:
 
         Args:
             lace_csv: Path to lace_scores_all.csv (from precompute_lace.py)
-            out_dir: Base output dir — saves to {out_dir}/tables/lace_baseline.csv
+            out_dir: Base output dir, saves to {out_dir}/tables/lace_baseline.csv
         """
         lace_df = load_lace_scores(lace_csv)
         # Write to tables/ subdir if out_dir is provided
@@ -1148,7 +1081,7 @@ class AToPExplainer:
         Prefers readmitted + multi-visit patients.
         """
         if self.df_ig_test is None or self.df_test is None or self.df_patterns is None:
-            print("  [exemplar] Skipped — missing IG, test, or patterns data")
+            print("  [exemplar] Skipped, missing IG, test, or patterns data")
             return None
 
         is_episode = (self._mining_method == "episode")
@@ -1202,7 +1135,7 @@ class AToPExplainer:
         
         print(f"  [exemplar] Scanning {len(eligible)} candidates...")
         
-        # Precompute IG lookup — sum across positions for repeated tokens
+        # Precompute IG lookup, sum across positions for repeated tokens
         ig_cache = {}
         for (pid, hid), grp in self.df_ig_test.groupby(["patient_id", "index_hadm_id"]):
             ig_cache[(pid, hid)] = grp.groupby("token_str")["ig_abs"].sum().to_dict()
@@ -1259,7 +1192,7 @@ class AToPExplainer:
           4. Pick top non-readmitted patient (for contrast)
         """
         if df_ig is None or df_seq is None or df_pats is None or df_pats.empty:
-            print("  [exemplar] Skipped — missing data")
+            print("  [exemplar] Skipped, missing data")
             return []
 
         is_episode = (self._mining_method == "episode")

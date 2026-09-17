@@ -24,8 +24,8 @@ def _is_subsequence(pattern: tuple, sequence: list) -> bool:
 def _is_subpattern(pattern: list, sequence: list) -> bool:
     """
     Check if an itemset-sequence pattern is a sub-pattern of a visit-block sequence.
-    pattern: List[frozenset] — each frozenset is an itemset that must match a visit
-    sequence: List[frozenset] — the patient's visit blocks
+    pattern: List[frozenset], each frozenset is an itemset that must match a visit
+    sequence: List[frozenset], the patient's visit blocks
     Each itemset in pattern must be a subset of some itemset in sequence, in order.
     """
     seq_pos = 0
@@ -55,8 +55,8 @@ def _match_subpattern(pattern: list, sequence: list):
     pattern rankings.
 
     Args:
-        pattern:  List[frozenset] — ordered itemsets to match
-        sequence: List[frozenset] — patient's visit blocks
+        pattern:  List[frozenset], ordered itemsets to match
+        sequence: List[frozenset], patient's visit blocks
 
     Returns:
         List of (pattern_itemset_idx, sequence_block_idx) tuples, or None if no match.
@@ -86,7 +86,7 @@ def mine_episodes(db: List[List[frozenset]], min_support: int,
     """
     Mine frequent itemset-sequence patterns from visit-block database.
 
-    db: List[List[frozenset]] — each entry is a patient's visit sequence
+    db: List[List[frozenset]], each entry is a patient's visit sequence
     min_support: minimum number of sequences containing the pattern
     max_len: max total items across all itemsets in the pattern
     topn: max patterns to return (by support), 0=no limit
@@ -607,7 +607,7 @@ def mine_patterns(seqs_flat, seqs_visit_blocks, y, method, min_support_frac,
             all_pattern_keys = set(pat_patients.keys())
 
         # Now verify patterns in the OTHER group (case patterns in controls, vice versa)
-        # Mining only found support within each group — need to check across
+        # Mining only found support within each group, need to check across
         pats_case_only = {_to_key(p) for _, p, _ in freq_case} & all_pattern_keys
         pats_ctrl_only = {_to_key(p) for _, p, _ in freq_ctrl} & all_pattern_keys
 

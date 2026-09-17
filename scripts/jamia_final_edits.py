@@ -43,7 +43,7 @@ def replace_all(doc, old, new):
     return n
 
 
-# ── 1. Number audit — fix stale values in prose ───────────────────────────────
+# ── 1. Number audit, fix stale values in prose ───────────────────────────────
 print("[1] Auditing stale numbers in prose...")
 NUMBER_FIXES = [
     # Readmitted / not readmitted counts
@@ -62,7 +62,7 @@ NUMBER_FIXES = [
     ("12,489 (50.2%)", "14,141 (51.4%)"),
     ("91,370 (53.3%)", "101,203 (53.1%)"),
     ("115,461 (52.9%)", "115,344 (52.9%)"),
-    # Mining threshold — config.json said 0.02 but actual run used 0.001
+    # Mining threshold, config.json said 0.02 but actual run used 0.001
     ("2% minimum support",       "0.1% minimum support"),
     ("minimum support of 2%",    "minimum support of 0.1%"),
     ("support threshold of 2%",  "support threshold of 0.1%"),
@@ -74,7 +74,7 @@ for old, new in NUMBER_FIXES:
     if n:
         print(f"    Fixed: '{old}' → '{new}'  ({n}x)")
 
-# ── 2. Edit B — Mining methods ────────────────────────────────────────────────
+# ── 2. Edit B, Mining methods ────────────────────────────────────────────────
 # Insert the case/control-separated mining description after the anchor
 # "with minimum support filtering" in the Methods-body pipeline paragraph
 # (the abstract's mining summary uses different wording so won't match).
@@ -104,27 +104,27 @@ if not added_b:
     print("    ⚠️  Anchor 'with minimum support filtering' not found")
     print(f"    Text to paste: {B_APPEND.strip()}")
 
-# ── 3. Edit C — LACE+ description ─────────────────────────────────────────────
+# ── 3. Edit C, LACE description ─────────────────────────────────────────────
 # Use the unique substring that only appears in the body Results paragraph.
-print("\n[3] Edit C: LACE+ reframe...")
+print("\n[3] Edit C: LACE reframe...")
 C_OLD = (
-    "outperforming the LACE+ index [7], a widely used readmission risk score "
+    "outperforming the LACE index [7], a widely used readmission risk score "
     "incorporating length of stay, acuity, comorbidity, ED utilization, age, "
-    "sex, and prior admissions: LACE+ logistic regression"
+    "sex, and prior admissions: LACE logistic regression"
 )
 C_NEW = (
     "outperforming logistic regression and XGBoost classifiers trained on "
     "LACE-derived features (length of stay, acuity, Charlson Comorbidity "
     "Index, ED visits in the prior 6 months, age, sex, and prior admission "
-    "count): LACE+ logistic regression"
+    "count): LACE logistic regression"
 )
 if replace_all(doc, C_OLD, C_NEW):
-    print("    Reframed LACE+ as ML classifiers trained on LACE-derived features")
+    print("    Reframed LACE as ML classifiers trained on LACE-derived features")
 else:
-    print("    ⚠️  LACE+ sentence not matched — add manually")
+    print("    ⚠️  LACE sentence not matched, add manually")
     print(f"    Text to paste: {C_NEW}")
 
-# ── 4. Edit D — Index admission caveat ───────────────────────────────────────
+# ── 4. Edit D, Index admission caveat ───────────────────────────────────────
 print("\n[4] Edit D: Index admission caveat...")
 D_CAVEAT = (
     " This ensures an observed future window for readmission ascertainment "
@@ -148,7 +148,7 @@ if not added_d:
     print("    ⚠️  Penultimate-admission anchor not found")
     print(f"    Text to paste: {D_CAVEAT.strip()}")
 
-# ── 5. Edit E — Table 3 footnote ─────────────────────────────────────────────
+# ── 5. Edit E, Table 3 footnote ─────────────────────────────────────────────
 print("\n[5] Edit E: Table 3 footnote...")
 T3_FOOTNOTE = "Pattern ranking on the test set is based entirely on label-free ΣIG attribution."
 added = False
@@ -169,10 +169,10 @@ for i, tbl in enumerate(doc.tables):
         print(f"    Added Table 3 footnote after table {i}")
         break
 if not added:
-    print("    ⚠️  Table 3 not identified — add footnote manually")
+    print("    ⚠️  Table 3 not identified, add footnote manually")
     print(f"    Text to paste: {T3_FOOTNOTE}")
 
-# ── 6. Edit F — Masking caveat (target ONLY the "Token masking:" subsection) ─
+# ── 6. Edit F, Masking caveat (target ONLY the "Token masking:" subsection) ─
 print("\n[6] Edit F: Masking caveat...")
 F_CAVEAT = (
     " Masking changes inputs outside the training distribution; results are "
@@ -193,8 +193,8 @@ if not added_f:
     print("    ⚠️  'Token masking:' paragraph not found")
     print(f"    Text to paste: {F_CAVEAT.strip()}")
 
-# ── 7. Edit G — Figure 3 caption panel descriptions ──────────────────────────
-# The caption paragraph starts with "[Figure 3:" in square brackets — unique.
+# ── 7. Edit G, Figure 3 caption panel descriptions ──────────────────────────
+# The caption paragraph starts with "[Figure 3:" in square brackets, unique.
 print("\n[7] Edit G: Figure 3 caption...")
 G_APPEND = (
     " Panel A: which tokens matter at the population level (prevalence-weighted). "
@@ -226,15 +226,15 @@ LEGENDS = [
 
     ("Figure 1. AToP framework overview.",
      True, False, 11, 12),
-    ("Four-stage pipeline illustrating the AToP framework: (1) Attribution — "
+    ("Four-stage pipeline illustrating the AToP framework: (1) Attribution, "
      "per-token Integrated Gradients computed on the trained Transformer; "
-     "(2) Mapping — salient tokens mapped back to their admission-block structure; "
-     "(3) Mining — frequent cross-visit temporal patterns extracted from training-set "
-     "salient blocks; (4) Validation — patterns evaluated on held-out test data via "
+     "(2) Mapping, salient tokens mapped back to their admission-block structure; "
+     "(3) Mining, frequent cross-visit temporal patterns extracted from training-set "
+     "salient blocks; (4) Validation, patterns evaluated on held-out test data via "
      "token masking.",
      False, False, 11, 2),
-    ("Alt text: Horizontal four-stage diagram showing the AToP pipeline — "
-     "Attribution, Mapping, Mining, and Validation — connected by left-to-right arrows.",
+    ("Alt text: Horizontal four-stage diagram showing the AToP pipeline, "
+     "Attribution, Mapping, Mining, and Validation, connected by left-to-right arrows.",
      False, True, 10, 2),
 
     ("Figure 2. Single-patient attribution example.",
