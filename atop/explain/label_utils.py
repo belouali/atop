@@ -2,8 +2,8 @@
 
 Provides consistent, readable labels for ICD codes and drug names across
 all figures. Two-level approach:
-  1. Clinical abbreviation map — well-known conditions get standard abbreviations
-  2. Generic word shortenings — common filler words abbreviated
+  1. Clinical abbreviation map, well-known conditions get standard abbreviations
+  2. Generic word shortenings, common filler words abbreviated
 
 Drug names are resolved via a module-level registry set by set_drug_names().
 """

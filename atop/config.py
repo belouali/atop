@@ -8,7 +8,8 @@ from dataclasses import dataclass, field, asdict
 from typing import List, Optional
 
 import numpy as np
-import torch
+# torch is imported lazily inside set_seed() / pick_device() so torch-free
+# callers (figure-rendering scripts that read CSVs) can import this module.
 
 # ── Global constants ─────────────────────────────────────────────────────
 PAD_IDX = 0
@@ -38,21 +39,21 @@ DEFAULT_DRUG_EXCLUDE_SUBSTRINGS = [
 
 # RxCUI-based exclude list: non-informative drugs that survive RxNorm mapping.
 # These are given to nearly all hospitalized patients regardless of condition.
-# Format: D:RX_{rxcui} — matched exactly against RxNorm-mapped drug tokens.
+# Format: D:RX_{rxcui}, matched exactly against RxNorm-mapped drug tokens.
 DEFAULT_DRUG_EXCLUDE_RXCUIS = [
     # IV fluids / delivery vehicles
-    "D:RX_9853",   # sodium chloride (saline) — 90.7%
-    "D:RX_82003",  # dextrose (D5W / glucose) — 56.1%
-    "D:RX_9863",   # potassium chloride (KCl) — 60.6%
+    "D:RX_9853",   # sodium chloride (saline), 90.7%
+    "D:RX_82003",  # dextrose (D5W / glucose), 56.1%
+    "D:RX_9863",   # potassium chloride (KCl), 60.6%
     # Routine ward meds
-    "D:RX_161",    # acetaminophen (Tylenol) — 81.2%
-    "D:RX_5224",   # heparin (DVT prophylaxis) — 66.4%
-    "D:RX_4850",   # ondansetron (Zofran, anti-nausea) — 53.9%
-    "D:RX_114202", # docusate (stool softener) — 33.2%
-    "D:RX_8591",   # propofol (anesthesia) — 35.9%
-    "D:RX_26225",  # magnesium (supplement) — 41.4%
+    "D:RX_161",    # acetaminophen (Tylenol), 81.2%
+    "D:RX_5224",   # heparin (DVT prophylaxis), 66.4%
+    "D:RX_4850",   # ondansetron (Zofran, anti-nausea), 53.9%
+    "D:RX_114202", # docusate (stool softener), 33.2%
+    "D:RX_8591",   # propofol (anesthesia), 35.9%
+    "D:RX_26225",  # magnesium (supplement), 41.4%
     # Supplements / vitamins (RxNorm equivalents)
-    "D:RX_11124",  # calcium (various forms) — 19.0%
+    "D:RX_11124",  # calcium (various forms), 19.0%
 ]
 
 # Default ICD prefixes to exclude (non-informative administrative / screening codes)
@@ -71,6 +72,7 @@ DEFAULT_ICD_EXCLUDE_PREFIXES = [
 
 
 def set_seed(seed: int) -> None:
+    import torch  # lazy: keeps config.py torch-free at import time
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
@@ -87,7 +89,8 @@ def set_seed(seed: int) -> None:
         pass  # older PyTorch versions don't support warn_only
 
 
-def pick_device(arg: str) -> torch.device:
+def pick_device(arg: str):
+    import torch  # lazy
     if arg == "auto":
         return torch.device("cuda" if torch.cuda.is_available() else "cpu")
     return torch.device(arg)
@@ -95,7 +98,7 @@ def pick_device(arg: str) -> torch.device:
 
 @dataclass
 class AToPConfig:
-    """All configuration for an AToP run — saved as config.json in the model bundle."""
+    """All configuration for an AToP run, saved as config.json in the model bundle."""
     # Data
     mimic_dir: str = ""
     token_types: str = "CPD"
@@ -159,9 +162,8 @@ class AToPConfig:
     validate_max_admissions_per_pattern: int = 200
     n_shuffle_draws: int = 50
 
-    # Attention flow
-    attention_n_patterns: int = 100  # number of patterns to test (top N/2 risk + N/2 protective)
-    attention_max_patients: int = 200  # max patients sampled per pattern
+    # Attention flow knobs removed in Apr 2026 cleanup along with
+    # atop/explain/attention_flow.py (locked: skip, "ratio 1.09 too weak").
 
     # Display
     n_show: int = 15  # number of items per panel in figures

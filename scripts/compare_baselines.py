@@ -118,7 +118,7 @@ def main():
     test_l = _merge_samples_lace(test_samples, lace_df)
 
     if test_l.empty or train_l.empty:
-        print("[LACE] No matching admissions found — check subject_id/hadm_id alignment")
+        print("[LACE] No matching admissions found, check subject_id/hadm_id alignment")
         return
 
     print(f"[LACE] Matched: train={len(train_l):,} | test={len(test_l):,}")
@@ -201,7 +201,7 @@ def main():
             trans_probs_matched = matched["y_prob"].values
 
             if len(trans_probs_matched) != len(y_te):
-                print(f"[bootstrap] Skipped — alignment mismatch "
+                print(f"[bootstrap] Skipped, alignment mismatch "
                       f"({len(trans_probs_matched)} vs {len(y_te)})")
             else:
                 prob_store["Transformer"] = trans_probs_matched

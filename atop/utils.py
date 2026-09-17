@@ -6,7 +6,8 @@ from typing import Dict, Tuple
 
 import numpy as np
 import pandas as pd
-import torch
+# torch is imported lazily inside predict_one() so torch-free callers
+# (make_*.py figure renderers, etc.) can import this module.
 
 from atop.config import PAD_IDX
 
@@ -138,7 +139,8 @@ def token_stream(tok: str) -> str:
 
 # ── Prediction helper ────────────────────────────────────────────────────
 
-def predict_one(model, device: torch.device, input_ids: torch.Tensor) -> float:
+def predict_one(model, device, input_ids) -> float:
+    import torch  # lazy: keeps utils.py torch-free at import time
     model.eval()
     with torch.no_grad():
         out = model(input_ids.to(device))

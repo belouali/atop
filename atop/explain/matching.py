@@ -52,7 +52,7 @@ def _match_all_patterns(df_patterns, salient_visit_blocks, is_episode):
 
 
 # ═══════════════════════════════════════════════════════════════════════
-# Bulk indexed matching (new — O(patterns × avg_candidates) instead of
+# Bulk indexed matching (new, O(patterns × avg_candidates) instead of
 # O(patterns × all_patients))
 # ═══════════════════════════════════════════════════════════════════════
 

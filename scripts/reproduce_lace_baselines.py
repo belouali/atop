@@ -1,5 +1,5 @@
 """
-Reproduce LACE+ LR and XGBoost baselines for AToP paper.
+Reproduce LACE LR and XGBoost baselines for AToP paper.
 
 Features (7): los_days, cci, ed_visits_6mo, A (acuity), age, female, prior_admissions
 Cohort: matches the Transformer model exactly. (patient_id, index_hadm_id, readmission)
@@ -8,8 +8,8 @@ which the model produced during training/evaluation. This guarantees the same
 patients and same index admissions as the paper's AUROC 0.766 run.
 
 Expected results (from Colab session):
-  LACE+ LR:      AUROC 0.657, PR-AUC ~0.24
-  LACE+ XGBoost: AUROC 0.729, PR-AUC ~0.32
+  LACE LR:      AUROC 0.657, PR-AUC ~0.24
+  LACE XGBoost: AUROC 0.729, PR-AUC ~0.32
 
 Output saved to: runs/full_CPD/baselines/
 """
@@ -24,7 +24,7 @@ from xgboost import XGBClassifier
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-FULL_RUN  = "../runs/full_CPD"
+FULL_RUN  = "../runs/full_CPD_v2"
 MIMIC_DIR = "../data/mimiciv/3.1/hosp"
 SEQ_DIR   = f"{FULL_RUN}/explain/data"
 OUT_DIR   = f"{FULL_RUN}/baselines"
@@ -107,7 +107,7 @@ X_test  = test_df[FEATURES].values.astype(float)
 y_test  = test_df["readmit_30d"].values.astype(float)
 
 # ── Logistic Regression ────────────────────────────────────────────────────
-print("\n[5] LACE+ Logistic Regression...")
+print("\n[5] LACE logistic regression...")
 sc = StandardScaler()
 X_train_s = sc.fit_transform(X_train)
 X_test_s  = sc.transform(X_test)
@@ -123,7 +123,7 @@ else:
     print(f"    ✅ Matches expected 0.657 within tolerance")
 
 # ── XGBoost ────────────────────────────────────────────────────────────────
-print("\n[6] LACE+ XGBoost...")
+print("\n[6] LACE XGBoost...")
 scale_pos = float((y_train == 0).sum() / (y_train == 1).sum())
 xgb = XGBClassifier(
     n_estimators=200,
@@ -169,28 +169,28 @@ print(f"    XGB AUROC: {xgb_auroc:.4f}  (95% CI: {xgb_ci[0]:.4f}–{xgb_ci[1]:.4
 # ── Save results ───────────────────────────────────────────────────────────
 print("\n[8] Saving results...")
 results = pd.DataFrame([
-    {"model": "LACE+ LR",
+    {"model": "LACE LR",
      "features": ",".join(FEATURES),
      "n_train": len(train_df), "n_test": len(test_df),
      "auroc": lr_auroc, "pr_auc": lr_prauc,
      "auroc_ci_lo": lr_ci[0], "auroc_ci_hi": lr_ci[1],
      "pr_auc_ci_lo": lr_prauc_ci[0], "pr_auc_ci_hi": lr_prauc_ci[1]},
-    {"model": "LACE+ XGBoost",
+    {"model": "LACE XGBoost",
      "features": ",".join(FEATURES),
      "n_train": len(train_df), "n_test": len(test_df),
      "auroc": xgb_auroc, "pr_auc": xgb_prauc,
      "auroc_ci_lo": xgb_ci[0], "auroc_ci_hi": xgb_ci[1],
      "pr_auc_ci_lo": xgb_prauc_ci[0], "pr_auc_ci_hi": xgb_prauc_ci[1]},
 ])
-out_path = f"{OUT_DIR}/lace_plus_baselines.csv"
+out_path = f"{OUT_DIR}/lace_baselines.csv"
 results.to_csv(out_path, index=False)
 print(f"    Saved to: {out_path}")
 print(f"\n{results.to_string(index=False)}")
 
 print("\n" + "=" * 60)
 print("COPY INTO PAPER:")
-print(f"  LACE+ LR:      AUROC {lr_auroc:.2f} (95% CI {lr_ci[0]:.2f}–{lr_ci[1]:.2f}), "
+print(f"  LACE LR:      AUROC {lr_auroc:.2f} (95% CI {lr_ci[0]:.2f}–{lr_ci[1]:.2f}), "
       f"PR-AUC {lr_prauc:.2f}")
-print(f"  LACE+ XGBoost: AUROC {xgb_auroc:.2f} (95% CI {xgb_ci[0]:.2f}–{xgb_ci[1]:.2f}), "
+print(f"  LACE XGBoost: AUROC {xgb_auroc:.2f} (95% CI {xgb_ci[0]:.2f}–{xgb_ci[1]:.2f}), "
       f"PR-AUC {xgb_prauc:.2f}")
 print("=" * 60)
