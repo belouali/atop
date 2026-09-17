@@ -4,7 +4,7 @@ One-pass JAMIA submission formatter for AToP_paper_v6.docx.
 What this does (in order):
   1. Loads the 218,196-patient one-per-patient cache
      (../data/mimiciv/3.1/hosp/.atop_cache/samples_*.pkl with label sum = 27,508)
-     and computes Table 1 stats directly from it — no manual filling.
+     and computes Table 1 stats directly from it, no manual filling.
   2. Copies figures to ../manuscript/jamia_submission/figures/ with
      JAMIA-standard names (Figure1.pptx, Figure2/3/4.png).
   3. Fills Table 1, Table 2, Table 3 [val] cells positionally
@@ -101,7 +101,7 @@ def append_to_para(para, suffix):
 
 
 # ────────────────────────────────────────────────────────────────────────
-# Step A — Load the 218,196-patient pkl and compute Table 1 stats
+# Step A, Load the 218,196-patient pkl and compute Table 1 stats
 # ────────────────────────────────────────────────────────────────────────
 print("=" * 70)
 print("[A] Loading one-per-patient pkl and computing Table 1 stats")
@@ -214,7 +214,7 @@ for k, v in T1.items():
 
 
 # ────────────────────────────────────────────────────────────────────────
-# Step B — Copy figures
+# Step B, Copy figures
 # ────────────────────────────────────────────────────────────────────────
 print("\n" + "=" * 70)
 print("[B] Copying figures")
@@ -238,7 +238,7 @@ for src, dst_name in fig_map:
 
 
 # ────────────────────────────────────────────────────────────────────────
-# Step C — Open doc, fill Table 1/2/3, run text edits, add legends
+# Step C, Open doc, fill Table 1/2/3, run text edits, add legends
 # ────────────────────────────────────────────────────────────────────────
 print("\n" + "=" * 70)
 print("[C] Opening doc and applying edits")
@@ -258,8 +258,8 @@ for old, new in [
     if n:
         print(f"    Fixed '{old}' ({n}x)")
 
-# ── C2. Table 1 (cohort characteristics) — full-cohort values ──
-print("\n[C2] Table 1 — filling with full 218,196 cohort")
+# ── C2. Table 1 (cohort characteristics), full-cohort values ──
+print("\n[C2] Table 1, filling with full 218,196 cohort")
 t0 = doc.tables[0]
 HEADER = {
     "Readmitted":     f"Readmitted\n(n={n_r:,})",
@@ -275,14 +275,14 @@ for cell in t0.rows[0].cells:
 
 # row_idx → (Overall, Readmitted, Not Readmitted, P)
 t0_rows = {
-    2:  (*T1["age"],       "—"),   # Age
-    3:  (*T1["female"],    "—"),   # Female sex
-    5:  (*T1["emergency"], "—"),   # Emergency/Urgent
-    7:  (*T1["los"],       "—"),   # LOS (days)
-    8:  "DELETE",                  # Acuity — delete row (redundant)
-    9:  (*T1["cci"],       "—"),   # CCI
-    10: (*T1["ed"],        "—"),   # ED visits 6mo
-    11: (*T1["prior_adm"], "—"),   # Prior admissions
+    2:  (*T1["age"],       "-"),   # Age
+    3:  (*T1["female"],    "-"),   # Female sex
+    5:  (*T1["emergency"], "-"),   # Emergency/Urgent
+    7:  (*T1["los"],       "-"),   # LOS (days)
+    8:  "DELETE",                  # Acuity, delete row (redundant)
+    9:  (*T1["cci"],       "-"),   # CCI
+    10: (*T1["ed"],        "-"),   # ED visits 6mo
+    11: (*T1["prior_adm"], "-"),   # Prior admissions
 }
 
 # Apply row updates first (leave Acuity for deletion afterward)
@@ -311,17 +311,17 @@ if not deleted_acuity:
 
 
 # ── C3. Table 1 (Mining summary) ──
-print("\n[C3] Table 2 — mining summary")
+print("\n[C3] Table 2, mining summary")
 t1 = doc.tables[1]
 t1_rows = {
-    2: ("36.1 (43.3)",  "—"),
-    3: ("13.7 (12.4)",  "—"),
-    4: ("38.0",         "—"),
-    6: ("24,490",       "—"),
-    7: ("5,325",        "—"),
-    8: ("5,047",        "—"),
-    10: ("—", "1,877"),
-    11: ("—", "3,170"),
+    2: ("36.1 (43.3)",  "-"),
+    3: ("13.7 (12.4)",  "-"),
+    4: ("38.0",         "-"),
+    6: ("24,490",       "-"),
+    7: ("5,325",        "-"),
+    8: ("5,047",        "-"),
+    10: ("-", "1,877"),
+    11: ("-", "3,170"),
 }
 for ri, (train, test) in t1_rows.items():
     if ri >= len(t1.rows):
@@ -333,14 +333,14 @@ for ri, (train, test) in t1_rows.items():
 print("    All 8 mining metrics filled")
 
 
-# ── C4. Table 2 (Phenotype clusters) — ΣIG, n carriers, Δŷ ──
-print("\n[C4] Table 3 — phenotype clusters")
+# ── C4. Table 2 (Phenotype clusters), ΣIG, n carriers, Δŷ ──
+print("\n[C4] Table 3, phenotype clusters")
 dumbbell = pd.read_csv(f"{FIG_MAIN}/fig4_dumbbell_test_j20_short.csv")
 pathway  = pd.read_csv(f"{FULL_RUN}/explain/figures/csv/fig3_pathway_importance_test.csv")
 
 def _canon(s: str) -> str:
     t = str(s).lower().strip()
-    t = t.replace("→", "->").replace("–", "-").replace("—", "-")
+    t = t.replace("→", "->").replace("–", "-").replace("-", "-")
     t = re.sub(r"\s*\([^)]*\)", "", t)
     t = re.sub(r"[\{\},\s\.]", "", t)
     return t
@@ -460,7 +460,7 @@ doc.save(DST)
 print(f"    ✅ Saved ({os.path.getsize(DST)/1024:.0f} KB)")
 
 print("\n" + "=" * 70)
-print("TABLE 1 — numbers written to docx (copy into any external text):")
+print("TABLE 1, numbers written to docx (copy into any external text):")
 print("=" * 70)
 print(f"  N total:       {n_total:,}")
 print(f"  N readmitted:  {n_r:,}")

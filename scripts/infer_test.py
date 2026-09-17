@@ -3,12 +3,12 @@ Run the trained SingleStreamTransformer on cached test tensors and save
 per-patient predictions for bootstrap CI computation.
 
 Inputs:
-  runs/full_CPD/model.pt                    — state dict
-  runs/full_CPD/ig_cache/tensors_test.pt    — dict[(pid, hadm_id) -> (1, 512) LongTensor]
-  runs/full_CPD/explain/data/sequences_test.pkl — cohort with readmission label
+  runs/full_CPD/model.pt                   , state dict
+  runs/full_CPD/ig_cache/tensors_test.pt   , dict[(pid, hadm_id) -> (1, 512) LongTensor]
+  runs/full_CPD/explain/data/sequences_test.pkl, cohort with readmission label
 
 Output:
-  runs/full_CPD/test_predictions.csv        — cols: subject_id, hadm_id, y_true, y_prob
+  runs/full_CPD/test_predictions.csv       , cols: subject_id, hadm_id, y_true, y_prob
 """
 from __future__ import annotations
 import os, sys, pickle

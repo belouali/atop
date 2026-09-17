@@ -71,12 +71,12 @@ class SingleStreamTransformer(nn.Module):
         return out
 
     def get_input_embeddings(self, input_ids: torch.Tensor) -> torch.Tensor:
-        """Return the input embeddings (token + position) — needed for IG baseline."""
+        """Return the input embeddings (token + position), needed for IG baseline."""
         B, L = input_ids.shape
         positions = torch.arange(L, device=input_ids.device).unsqueeze(0).expand(B, L)
         return self.token_emb(input_ids) + self.pos_emb(positions)
 
 
 # ============================================================================
-# INTEGRATED GRADIENTS — Custom implementation for single-stream model
+# INTEGRATED GRADIENTS, Custom implementation for single-stream model
 # ============================================================================

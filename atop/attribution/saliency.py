@@ -151,8 +151,8 @@ def _select_salient(items: List[Dict], mass: float, max_tokens: int):
     """Select top tokens by IG mass, preserving sequential order.
 
     Returns:
-        salient_tokens: List[str] — token strings in sequence order
-        salient_positions: Set[int] — encoded positions of salient tokens
+        salient_tokens: List[str], token strings in sequence order
+        salient_positions: Set[int], encoded positions of salient tokens
     """
     if not items:
         return [], set()
@@ -180,7 +180,7 @@ def _build_salient_visit_blocks(all_items, combined_salient, flat_tokens,
                                  token_visit_idx, ids_b, vocab_inv, max_seq_len):
     """
     Build visit-block representation of salient tokens for episode mining.
-    Returns: List[frozenset] — one frozenset per visit containing salient token strings.
+    Returns: List[frozenset], one frozenset per visit containing salient token strings.
     Only visits that contribute at least one salient token are included.
 
     Handles CLS-preserving truncation:
@@ -233,5 +233,5 @@ def _build_salient_visit_blocks(all_items, combined_salient, flat_tokens,
 
 
 # ============================================================================
-# PATTERN MINING — Episode (itemset-sequence), n-gram, and PrefixSpan
+# PATTERN MINING, Episode (itemset-sequence), n-gram, and PrefixSpan
 # ============================================================================

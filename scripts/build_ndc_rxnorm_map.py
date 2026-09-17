@@ -7,7 +7,7 @@ Two-stage strategy (both proven to work with RxNorm API):
   Stage 2: Drug name → Ingredient via /approximateTerm.json (for NDC misses + no-NDC rows)
 
 Outputs:
-  ndc_to_ingredient.csv — mapping table with columns:
+  ndc_to_ingredient.csv, mapping table with columns:
       ndc, drug_name, rxcui, ingredient_rxcui, ingredient_name, source
 
 Usage:

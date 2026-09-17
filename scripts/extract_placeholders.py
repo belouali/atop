@@ -274,8 +274,8 @@ if os.path.exists(pred_csv):
     print(f"  AUROC:  {np.mean(aurocs):.4f}  (95% CI: {np.percentile(aurocs,2.5):.4f}–{np.percentile(aurocs,97.5):.4f})")
     print(f"  PR-AUC: {np.mean(praucs):.4f}  (95% CI: {np.percentile(praucs,2.5):.4f}–{np.percentile(praucs,97.5):.4f})")
 else:
-    print(f"  [skip] {pred_csv} not found — run scripts/infer_test.py first to generate predictions")
+    print(f"  [skip] {pred_csv} not found, run scripts/infer_test.py first to generate predictions")
 
 print("\n" + "=" * 70)
-print("DONE — copy values above into AToP_paper_v6.docx")
+print("DONE, copy values above into AToP_paper_v6.docx")
 print("=" * 70)

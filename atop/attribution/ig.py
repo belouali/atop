@@ -66,7 +66,7 @@ class IntegratedGradientsCustom:
             input_ids: (B, L) token indices
             target_class: class index (1 = readmitted)
         Returns:
-            attributions: (B, L) — per-token attribution scores
+            attributions: (B, L), per-token attribution scores
         """
         self.model.eval()
         try:

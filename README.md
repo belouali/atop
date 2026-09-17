@@ -59,7 +59,7 @@ python scripts/train_model.py --run_dir runs/exp01
 # 2. Run AToP explanation pipeline
 python scripts/run_atop.py --run_dir runs/exp01 --mimic_dir /data/mimiciv/hosp
 
-# 3. Compare against LACE+ baseline
+# 3. Compare against LACE baseline
 python scripts/compare_baselines.py --run_dir runs/exp01
 ```
 
