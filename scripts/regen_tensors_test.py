@@ -15,7 +15,7 @@ from torch.utils.data import DataLoader
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from atop.data.datasets import MIMICReadmissionDataset, collate_fn
 
-BUNDLE = "../runs/full_CPD_v2"
+BUNDLE = "../runs/mimiciv_readmission_30d"
 OUT    = f"{BUNDLE}/ig_cache/tensors_test.pt"
 
 print("[1] Loading vocab.pkl...")

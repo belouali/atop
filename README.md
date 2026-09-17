@@ -71,24 +71,24 @@ explainer.report(out_dir="explanations/")
 
 ## Reproducing Paper Results
 
-The paper's run directory is `runs/full_CPD_v2`. Every script below takes
+The paper's run directory is `runs/mimiciv_readmission_30d`. Every script below takes
 `--run_dir`, and the figure and table scripts also take `--split` (default
 `test`). Run them from `scripts/`.
 
 **1. Build the cohort and train the model**
 
 ```bash
-python scripts/preprocess.py --mimic_dir /data/mimiciv/hosp --out_dir runs/full_CPD_v2
-python scripts/train_model.py --run_dir runs/full_CPD_v2
+python scripts/preprocess.py --mimic_dir /data/mimiciv/hosp --out_dir runs/mimiciv_readmission_30d
+python scripts/train_model.py --run_dir runs/mimiciv_readmission_30d
 ```
 
 **2. Attribution, mining and validation**
 
 ```bash
-python scripts/run_atop.py --run_dir runs/full_CPD_v2 --mimic_dir /data/mimiciv/hosp
-python scripts/build_validation_whitelist.py --run_dir runs/full_CPD_v2
-python scripts/run_validation_topup.py --run_dir runs/full_CPD_v2
-python scripts/run_reversed_order_topup.py --run_dir runs/full_CPD_v2
+python scripts/run_atop.py --run_dir runs/mimiciv_readmission_30d --mimic_dir /data/mimiciv/hosp
+python scripts/build_validation_whitelist.py --run_dir runs/mimiciv_readmission_30d
+python scripts/run_validation_topup.py --run_dir runs/mimiciv_readmission_30d
+python scripts/run_reversed_order_topup.py --run_dir runs/mimiciv_readmission_30d
 ```
 
 **3. Baselines (Table 2)**
@@ -105,20 +105,20 @@ prior admissions. They are *not* the published LACE+ index.
 **4. Cross-method replication (KernelSHAP)**
 
 ```bash
-python scripts/build_cohort_shap_cache.py --run_dir runs/full_CPD_v2
-python scripts/build_shap_aggregations.py --run_dir runs/full_CPD_v2
+python scripts/build_cohort_shap_cache.py --run_dir runs/mimiciv_readmission_30d
+python scripts/build_shap_aggregations.py --run_dir runs/mimiciv_readmission_30d
 ```
 
 **5. Main figures and tables**
 
 ```bash
-python scripts/make_fig2.py   --run_dir runs/full_CPD_v2   # single-patient explanation
-python scripts/make_fig3.py   --run_dir runs/full_CPD_v2   # token-level attribution
-python scripts/make_fig4.py   --run_dir runs/full_CPD_v2   # pattern-level attribution
-python scripts/make_fig5.py   --run_dir runs/full_CPD_v2   # perturbation validation
-python scripts/make_table1.py --run_dir runs/full_CPD_v2   # cohort characteristics
-python scripts/make_table2.py --run_dir runs/full_CPD_v2   # predictive performance
-python scripts/make_table3.py --run_dir runs/full_CPD_v2   # Tables 3 and 4
+python scripts/make_fig2.py   --run_dir runs/mimiciv_readmission_30d   # single-patient explanation
+python scripts/make_fig3.py   --run_dir runs/mimiciv_readmission_30d   # token-level attribution
+python scripts/make_fig4.py   --run_dir runs/mimiciv_readmission_30d   # pattern-level attribution
+python scripts/make_fig5.py   --run_dir runs/mimiciv_readmission_30d   # perturbation validation
+python scripts/make_table1.py --run_dir runs/mimiciv_readmission_30d   # cohort characteristics
+python scripts/make_table2.py --run_dir runs/mimiciv_readmission_30d   # predictive performance
+python scripts/make_table3.py --run_dir runs/mimiciv_readmission_30d   # Tables 3 and 4
 ```
 
 Figure 1 is a hand-drawn schematic, not generated from data.
@@ -126,11 +126,11 @@ Figure 1 is a hand-drawn schematic, not generated from data.
 **6. Supplementary figures**
 
 ```bash
-python scripts/make_fig_s1.py  --run_dir runs/full_CPD_v2   # reversal attenuation
-python scripts/make_fig_s7_jaccard_sensitivity.py  --run_dir runs/full_CPD_v2
-python scripts/make_fig_s8_full_pool_sensitivity.py --run_dir runs/full_CPD_v2
-python scripts/make_fig_s11_shap_fig3.py --run_dir runs/full_CPD_v2
-python scripts/make_fig_faithfulness.py --run_dir runs/full_CPD_v2
+python scripts/make_fig_s1.py  --run_dir runs/mimiciv_readmission_30d   # reversal attenuation
+python scripts/make_fig_s7_jaccard_sensitivity.py  --run_dir runs/mimiciv_readmission_30d
+python scripts/make_fig_s8_full_pool_sensitivity.py --run_dir runs/mimiciv_readmission_30d
+python scripts/make_fig_s11_shap_fig3.py --run_dir runs/mimiciv_readmission_30d
+python scripts/make_fig_faithfulness.py --run_dir runs/mimiciv_readmission_30d
 ```
 
 (`make_fig_s2.py` … `make_fig_s12.py` follow the same convention.)

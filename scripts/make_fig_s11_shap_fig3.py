@@ -23,7 +23,7 @@ default so Panel A's tiny population-weighted SHAP magnitudes don't
 swamp the comparison).
 
 Usage:
-    python scripts/make_fig_s11_shap_fig3.py --run_dir ../runs/full_CPD_v2
+    python scripts/make_fig_s11_shap_fig3.py --run_dir ../runs/mimiciv_readmission_30d
 """
 from __future__ import annotations
 
@@ -63,7 +63,7 @@ def _bold(s: str) -> str:
 def main() -> None:
     p = argparse.ArgumentParser(
         description="Render Fig S11 (SHAP-based replication of Fig 3)")
-    p.add_argument("--run_dir", default="../runs/full_CPD_v2")
+    p.add_argument("--run_dir", default="../runs/mimiciv_readmission_30d")
     p.add_argument("--split", default="test")
     p.add_argument("--n_show", type=int, default=N_SHOW)
     p.add_argument("--jaccard_threshold", type=float, default=JACCARD_THRESHOLD)

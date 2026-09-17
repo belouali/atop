@@ -27,7 +27,7 @@ Data sources:
 Both panel CSVs are written by make_fig3.py.
 
 Usage:
-    python scripts/make_fig5.py --run_dir ../runs/full_CPD_v2
+    python scripts/make_fig5.py --run_dir ../runs/mimiciv_readmission_30d
 """
 from __future__ import annotations
 
@@ -219,7 +219,7 @@ def _draw_dumbbell_panel(ax, sel: pd.DataFrame, resolver: PatternLabelResolver,
 def main() -> None:
     p = argparse.ArgumentParser(
         description="Render Figure 5 (perturbation-validation dumbbell, 2-panel).")
-    p.add_argument("--run_dir", default="../runs/full_CPD_v2")
+    p.add_argument("--run_dir", default="../runs/mimiciv_readmission_30d")
     p.add_argument("--split", default="test")
     p.add_argument("--jaccard_threshold", type=float, default=JACCARD_THRESHOLD)
     p.add_argument("--n_show", type=int, default=N_SHOW,

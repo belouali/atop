@@ -19,7 +19,7 @@ Both CSVs are written by make_fig3.py (which always computes them, even
 though the new 2-panel Figure 3 only renders the token-level panels).
 
 Usage:
-    python scripts/make_fig4.py --run_dir ../runs/full_CPD_v2
+    python scripts/make_fig4.py --run_dir ../runs/mimiciv_readmission_30d
 """
 from __future__ import annotations
 
@@ -118,7 +118,7 @@ def _prep_panel(df: pd.DataFrame, n_show: int,
 def main() -> None:
     p = argparse.ArgumentParser(
         description="Render Figure 4 (pattern-level attribution, 2-panel bar chart).")
-    p.add_argument("--run_dir", default="../runs/full_CPD_v2")
+    p.add_argument("--run_dir", default="../runs/mimiciv_readmission_30d")
     p.add_argument("--split", default="test")
     p.add_argument("--jaccard_threshold", type=float, default=JACCARD_THRESHOLD)
     p.add_argument("--n_show", type=int, default=N_SHOW,

@@ -125,15 +125,16 @@ def build() -> None:
               "University School of Medicine, Baltimore, MD, USA")
     para(doc, "\u00b2Center for Population Health Information Technology, "
               "Johns Hopkins Bloomberg School of Public Health, Baltimore, MD, USA")
-    # Corresponding-author block (JAMIA requires full contact details:
-    # name, postal address, email and telephone).
+    # Corresponding-author block. JAMIA's title-page checklist lists name,
+    # postal address, email and telephone, but published articles print only
+    # name, address and email - the telephone is an editorial-office field
+    # and is supplied in the cover letter instead.
     para(doc, "**Corresponding author:** Anas Belouali, Biomedical "
               "Informatics and Data Science, Johns Hopkins University "
               "School of Medicine, 2024 East Monument Street, Suite "
               "1-200, Baltimore, MD 21205, USA. "
               "Email: anas.belouali@georgetown.edu. "
-              "ORCID: 0000-0002-2780-2500. "
-              "Telephone: [AUTHOR: phone].")
+              "ORCID: 0000-0002-2780-2500.")
     # Up to five index keywords (JAMIA title-page requirement).
     para(doc, "**Keywords:** explainable artificial intelligence; "
               "electronic health records; feature attribution; temporal "

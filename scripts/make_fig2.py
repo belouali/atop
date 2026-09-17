@@ -37,8 +37,8 @@ prediction; patterns that completed earlier are already part of the input.
 The arrows show provenance, not temporal unlock.
 
 Usage:
-    python scripts/make_fig2.py --run_dir ../runs/full_CPD_v2
-    python scripts/make_fig2.py --run_dir ../runs/full_CPD_v2 \
+    python scripts/make_fig2.py --run_dir ../runs/mimiciv_readmission_30d
+    python scripts/make_fig2.py --run_dir ../runs/mimiciv_readmission_30d \
                                 --pid 11506385 --hadm 21463919
 
 Output: <output_path>  (default: ../manuscript/jamia_submission/figures/Figure2.png,
@@ -1051,7 +1051,7 @@ def render_greedy_waterfall(ax_bars, ax_labels, kept_matches, residual_sigma,
 
 def main() -> None:
     p = argparse.ArgumentParser(description="Render Figure 2 (timeline + greedy waterfall)")
-    p.add_argument("--run_dir", default="../runs/full_CPD_v2")
+    p.add_argument("--run_dir", default="../runs/mimiciv_readmission_30d")
     p.add_argument("--mimic_dir", default="../data/mimiciv/3.1/hosp")
     p.add_argument("--exemplar-key", default="main_tp",
                    choices=["main_tp", "complex_tp", "alt_tp", "confident_tn", "disagreement"])

@@ -29,7 +29,7 @@ them past visibility.
 
 Usage:
     python scripts/make_fig_s9_aggregation_comparison.py \
-        --run_dir ../runs/full_CPD_v2
+        --run_dir ../runs/mimiciv_readmission_30d
 """
 from __future__ import annotations
 
@@ -113,7 +113,7 @@ def _draw_panel(ax, df, *, magnitude_col: str, label_col: str,
 def main() -> None:
     p = argparse.ArgumentParser(
         description="Render Fig S9 (carrier vs population IG aggregation comparison).")
-    p.add_argument("--run_dir", default="../runs/full_CPD_v2")
+    p.add_argument("--run_dir", default="../runs/mimiciv_readmission_30d")
     p.add_argument("--split", default="test")
     p.add_argument("--n_show", type=int, default=30)
     p.add_argument("--fontsize", type=int, default=14)

@@ -17,7 +17,7 @@ visit patterns; SC has 24K all-types). Intersection is ~5K cross-visit
 patterns; that's the displayed pool.
 
 Usage:
-    python scripts/make_fig_s5.py --run_dir ../runs/full_CPD_v2
+    python scripts/make_fig_s5.py --run_dir ../runs/mimiciv_readmission_30d
 """
 from __future__ import annotations
 

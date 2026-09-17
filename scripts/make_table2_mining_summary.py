@@ -27,7 +27,7 @@ not by column, the v1 train/test layout produced confusing empty cells):
 Output: ``manuscript/jamia_submission/tables/Table2_mining_summary.csv``
 
 Usage:
-    python scripts/make_table2_mining_summary.py --run_dir ../runs/full_CPD_v2
+    python scripts/make_table2_mining_summary.py --run_dir ../runs/mimiciv_readmission_30d
 """
 from __future__ import annotations
 
@@ -198,7 +198,7 @@ def _fmt_int(n: int | None) -> str:
 
 def main() -> None:
     p = argparse.ArgumentParser(description="Compute Table 2 (mining summary)")
-    p.add_argument("--run_dir", default="../runs/full_CPD_v2")
+    p.add_argument("--run_dir", default="../runs/mimiciv_readmission_30d")
     p.add_argument("--jaccard_threshold", type=float, default=0.2)
     p.add_argument("--output_csv", default=None,
                    help="Default: manuscript/jamia_submission/tables/"

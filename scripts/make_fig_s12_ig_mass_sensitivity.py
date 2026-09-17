@@ -37,7 +37,7 @@ Output:
   runs/<run>/5_analysis/fig_s12_ig_mass_sensitivity.csv (raw counts per tau)
 
 Usage:
-    python scripts/make_fig_s12_ig_mass_sensitivity.py --run_dir ../runs/full_CPD_v2
+    python scripts/make_fig_s12_ig_mass_sensitivity.py --run_dir ../runs/mimiciv_readmission_30d
 """
 from __future__ import annotations
 
@@ -174,7 +174,7 @@ def jaccard(a: set, b: set) -> float:
 
 def main() -> None:
     p = argparse.ArgumentParser(description="Render Figure S12 (IG-mass sensitivity)")
-    p.add_argument("--run_dir", default="../runs/full_CPD_v2")
+    p.add_argument("--run_dir", default="../runs/mimiciv_readmission_30d")
     p.add_argument("--split", default="test")
     p.add_argument("--top-k", type=int, default=TOP_K)
     p.add_argument("--output-path",

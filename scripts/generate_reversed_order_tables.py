@@ -19,7 +19,7 @@ sys.path.insert(0, ATOP_PKG)
 from atop.explain.pattern_labels import PatternLabelResolver
 
 
-RUN_DIR = "../runs/full_CPD_v2"
+RUN_DIR = "../runs/mimiciv_readmission_30d"
 TABLES_OUT = "../manuscript/jamia_submission/tables"
 
 PHEN_ORDER = ["Psychiatric", "Oncologic", "Obstetric", "Chest pain workup",

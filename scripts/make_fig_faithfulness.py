@@ -25,7 +25,7 @@ Reuses the masking + batched-prediction primitives from
 atop.explain.validation.
 
 Usage (CPU is fine on a sampled subset):
-    python scripts/make_fig_faithfulness.py --run_dir ../runs/full_CPD_v2 \\
+    python scripts/make_fig_faithfulness.py --run_dir ../runs/mimiciv_readmission_30d \\
         --mimic_dir ../data/mimiciv/3.1/hosp --sample_n 500 --device cpu
 """
 from __future__ import annotations
@@ -84,7 +84,7 @@ def _keep_only_positions(input_ids, keep_positions, salient_positions):
 
 def main() -> None:
     p = argparse.ArgumentParser(description="Render faithfulness curves (comprehensiveness + sufficiency).")
-    p.add_argument("--run_dir", default="../runs/full_CPD_v2")
+    p.add_argument("--run_dir", default="../runs/mimiciv_readmission_30d")
     p.add_argument("--mimic_dir", default="../data/mimiciv/3.1/hosp")
     p.add_argument("--split", default="test")
     p.add_argument("--sample_n", type=int, default=500,

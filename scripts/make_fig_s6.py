@@ -36,7 +36,7 @@ def _fmt_p(p: float) -> str:
 
 def main() -> None:
     p = argparse.ArgumentParser(description="Render Figure S6 (Δŷ distribution)")
-    p.add_argument("--run_dir", default="../runs/full_CPD_v2")
+    p.add_argument("--run_dir", default="../runs/mimiciv_readmission_30d")
     p.add_argument("--split", default="test")
     p.add_argument("--dpi", type=int, default=300)
     p.add_argument("--output-path",

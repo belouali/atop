@@ -34,7 +34,7 @@ penalizes compositional patterns even harder than single tokens.
 
 Usage:
     python scripts/make_fig_s10_pattern_aggregation_comparison.py \
-        --run_dir ../runs/full_CPD_v2
+        --run_dir ../runs/mimiciv_readmission_30d
 """
 from __future__ import annotations
 
@@ -144,7 +144,7 @@ def _load_full_pool_with_reps(layout: RunLayout, split: str,
 def main() -> None:
     p = argparse.ArgumentParser(
         description="Render Fig S10 (pattern-level aggregation comparison).")
-    p.add_argument("--run_dir", default="../runs/full_CPD_v2")
+    p.add_argument("--run_dir", default="../runs/mimiciv_readmission_30d")
     p.add_argument("--split", default="test")
     p.add_argument("--jaccard_threshold", type=float, default=0.2,
                    help="Jaccard dedup threshold (default 0.2 = matches Fig 3 Panel C).")

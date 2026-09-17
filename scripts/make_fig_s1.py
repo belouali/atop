@@ -18,8 +18,8 @@ The reader cross-walks Figure S1 to Figure 4B (flat mode) or Table 4
 (grouped mode) one-to-one.
 
 Usage:
-    python scripts/make_fig_s1.py --run_dir ../runs/full_CPD_v2 --mode flat
-    python scripts/make_fig_s1.py --run_dir ../runs/full_CPD_v2 --mode grouped
+    python scripts/make_fig_s1.py --run_dir ../runs/mimiciv_readmission_30d --mode flat
+    python scripts/make_fig_s1.py --run_dir ../runs/mimiciv_readmission_30d --mode grouped
 """
 from __future__ import annotations
 
@@ -467,7 +467,7 @@ def render_grouped(df_rev: pd.DataFrame, manifest: pd.DataFrame,
 def main() -> None:
     p = argparse.ArgumentParser(
         description="Render Figure S1 (reversed-order ablation, two layout modes).")
-    p.add_argument("--run_dir", default="../runs/full_CPD_v2")
+    p.add_argument("--run_dir", default="../runs/mimiciv_readmission_30d")
     p.add_argument("--split", default="test")
     p.add_argument("--mode", choices=["flat", "grouped", "scatter", "topbars", "both"], default="topbars")
     p.add_argument("--dpi", type=int, default=300)

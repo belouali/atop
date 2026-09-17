@@ -24,7 +24,7 @@ markers) for quick copy-paste reference.
 Panel B is NOT included, the user is editing it separately.
 
 Usage:
-    python scripts/make_fig2_pptx.py --run_dir ../runs/full_CPD_v2 \\
+    python scripts/make_fig2_pptx.py --run_dir ../runs/mimiciv_readmission_30d \\
         --mimic_dir ../data/mimiciv/3.1/hosp
 """
 from __future__ import annotations

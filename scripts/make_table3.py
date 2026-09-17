@@ -22,8 +22,8 @@ Dependencies: scripts/make_fig3.py and scripts/make_fig4.py must run first
 (they produce the panel CSVs and ``Figure4.csv`` this script joins on).
 
 Usage:
-    python scripts/make_table3.py --run_dir ../runs/full_CPD_v2
-    python scripts/make_table3.py --run_dir ../runs/full_CPD_v2 --panel c \\
+    python scripts/make_table3.py --run_dir ../runs/mimiciv_readmission_30d
+    python scripts/make_table3.py --run_dir ../runs/mimiciv_readmission_30d --panel c \\
         --output-csv ../manuscript/jamia_submission/tables/TableS2_full_pool_clusters.csv
 """
 from __future__ import annotations
@@ -117,7 +117,7 @@ def _classify_phenotype(label: str) -> str:
 def main() -> None:
     p = argparse.ArgumentParser(
         description="Compute Table 3 (top-N phenotype clusters)")
-    p.add_argument("--run_dir", default="../runs/full_CPD_v2")
+    p.add_argument("--run_dir", default="../runs/mimiciv_readmission_30d")
     p.add_argument("--split", default="test")
     p.add_argument("--jaccard_threshold", type=float, default=0.2)
     p.add_argument("--panel", default="d", choices=["c", "d"],

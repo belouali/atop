@@ -6,7 +6,7 @@ patterns meeting each support level, stacked by pattern structure, with
 cross-hair reference lines + bold central callout at the locked threshold.
 
 Usage:
-    python scripts/make_fig_s2.py --run_dir ../runs/full_CPD_v2
+    python scripts/make_fig_s2.py --run_dir ../runs/mimiciv_readmission_30d
 """
 from __future__ import annotations
 
@@ -51,7 +51,7 @@ def _bucket(row) -> str:
 
 def main() -> None:
     p = argparse.ArgumentParser(description="Render Figure S2 (support threshold curve)")
-    p.add_argument("--run_dir", default="../runs/full_CPD_v2")
+    p.add_argument("--run_dir", default="../runs/mimiciv_readmission_30d")
     p.add_argument("--n_train", type=int, default=152737,
                    help="Training cohort size (for the 0.1% annotation)")
     p.add_argument("--threshold", type=int, default=153,

@@ -27,7 +27,7 @@ Narrative for the supplement caption:
 
 Usage:
     python scripts/make_fig_s7_jaccard_sensitivity.py \
-        --run_dir ../runs/full_CPD_v2
+        --run_dir ../runs/mimiciv_readmission_30d
 """
 from __future__ import annotations
 
@@ -106,7 +106,7 @@ def _render_panel(df_sel: pd.DataFrame, resolver: PatternLabelResolver,
 
 def main() -> None:
     p = argparse.ArgumentParser(description="Render Fig S7 (Jaccard sensitivity).")
-    p.add_argument("--run_dir", default="../runs/full_CPD_v2")
+    p.add_argument("--run_dir", default="../runs/mimiciv_readmission_30d")
     p.add_argument("--split", default="test")
     p.add_argument("--n_show", type=int, default=N_SHOW)
     p.add_argument("--fontsize", type=int, default=FONTSIZE)

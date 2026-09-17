@@ -14,7 +14,7 @@ KernelSHAP runs the model many times per patient. Defaults are tuned for a
 underpopulated. Use a GPU host for substantially faster runs.
 
 Usage:
-    python scripts/make_fig_s3.py --run_dir ../runs/full_CPD_v2 --device mps \
+    python scripts/make_fig_s3.py --run_dir ../runs/mimiciv_readmission_30d --device mps \
             --shap-nsamples 1000
 """
 from __future__ import annotations
@@ -162,7 +162,7 @@ def compute_with_cache(
 
 def main() -> None:
     p = argparse.ArgumentParser(description="Render Figure S3 (SHAP vs IG)")
-    p.add_argument("--run_dir", default="../runs/full_CPD_v2")
+    p.add_argument("--run_dir", default="../runs/mimiciv_readmission_30d")
     p.add_argument("--mimic_dir", default="../data/mimiciv/3.1/hosp")
     p.add_argument("--sample-n", type=int, default=100,
                    help="Number of test patients for the aggregate panel")
