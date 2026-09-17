@@ -1042,16 +1042,15 @@ def build() -> None:
               "(https://physionet.org/content/mimiciv/3.1/) following "
               "completion of CITI Data or Specimens Only Research "
               "training and a signed Data Use Agreement. The AToP "
-              "framework code, including the five-step pipeline, "
-              "phenotype classifier, masking-validation pipeline, "
-              "preprocessing and RxNorm mapping, model configuration "
-              "and training seeds, and all attribution/mining/plotting "
-              "scripts, will be released as a public GitHub repository "
-              "upon acceptance, and is available to editors and "
-              "reviewers during peer review as an anonymized archive on "
-              "request. All analytic outputs (CSVs, figures) referenced "
-              "in the manuscript can be regenerated from MIMIC-IV v3.1 "
-              "using these scripts.")
+              "framework code is publicly available at "
+              "https://github.com/belouali/atop, including the five-step "
+              "pipeline, phenotype classifier, masking-validation "
+              "pipeline, preprocessing and RxNorm mapping, model "
+              "configuration and training seeds, and all attribution, "
+              "mining and plotting scripts. All analytic outputs (CSVs, "
+              "figures) referenced in the manuscript can be regenerated "
+              "from MIMIC-IV v3.1 using these scripts. No patient-level "
+              "data is included in the repository.")
 
     # ── References ──────────────────────────────────────────────────
     heading(doc, "References", level=1)

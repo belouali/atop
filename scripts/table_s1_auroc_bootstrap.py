@@ -28,7 +28,7 @@ from atop.run_layout import RunLayout
 
 # Resolve from env so make_table_s1 / a CLI caller can override without
 # touching this file.
-BUNDLE = os.environ.get("ATOP_RUN_DIR", "../runs/full_CPD_v1")
+BUNDLE = os.environ.get("ATOP_RUN_DIR", "../runs/full_CPD_v2")
 MIMIC_DIR = os.environ.get("ATOP_MIMIC_DIR", "../data/mimiciv/3.1/hosp")
 N_BOOT = int(os.environ.get("ATOP_N_BOOT", "1000"))
 SEED = 42
