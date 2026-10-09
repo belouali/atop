@@ -540,10 +540,8 @@ def build() -> None:
         "population-weighted top-30 is dominated by single-token "
         "features (MDD single ep. NOS, Chest pain NOS, Alcohol abuse, "
         "Ibuprofen, Thiamine, Psychosis NOS, etc.); AToP's multi-token "
-        "compositional patterns sit at population ranks #3–#2058. The "
-        "aggregation penalty compounds at the pattern level: a naive "
-        "SHAP-on-sequences ranking would recover almost none of the "
-        "multi-token compositional patterns AToP surfaces.",
+        "compositional patterns sit at population ranks #3–#2058, so "
+        "the aggregation penalty compounds at the pattern level.",
         image_path=IMAGE_PATHS.get("Figure S6"))
 
     page_break(doc)
@@ -578,11 +576,11 @@ def build() -> None:
         "Masking effect \u0394\u0177 = \u0177_original \u2212 \u0177_masked for each "
         "of the 266 perturbed patterns, averaged over the pattern's "
         "test-cohort carriers. Bars are colored by the pattern's attribution "
-        "direction: red, risk-supporting (\u03a3IG > 0); blue, protective "
-        "(\u03a3IG < 0); grey, direction not recorded (18 patterns). Masking "
+        "direction, taken from the test-cohort carrier-averaged \u03a3IG "
+        "under the scoring rule of the Supplementary Methods: red, "
+        "risk-supporting (\u03a3IG > 0); blue, protective (\u03a3IG < 0). Masking "
         "moved predictions in the direction of the pattern's attribution for "
-        "all 248 patterns with a recorded direction (160 risk-supporting, 88 "
-        "protective). Masking creates out-of-distribution inputs, so it is a "
+        "all 266 patterns (168 risk-supporting, 98 protective). Masking creates out-of-distribution inputs, so it is a "
         "proxy test; the direct token-level faithfulness test is the "
         "comprehensiveness and sufficiency analysis in Figure S9.",
         image_path=IMAGE_PATHS.get("Figure S8"))
@@ -1012,15 +1010,25 @@ def build() -> None:
                        "whose score kept its sign; p = one-sided Wilcoxon "
                        "signed-rank test of |\u03a3IG observed| > |\u03a3IG reversed| "
                        "over carriers."),
-        note=("Unlike Table S5, which compares different patients carrying "
-              "the forward and reversed orders, this test changes only the "
-              "order of the matched visits inside each carrier's own record; "
-              "all other visits and all visit contents are unchanged, and "
-              "IG is recomputed on the reordered record. Palindromic "
-              "patterns are shown for completeness but reversal does not "
-              "change them. Pooled over the 925 carriers of the 27 non-"
-              "palindromic patterns, |\u03a3IG| fell for 60% and sign was "
-              "preserved for 97% (one-sided Wilcoxon p < 0.001)."))
+        note=('Unlike Table S5, which compares different patients '
+              'carrying the forward and reversed orders, this analysis '
+              "reorders the matched visits inside each carrier's own "
+              'record and recomputes IG; all other visits and the '
+              'contents of every visit are unchanged. Because whole '
+              'visits are moved, the other events in those visits move '
+              'with the pattern tokens, so the analysis tests sensitivity'
+              ' to visit order rather than isolating the order of the '
+              "pattern's own events. For the three palindromic patterns "
+              'the pattern reads the same in either direction and any '
+              'change reflects the other visit contents, so they are '
+              'excluded from the summary counts. Pooled over the 27 '
+              'non-palindromic patterns (925 carrier-pattern pairs from '
+              '722 distinct patients, 166 of whom carry more than one '
+              'pattern), |ΣIG| fell for 60% of pairs and sign was '
+              "preserved for 97%; a patient-level test on each patient's "
+              'mean over their patterns gives one-sided Wilcoxon p < '
+              '0.001 (n = 722). Per-pattern p values are nominal; 4 of 27'
+              ' remain below 0.05 after Holm correction.'))
 
     # ── Save ─────────────────────────────────────────────────────────
     os.makedirs(os.path.dirname(OUT_PATH), exist_ok=True)

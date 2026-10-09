@@ -642,14 +642,29 @@ def parse_supplement_docx(path: str) -> List[Block]:
             if not t:
                 continue
 
-            # Region 3 entry points
-            if t in ("Supplementary Figures", "Supplementary Tables"):
+            # Region entry points. The text sections (Supplementary
+            # Methods, Supplementary Results) are rendered too; only the
+            # front page and its contents list are skipped.
+            if t in ("Supplementary Methods", "Supplementary Results",
+                     "Supplementary Figures", "Supplementary Tables"):
                 in_main_section = True
                 last_seen_fig_id = None
+                blocks.append(Block(kind="supp_section", text=t))
                 continue
 
-            # Skip everything before region 3
+            # Skip everything before the first region heading
             if not in_main_section:
+                continue
+
+            # Level-2 headings inside the text sections
+            sty = (p.style.name or "") if p.style is not None else ""
+            runs = [r for r in p.runs if r.text.strip()]
+            all_bold = bool(runs) and all(r.bold for r in runs)
+            is_heading = (sty.lower().startswith("heading")
+                          or (all_bold and len(t) < 90 and not t.endswith(".")))
+            if (is_heading and not _S_FIG_HEADING_RE.match(t)
+                    and not t.startswith(("Alt text:", "Abbreviations", "Note"))):
+                blocks.append(Block(kind="supp_subsection", text=t))
                 continue
 
             # Skip residual front-matter headers if they re-appear
@@ -1326,7 +1341,32 @@ def build(preprint: bool = False):
     # block: caption text begins "<b>Figure SN |</b> ...".
     s_fig_re = re.compile(r"^<b>(Figure|Table)\s+(S\d+[A-Za-z]?)\s*\|</b>")
 
+    # Explicit figure-id -> file map from the supplement builder, so the
+    # PDF cannot pick up a stale or renumbered file by name prefix.
+    try:
+        from build_revised_supplement_docx import IMAGE_PATHS as SUPP_IMAGE_PATHS
+    except Exception:
+        SUPP_IMAGE_PATHS = {}
+
+    supp_heading_style = ParagraphStyle(
+        "supp_heading", parent=S["subsection"], spaceBefore=10, spaceAfter=4)
+    supp_subheading_style = ParagraphStyle(
+        "supp_subheading", parent=S["body"], fontName=_font("bold", bold=True),
+        spaceBefore=8, spaceAfter=2, keepWithNext=1)
+
     for blk in supp_blocks:
+        if blk.kind in ("supp_section", "supp_subsection"):
+            if not section_emitted:
+                story.append(NextPageTemplate("inner"))
+                story.append(PageBreak())
+                story.append(Paragraph("Supplementary Material", S["section"]))
+                section_emitted = True
+            if blk.kind == "supp_section" and blk.text in ("Supplementary Figures",
+                                                           "Supplementary Tables"):
+                continue   # each figure/table starts its own page below
+            story.append(Paragraph(blk.text, supp_heading_style if blk.kind == "supp_section"
+                                   else supp_subheading_style))
+            continue
         if blk.kind == "caption":
             m = s_fig_re.match(blk.text)
             if m:
@@ -1334,12 +1374,18 @@ def build(preprint: bool = False):
                 # Locate the matching PNG so we can sniff its aspect
                 # ratio and decide portrait vs landscape.
                 cand = None
-                if kind == "Figure" and os.path.isdir(SUP_FIG_DIR):
-                    for fn in sorted(os.listdir(SUP_FIG_DIR)):
-                        if (fn.startswith(f"Figure{fid}_")
-                                and fn.endswith(".png")):
-                            cand = os.path.join(SUP_FIG_DIR, fn)
-                            break
+                if kind == "Figure":
+                    mapped = SUPP_IMAGE_PATHS.get(f"Figure {fid}")
+                    if mapped and os.path.exists(mapped):
+                        cand = mapped
+                    elif os.path.isdir(SUP_FIG_DIR):
+                        for fn in sorted(os.listdir(SUP_FIG_DIR)):
+                            if (fn.startswith(f"Figure{fid}_")
+                                    and fn.endswith(".png")):
+                                cand = os.path.join(SUP_FIG_DIR, fn)
+                                break
+                    if cand is None:
+                        print(f"  [WARN] no image for Figure {fid}")
                 aspect = _image_aspect(cand) if cand else 1.0
                 use_landscape = (kind == "Figure"
                                   and aspect > LANDSCAPE_ASPECT_THRESHOLD)

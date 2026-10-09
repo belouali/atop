@@ -6,8 +6,9 @@ its test-cohort carriers (validation_test.csv). Bars are colored by the
 pattern's attribution direction: the sign recorded at validation time
 (ig_direction), or, where that was not stored (0), the sign of the
 test-cohort carrier-averaged signed IG in pathway_importance_test*.csv
-or in the manuscript Tables 3-4 (ig_value).
-Patterns with no direction in either source are shown in grey.
+or in the manuscript Tables 3-4 (ig_value); when
+validation_pattern_directions.csv exists (all patterns scored with the
+unified rule) it takes precedence. Patterns with no direction are grey.
 
 Replaces the earlier mask-vs-shuffle version (make_fig_s6.py); the shuffle
 controls are parked as backup and no longer reported.
@@ -55,8 +56,18 @@ def main() -> None:
         if os.path.exists(path):
             for _, r in pd.read_csv(path).iterrows():
                 sig.setdefault(r["pattern"], r["ig_value"])
-    direction = val["ig_direction"].where(val["ig_direction"] != 0,
-                                          val["pattern"].map(sig))
+    # Preferred source: test-cohort carrier-averaged signed IG under the
+    # single scoring rule (atop/explain/scoring.py), written by
+    # scripts/score_validation_patterns.py for every validated pattern.
+    uni = os.path.join(adir, "validation_pattern_directions.csv")
+    if os.path.exists(uni):
+        u = pd.read_csv(uni)
+        for _, r in u.dropna(subset=["sigma_ig_test"]).iterrows():
+            sig[r["pattern"]] = r["sigma_ig_test"]
+        direction = val["pattern"].map(sig)
+    else:
+        direction = val["ig_direction"].where(val["ig_direction"] != 0,
+                                              val["pattern"].map(sig))
     val["dir"] = np.select([direction > 0, direction < 0], ["risk", "protective"], "none")
     d = val["mean_delta_mask"]
     agree = ((val["dir"] == "risk") & (d > 0)) | ((val["dir"] == "protective") & (d < 0))

@@ -653,19 +653,16 @@ def build() -> None:
     heading(doc, "Token-level global attribution: carrier-conditioning "
                   "surfaces rare-but-decisive features.",
             level=2)
-    para(doc, "Figure 3 compares the two atomic-token aggregation "
-              "conventions on the test set. Panel A shows the "
-              "population-weighted ranking (Equation 1), analogous to the "
-              "population-averaged importance commonly reported with "
-              "SHAP, which averages absolute values [28]. Panel B shows "
-              "AToP's carrier-conditional ranking E[IG | present]. "
-              "Panel A's top tokens are dominated by high-prevalence "
-              "codes whose individual impact per patient is small (MDD "
-              "single ep. NOS, i.e. not otherwise specified, Live birth, "
-              "Chest pain NOS). Panel B's "
-              "top tokens are rare-but-high-attribution (Psychoses NOS, "
-              "Acetaminophen overdose / self-harm, Severe MDD, Bipolar "
-              "manic episode).")
+    para(doc, 'Figure 3 compares the two atomic-token aggregation '
+              'conventions on the test set. Panel A shows the '
+              'population-weighted ranking (Equation 1). Panel B shows '
+              "AToP's carrier-conditional ranking E[IG | present]. Panel "
+              "A's top tokens are dominated by high-prevalence codes "
+              'whose individual impact per patient is small (MDD single '
+              'ep. NOS, i.e. not otherwise specified, Live birth, Chest '
+              "pain NOS). Panel B's top tokens are "
+              'rare-but-high-attribution (Psychoses NOS, Acetaminophen '
+              'overdose / self-harm, Severe MDD, Bipolar manic episode).')
     para(doc, 'The rankings overlap for only 7 of 30 tokens; the other '
               '23 carrier-conditional top-30 tokens fall outside the '
               'population-weighted top 30, and 21 of them rank below '
@@ -700,9 +697,8 @@ def build() -> None:
               'phenotype family (top 5 per family by |ΣIG|), and Table 4 '
               'does the same for cross-visit patterns. Masking each '
               "displayed pattern's tokens moved the prediction in the "
-              'expected direction (Figure 5), as it did for all 248 of '
-              'the 266 perturbed patterns with a recorded attribution '
-              'direction (Figure S8).')
+              'expected direction (Figure 5), as it did for all 266 '
+              'perturbed patterns (Figure S8).')
     para(doc, 'Phenotype families are presentational groupings defined by'
               ' keyword rules (Supplementary Methods) and do not affect '
               'mining, attribution, or ranking.')
@@ -874,16 +870,18 @@ def build() -> None:
               'forward- and 20 reverse-order matches, reversal reduced '
               '|ΣIG| in 54% and preserved sign in 95% (Figure S10; Table '
               'S4), so the association is concentrated in the '
-              'high-attribution patterns AToP surfaces. The '
-              'within-patient test isolates order: reversing the matched '
-              "visits inside each carrier's own record reduced |ΣIG| for "
-              '21 of 27 non-palindromic patterns (mean attenuation 14%, '
-              'median 17%) and for 60% of the 925 carriers, with sign '
-              'preserved for 97% (pooled one-sided Wilcoxon p < 0.001; '
-              'significant for 9 of 27 patterns individually; Table S6). '
-              'Cross-visit attributions therefore depend in part on event'
-              ' order, with a within-patient effect smaller than the '
-              'between-patient association.')
+              'high-attribution patterns AToP surfaces. In a '
+              'within-patient visit-reordering analysis, reversing the '
+              "order of the matched visits inside each carrier's own "
+              'record reduced |ΣIG| for 21 of 27 non-palindromic patterns'
+              ' (mean attenuation 14%, median 17%) and for 59% of the 722'
+              ' distinct carriers (patient-level one-sided Wilcoxon p < '
+              '0.001; 9 of 27 patterns nominally significant, 4 after '
+              'Holm correction; Table S6). The effect was smaller than in'
+              ' the between-patient comparison and provides additional '
+              'evidence that attribution is sensitive to visit order; '
+              'because whole visits are moved, the analysis does not '
+              "isolate the order of the pattern's own events.")
 
     heading(doc, "Cross-method comparison.", level=2)
     para(doc, 'With KernelSHAP in place of IG on the full test cohort, '
@@ -896,7 +894,7 @@ def build() -> None:
               'KernelSHAP redistributes interaction credit, whereas IG '
               'sums per-token contributions additively. Disagreement '
               'between explanation methods applied to the same model is a'
-              ' well-documented and largely unresolved problem [29].')
+              ' well-documented and largely unresolved problem [28].')
 
     heading(doc, "Discussion", level=1)
     para(doc, '**What is new here.** AToP combines carrier-conditional '
@@ -904,7 +902,7 @@ def build() -> None:
               'shifting explanation from isolated tokens to multi-visit '
               'patterns rather than only re-weighting population-averaged'
               ' token importance, the global summary commonly reported '
-              'with SHAP [28]. Token-level findings were largely '
+              'with SHAP [29]. Token-level findings were largely '
               'consistent under KernelSHAP (25/30; Figure S12), whereas '
               'cross-visit pattern rankings remain attribution-method '
               'dependent (7/30); we therefore report the IG '
@@ -1112,9 +1110,9 @@ def build() -> None:
         # [27]
         'DeYoung J, Jain S, Rajani NF, et al. ERASER: A benchmark to evaluate rationalized NLP models. Proceedings of the 58th Annual Meeting of the Association for Computational Linguistics. 2020:4443–4458.',
         # [28]
-        'Lundberg SM, et al. From local explanations to global understanding with explainable AI for trees. Nature Machine Intelligence. 2020;2(1):56–67.',
-        # [29]
         "Krishna S, Han T, Gu A, Wu S, Jabbari S, Lakkaraju H. The disagreement problem in explainable machine learning: a practitioner's perspective. Transactions on Machine Learning Research. 2024.",
+        # [29]
+        'Lundberg SM, et al. From local explanations to global understanding with explainable AI for trees. Nature Machine Intelligence. 2020;2(1):56–67.',
         # [30]
         'Rudin C. Stop explaining black box machine learning models for high stakes decisions and use interpretable models instead. Nat Mach Intell. 2019;1:206–215.',
         # [31]
