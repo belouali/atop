@@ -1,72 +1,36 @@
-"""Combined min_steps=1 pattern pool: single-block co-occurrence + multi-block.
+"""Full-pool pattern scoring over the raw mining cache (all shapes, min_steps=1).
 
 The main paper locks mining at ``episode_min_steps=2`` (cross-visit only).
-This module recovers single-block co-occurrence patterns from the raw
-mining cache, scores them with the same carrier-averaged \u03a3IG aggregation
-as Panel C, and merges them with the existing multi-block pathway pool to
-produce the "what Panel C would look like at min_steps=1" view used by
-``scripts/make_fig_s8_*.py`` and ``scripts/make_fig_s9_*.py``.
+This module scores EVERY distinct pattern in the raw mining cache (single
+tokens, same-visit co-occurrences and cross-visit episodes alike) with the
+single per-patient rule in :mod:`atop.explain.scoring`, i.e. exactly the rule
+``figures._compute_panel_c`` applies to the cross-visit pool.  It feeds
+``scripts/make_fig3.py`` (full pool, Jaccard representatives, Table 3) and
+``scripts/build_shap_aggregations.py``.
 
-No torch needed \u2014 pure pandas / numpy operations on cached data.
+No torch needed — pure pandas / numpy / scipy.sparse operations on cached data.
 """
 from __future__ import annotations
 
 import os
 import pickle
-from collections import defaultdict
 from typing import Tuple
 
 import numpy as np
 import pandas as pd
 
-
-_SPECIAL_TOKENS = frozenset({"[CLS]", "[VISIT]", "[PAD]"})
-
-
-def _full_visit_blocks(combined_full) -> list:
-    """Reconstruct full per-visit token blocks (list of frozensets) from the
-    complete token sequence. A new block begins at each ``[VISIT]`` marker;
-    ``[CLS]``/``[VISIT]``/``[PAD]`` are dropped. This scores patterns over ALL
-    patients who exhibit a pattern (full-presence carriers), not only those
-    where the pattern's tokens fell in the salient (80% IG-mass) subset.
-    """
-    blocks = []
-    cur = None
-    for t in combined_full or []:
-        if t == "[VISIT]":
-            cur = []
-            blocks.append(cur)
-        elif t in _SPECIAL_TOKENS:
-            continue
-        elif cur is not None:
-            cur.append(t)
-    return [frozenset(b) for b in blocks if b]
+from atop.explain.scoring import (
+    build_patient_token_occurrences, build_presence_index,
+    episode_to_itemsets, score_episode_over_cohort,
+)
 
 
-def _build_ig_per_patient_token(df_ig: pd.DataFrame) -> dict:
-    """patient key (pid, hadm) \u2192 dict{token \u2192 sum_of_signed_IG}."""
-    cache: dict = {}
-    ig_col = "ig_signed" if "ig_signed" in df_ig.columns else "ig_abs"
-    ig_sum = (df_ig.groupby(["patient_id", "index_hadm_id", "token_str"])[ig_col]
-                    .sum())
-    for (pid, hid, tok), val in ig_sum.items():
-        key = (str(pid), str(hid))
-        cache.setdefault(key, {})[tok] = float(val)
-    return cache
-
-
-def _build_token_to_patient_visits(df_seq: pd.DataFrame) -> dict:
-    """token \u2192 dict{patient_key: set(visit_indices_with_token)}."""
-    out: dict = defaultdict(lambda: defaultdict(set))
-    for _, row in df_seq.iterrows():
-        key = (str(row["patient_id"]), str(row["index_hadm_id"]))
-        svb = row.get("salient_visit_blocks", [])
-        if not svb:
-            continue
-        for vi, block in enumerate(svb):
-            for t in block:
-                out[t][key].add(vi)
-    return out
+def _format_episode(ep) -> str:
+    """``[frozenset, ...]`` -> ``"A -> {B, C}"`` (the pool's pattern-string format)."""
+    return " -> ".join(
+        ("{" + ", ".join(sorted(b)) + "}") if len(b) > 1 else next(iter(b))
+        for b in ep
+    )
 
 
 def score_single_block_cooccurrence(raw_mining: dict,
@@ -74,7 +38,11 @@ def score_single_block_cooccurrence(raw_mining: dict,
                                      df_ig: pd.DataFrame,
                                      min_carriers: int = 5,
                                      verbose: bool = True) -> pd.DataFrame:
-    """Score every single-block co-occurrence pattern from the raw cache.
+    """Score every single-visit co-occurrence pattern (one itemset, ≥2 tokens).
+
+    Thin wrapper around :func:`score_all_raw_patterns` restricted to one-block
+    patterns, so same-visit co-occurrences are matched and scored by the same
+    rule as every other shape (see :mod:`atop.explain.scoring`).
 
     Returns columns: ``pattern, ig_signed_mean, n_present, _carrier_keys``
     matching the schema used by ``pathway_importance_<split>.csv``.
@@ -83,63 +51,16 @@ def score_single_block_cooccurrence(raw_mining: dict,
     ``freq_case`` and ``freq_ctrl`` (each a list of
     ``(support, episode, carrier_indices)``).
     """
-    # 1. Collect distinct co-occurrence sets across both cohorts.
-    raw_combined: dict = {}
-    for cohort in ("freq_case", "freq_ctrl"):
-        for sup, ep, _carriers in raw_mining[cohort]:
-            if len(ep) != 1:
-                continue
-            block = ep[0]
-            if len(block) < 2:
-                continue
-            raw_combined[frozenset(block)] = True
+    single = {
+        cohort: [(sup, ep, carriers) for sup, ep, carriers in raw_mining[cohort]
+                 if len(ep) == 1 and len(ep[0]) >= 2]
+        for cohort in ("freq_case", "freq_ctrl")
+    }
     if verbose:
-        print(f"  [combined] {len(raw_combined):,} distinct single-block co-occurrence patterns")
-
-    # 2. Build per-patient token index (only need this once per call).
-    tok2pv = _build_token_to_patient_visits(df_seq)
-    if verbose:
-        print(f"  [combined] reverse index: {len(tok2pv):,} tokens \u2192 patient-visits")
-
-    # 3. Per-token IG aggregation per patient.
-    ig_cache = _build_ig_per_patient_token(df_ig)
-    if verbose:
-        print(f"  [combined] IG cache: {len(ig_cache):,} patients")
-
-    # 4. Score each co-occurrence pattern.
-    rows = []
-    for tok_set in raw_combined:
-        tokens = sorted(tok_set)
-        # Patients having ALL tokens (somewhere)
-        per_token_patients = [set(tok2pv[t].keys()) for t in tokens]
-        if not all(per_token_patients):
-            continue
-        cand = set.intersection(*per_token_patients)
-        # Restrict to patients sharing at least one common visit across all tokens
-        carriers = set()
-        for pkey in cand:
-            common_visits = set.intersection(*[tok2pv[t][pkey] for t in tokens])
-            if common_visits:
-                carriers.add(pkey)
-        if len(carriers) < min_carriers:
-            continue
-        per_carrier = []
-        for pkey in carriers:
-            tig = ig_cache.get(pkey, {})
-            per_carrier.append(sum(tig.get(t, 0.0) for t in tokens))
-        if not per_carrier:
-            continue
-        rows.append({
-            "pattern":         "{" + ", ".join(tokens) + "}",
-            "ig_signed_mean":  float(np.mean(per_carrier)),
-            "n_present":       len(carriers),
-            "_carrier_keys":   carriers,
-        })
-    df = pd.DataFrame(rows)
-    if verbose:
-        print(f"  [combined] scored {len(df):,} single-block patterns "
-              f"(\u2265{min_carriers} carriers)")
-    return df
+        n_distinct = len({frozenset(ep[0]) for c in single.values() for _, ep, _ in c})
+        print(f"  [combined] {n_distinct:,} distinct single-block co-occurrence patterns")
+    return score_all_raw_patterns(single, df_seq, df_ig, min_carriers=min_carriers,
+                                  min_blocks=1, min_tokens_total=2, verbose=verbose)
 
 
 def load_combined_pool(run_dir: str, split: str = "test",
@@ -151,7 +72,7 @@ def load_combined_pool(run_dir: str, split: str = "test",
         df_combined : DataFrame with columns
             ``pattern, ig_signed_mean, n_present, _carrier_keys``
             covering both single-block and multi-block patterns.
-        carrier_keys_dict : dict ``pattern \u2192 set`` for use with the Jaccard
+        carrier_keys_dict : dict ``pattern → set`` for use with the Jaccard
             sweep (the existing ``get_jaccard_representatives`` reads this
             from a per-cohort pickle; we expose the in-memory dict here so
             the supplements can pass it through).
@@ -164,7 +85,7 @@ def load_combined_pool(run_dir: str, split: str = "test",
     pkl_path = os.path.join(L.analysis_dir, f"carrier_sets_{split}.pkl")
     if not (os.path.exists(pw_csv) and os.path.exists(pkl_path)):
         raise FileNotFoundError(
-            f"Need {pw_csv} and {pkl_path} \u2014 run make_fig3.py first.")
+            f"Need {pw_csv} and {pkl_path} — run make_fig3.py first.")
     df_multi = pd.read_csv(pw_csv)
     df_multi = df_multi[df_multi["n_present"] >= min_carriers].copy()
     with open(pkl_path, "rb") as f:
@@ -213,31 +134,35 @@ def score_all_raw_patterns(raw_mining: dict,
                             min_blocks: int = 1,
                             min_tokens_total: int = 1,
                             verbose: bool = True) -> pd.DataFrame:
-    """Score EVERY distinct pattern in the raw mining cache.
+    """Score EVERY distinct pattern in the raw mining cache with the single rule.
 
     Handles every shape uniformly:
-      * single-token single-block    ``[{A}]``                 (\u2248 Panel B token)
-      * single-token multi-block     ``[{A}, {A}, \u2026]``         (temporal repetition)
-      * multi-token single-block     ``[{A, B, \u2026}]``           (co-occurrence, S8)
-      * multi-token multi-block      ``[{A, \u2026}, {B, \u2026}, \u2026]`` (Panel C shape)
+      * single-token single-block    ``[{A}]``                 (≈ Panel B token)
+      * single-token multi-block     ``[{A}, {A}, …]``         (temporal repetition)
+      * multi-token single-block     ``[{A, B, …}]``           (co-occurrence)
+      * multi-token multi-block      ``[{A, …}, {B, …}, …]`` (Panel C shape)
 
-    Uses the vectorized sparse-presence carrier lookup (same approach as
-    ``_compute_panel_c`` in figures.py) followed by a per-carrier greedy
-    episode-order match. Returns a DataFrame with the Panel-C schema:
-    ``pattern, ig_signed_mean, n_present, _carrier_keys``.
+    Carriers and scores come from :mod:`atop.explain.scoring`, the same code
+    ``figures._compute_panel_c`` uses: a patient carries a pattern when the
+    greedy earliest-visit match over their full IG record (every token
+    position the model saw) succeeds, and the patient's score is the sum of
+    the signed IG of each step token at its matched visit.  ``ig_signed_mean``
+    is the mean over carriers, ``n_present`` the number of carriers and
+    ``_carrier_keys`` the set of ``(patient_id, index_hadm_id)`` string tuples.
 
     Args
     ----
+    raw_mining:         dict with ``freq_case`` / ``freq_ctrl`` lists of
+                        ``(support, episode, carrier_indices)``
+    df_seq:             accepted for API compatibility only; presence is
+                        read from ``df_ig``
+    df_ig:              ``ig_<split>.csv`` (needs ``visit_idx`` for temporal order)
     min_blocks:         require the pattern to have at least this many visit blocks
-    min_tokens_total:   require sum-of-token-occurrences \u2265 this (``[{A,B}]`` = 2)
-    min_carriers:       drop patterns with fewer than this many test-split carriers
+    min_tokens_total:   require sum-of-token-occurrences ≥ this (``[{A,B}]`` = 2)
+    min_carriers:       drop patterns with fewer than this many carriers
     """
-    from scipy.sparse import csr_matrix
-    from atop.mining.patterns import _is_subpattern
-
     # 1. Enumerate unique patterns from both cohorts.
-    seen: set = set()
-    episodes_keyed: dict = {}  # key (tuple of frozensets) \u2192 (episode_list, n_case, n_ctrl)
+    episodes_keyed: dict = {}  # key (tuple of frozensets) → {"ep", "n_case", "n_ctrl"}
     for cohort, count_key in (("freq_case", "n_case"), ("freq_ctrl", "n_ctrl")):
         for sup, ep, _carriers in raw_mining[cohort]:
             if len(ep) < min_blocks:
@@ -249,102 +174,47 @@ def score_all_raw_patterns(raw_mining: dict,
             entry = episodes_keyed.setdefault(key, {"ep": [frozenset(b) for b in ep],
                                                     "n_case": 0, "n_ctrl": 0})
             entry[count_key] = sup
-            seen.add(key)
     if verbose:
         print(f"  [raw-scorer] {len(episodes_keyed):,} distinct patterns in raw cache "
               f"(min_blocks={min_blocks}, min_tokens_total={min_tokens_total})")
 
-    # 2. Build per-patient IG cache + per-patient visit-blocks list.
-    ig_cache = _build_ig_per_patient_token(df_ig)
-    patient_blocks: dict = {}  # key \u2192 list[frozenset(tokens)]
-    all_patients = []
-    for _, row in df_seq.iterrows():
-        key = (str(row["patient_id"]), str(row["index_hadm_id"]))
-        # Full-presence carriers: build blocks from the complete sequence, not
-        # only the salient (80% IG-mass) tokens.
-        svb = _full_visit_blocks(row.get("combined_full", []))
-        if not svb:
-            patient_blocks[key] = []
-        else:
-            patient_blocks[key] = [frozenset(b) for b in svb]
-        all_patients.append(key)
+    # 2. Per-patient occurrence index + presence matrix (shared with Panel C).
+    patient_tokens = build_patient_token_occurrences(df_ig)
+    index = build_presence_index(patient_tokens)
     if verbose:
-        print(f"  [raw-scorer] {len(all_patients):,} patients, {len(ig_cache):,} with IG rows")
+        print(f"  [raw-scorer] {len(patient_tokens):,} patients with IG rows")
+        print(f"  [raw-scorer] sparse presence: {index.presence.shape}, "
+              f"{index.presence.nnz:,} nnz")
 
-    # 3. Build sparse presence matrix (patients \u00d7 tokens) for fast carrier filtering.
-    patient_idx = {k: i for i, k in enumerate(all_patients)}
-    tok_idx: dict = {}
-    rows, cols = [], []
-    for k, blocks in patient_blocks.items():
-        i = patient_idx[k]
-        # Binary presence: each token counts once per patient regardless of how many
-        # visit blocks it appears in. Appending per (block, token) made duplicate
-        # (patient, token) entries sum into occurrence counts, so the candidate
-        # filter (per_row_count == n_pattern_tokens) wrongly excluded patients with
-        # a pattern token repeated across visits — dropping true carriers.
-        for t in (set().union(*blocks) if blocks else ()):
-            j = tok_idx.get(t)
-            if j is None:
-                j = len(tok_idx)
-                tok_idx[t] = j
-            rows.append(i)
-            cols.append(j)
-    data = np.ones(len(rows), dtype=np.int8)
-    presence = csr_matrix((data, (rows, cols)),
-                          shape=(len(all_patients), len(tok_idx)), dtype=np.int32)
-    if verbose:
-        print(f"  [raw-scorer] sparse presence: {presence.shape}, {presence.nnz:,} nnz")
-
-    # 4. Score each pattern.
+    # 3. Score each pattern.
     scored = []
     total = len(episodes_keyed)
     progress_step = max(1000, total // 10)
     for pi, (key, entry) in enumerate(episodes_keyed.items()):
         ep = entry["ep"]
-        pat_tokens = set().union(*ep) if ep else set()
-        # Carriers must have ALL pattern tokens in their presence
-        needed_cols = [tok_idx[t] for t in pat_tokens if t in tok_idx]
-        if len(needed_cols) != len(pat_tokens):
-            continue  # some token absent from test split entirely
-        if not needed_cols:
-            continue
-        sub = presence[:, needed_cols]
-        per_row_count = np.asarray(sub.sum(axis=1)).ravel()
-        cand_rows = np.where(per_row_count == len(needed_cols))[0]
-        if cand_rows.size == 0:
-            continue
-        # Temporal match within candidates
-        carriers = set()
-        ig_sums = []
-        for ri in cand_rows:
-            pkey = all_patients[ri]
-            blocks = patient_blocks[pkey]
-            if not blocks:
-                continue
-            if _is_subpattern(ep, blocks):
-                carriers.add(pkey)
-                tig = ig_cache.get(pkey, {})
-                ig_sums.append(sum(tig.get(t, 0.0) for t in pat_tokens))
+        pat_itemsets = episode_to_itemsets(ep)
+        if not any(pat_itemsets):
+            continue  # pattern without tokens
+        result = score_episode_over_cohort(pat_itemsets, patient_tokens, index)
+        if result is None:
+            continue  # some token absent from this split entirely
+        ig_sums, carriers = result
         if len(carriers) < min_carriers:
             continue
         mean_sig = float(np.mean(ig_sums)) if ig_sums else 0.0
-        pat_str = " -> ".join(
-            ("{" + ", ".join(sorted(b)) + "}") if len(b) > 1 else next(iter(b))
-            for b in ep
-        )
         scored.append({
-            "pattern":         pat_str,
+            "pattern":         _format_episode(ep),
             "ig_signed_mean":  mean_sig,
             "n_present":       len(carriers),
-            "_carrier_keys":   carriers,
+            "_carrier_keys":   set(carriers),
         })
         if verbose and (pi + 1) % progress_step == 0:
             print(f"    [raw-scorer] {pi+1}/{total} patterns scored, "
-                  f"{len(scored)} with \u2265{min_carriers} carriers")
+                  f"{len(scored)} with ≥{min_carriers} carriers")
 
     df = pd.DataFrame(scored)
     if verbose:
-        print(f"  [raw-scorer] final: {len(df):,} patterns \u2265{min_carriers} carriers")
+        print(f"  [raw-scorer] final: {len(df):,} patterns ≥{min_carriers} carriers")
     return df
 
 
