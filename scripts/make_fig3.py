@@ -113,6 +113,61 @@ def _select_panel_c_patterns(
     return top.drop(columns=["_abs"])
 
 
+
+def _render_token_panels_a4(values_a, labels_a, values_b, labels_b,
+                            output_path, dpi=300):
+    """Figure 3 at print size for an A4/Letter text block (6.5 in wide).
+
+    Drawn at the size it is printed, so fonts stay legible (7.5 pt labels,
+    9 pt titles) instead of being shrunk from a poster-sized canvas. Each
+    panel gets a short two-line title anchored over its own label column.
+    """
+    from matplotlib.ticker import MaxNLocator
+    fig_w, fig_h = 6.5, 8.4
+    fs_label, fs_val, fs_tick, fs_xlab, fs_head, fs_sub = 7.5, 6.5, 7, 7.5, 9, 8
+    lab_w, gap, right = 1.42 / fig_w, 0.30 / fig_w, 0.06 / fig_w
+    bar_w = (1 - 2 * lab_w - gap - right) / 2
+    top, bottom = 1 - 0.78 / fig_h, 0.80 / fig_h
+    fig = plt.figure(figsize=(fig_w, fig_h))
+    ax_a = fig.add_axes([lab_w, bottom, bar_w, top - bottom])
+    ax_b = fig.add_axes([lab_w + bar_w + gap + lab_w, bottom, bar_w, top - bottom])
+    panels = [
+        (ax_a, values_a, labels_a, "A  Population-weighted",
+         "Mean IG over all patients",
+         r"$E[\mathrm{IG}]$" + "\n\u2190 protective    risk \u2192"),
+        (ax_b, values_b, labels_b, "B  Carrier-conditional",
+         "Mean IG among patients with the token",
+         r"$E[\mathrm{IG}\,|\,\mathrm{present}]$" + "\n\u2190 protective    risk \u2192"),
+    ]
+    for ax, vals, labs, _, _, xlab in panels:
+        signed_ig_bars(values=vals, labels=labs, ax=ax, fontsize=fs_label,
+                       bar_height=0.62)
+        m = max(abs(v) for v in vals)
+        pad = m * 0.03
+        for i, v in enumerate(vals):
+            ax.text(v + (pad if v >= 0 else -pad), i, f"{v:+.3f}",
+                    ha="left" if v >= 0 else "right", va="center",
+                    fontsize=fs_val, color="#222222")
+        ax.set_xlim(-m * 1.6, m * 1.6)
+        ax.set_ylim(-0.6, len(vals) - 0.4)
+        ax.xaxis.set_major_locator(MaxNLocator(nbins=4, symmetric=True))
+        ax.tick_params(axis="x", labelsize=fs_tick, length=3)
+        ax.tick_params(axis="y", length=0, pad=3)
+        ax.set_xlabel(xlab, fontsize=fs_xlab, labelpad=4)
+        for sp in ("top", "right"):
+            ax.spines[sp].set_visible(False)
+    fig.canvas.draw()
+    renderer = fig.canvas.get_renderer()
+    for ax, _, _, head, sub, _ in panels:
+        x0 = ax.get_tightbbox(renderer).transformed(fig.transFigure.inverted()).x0
+        fig.text(x0, top + 0.40 / fig_h, head, fontsize=fs_head,
+                 fontweight="bold", ha="left", va="bottom")
+        fig.text(x0, top + 0.17 / fig_h, sub, fontsize=fs_sub,
+                 ha="left", va="bottom", color="#333333")
+    fig.savefig(output_path, dpi=dpi, bbox_inches="tight", pad_inches=0.04)
+    plt.close(fig)
+
+
 def main() -> None:
     p = argparse.ArgumentParser(description="Render Figure 3 (global 3-panel attribution)")
     p.add_argument("--run_dir", default="../runs/full_CPD_v1")
@@ -155,6 +210,9 @@ def main() -> None:
                         "between-panel whitespace requiring post-hoc "
                         "PNG cropping).")
     p.add_argument("--dpi", type=int, default=300)
+    p.add_argument("--render_only", action="store_true",
+                   help="Redraw Figure 3 from the saved panel_a/panel_b CSVs "
+                        "(no recomputation; panel C/D CSVs are left untouched).")
     p.add_argument("--output-path", default="../manuscript/jamia_submission/figures/Figure3.png")
     p.add_argument("--analysis-dir", default=None,
                    help="Directory holding token_importance_*.csv, pathway_importance_*.csv, "
@@ -168,6 +226,16 @@ def main() -> None:
     layout = RunLayout(args.run_dir)
     csv_dir = args.analysis_dir or layout.analysis_dir
     panels_dir = args.panels_dir or layout.outputs_panels_dir
+
+    if args.render_only:
+        jt = int(round(args.jaccard_threshold * 100))
+        pa = pd.read_csv(os.path.join(panels_dir, f"panel_a_{args.split}_j{jt}_short.csv"))
+        pb = pd.read_csv(os.path.join(panels_dir, f"panel_b_{args.split}_j{jt}_short.csv"))
+        _render_token_panels_a4(list(pa["ig_value"]), list(pa["label"]),
+                                list(pb["ig_value"]), list(pb["label"]),
+                                args.output_path, args.dpi)
+        print(f"[render_only] Saved {args.output_path}")
+        return
 
     # ── Label resolver ────────────────────────────────────────────────
     resolver = PatternLabelResolver(args.run_dir, short_names_csv=args.short_names_csv)
@@ -503,96 +571,9 @@ def main() -> None:
         # space), large labels, inline bar value annotations, single
         # legend at the top.
         tok_specs = panel_specs[:2]   # A + B only
-        # Aspect ratio: each panel ~7" wide × (rows × 0.35 + 2.5)" tall.
-        # Total figure width = 2 × 7" + a tight wspace (~0.6" of inter-
-        # panel padding). At 30 rows that's ~13" tall → roughly square,
-        # not a strip.
-        rows_panel = max(len(tok_specs[0]["values"]), len(tok_specs[1]["values"]))
-        panel_w = 8.0
-        panel_h = max(7.0, rows_panel * 0.35 + 2.0)
-        # Wider total figure + larger wspace = visible white channel
-        # between Panel A and Panel B so the value annotations and
-        # tick labels don't crowd each other.
-        fig_w = 2 * panel_w + 3.0
-        fig_h = panel_h + 0.8         # column title room only (no top legend now)
-        fig, axes = plt.subplots(
-            1, 2, figsize=(fig_w, fig_h),
-            gridspec_kw={"width_ratios": [1, 1], "wspace": 0.55},
-        )
-
-        # Column subtitles: parallel structure, bold name + colon +
-        # plain-English description. Math notation (E[IG], E[IG|present])
-        # moved DOWN to the x-axis label (it labels the x-axis quantity).
-        TOK_SUBTITLES = {
-            0: r"Population-weighted ranking: contribution to model averaged over all patients",
-            1: r"Carrier-conditional ranking: contribution to model averaged over patients who have the token",
-        }
-        # X-axis labels carry the formal estimand + direction arrows.
-        TOK_XLABELS = {
-            0: r"$E[\mathrm{IG}]$" + "\n" + r"← protective    risk →",
-            1: r"$E[\mathrm{IG}\,|\,\mathrm{present}]$" + "\n" + r"← protective    risk →",
-        }
-        TOK_HEADS = {0: "A", 1: "B"}
-
-        for i, (ax, spec) in enumerate(zip(axes, tok_specs)):
-            signed_ig_bars(
-                values=spec["values"], labels=spec["labels"],
-                ax=ax, fontsize=11,   # bigger labels (was 7-8pt at default)
-                show_value_annotations=True,
-            )
-            # labelpad=15 (was default ~4) adds visible vertical breathing
-            # room between the x-axis tick numbers and the formula+arrows
-            # label text below them.
-            ax.set_xlabel(TOK_XLABELS[i], fontsize=11, labelpad=15)
-            ax.tick_params(axis="x", labelsize=10)
-            for s in ("top", "right"):
-                ax.spines[s].set_visible(False)
-            # Expand x-axis range per-panel so the inline value
-            # annotations and y-tick labels sit OUTSIDE the bar columns
-            # without overlap. Panels A and B use DIFFERENT axis scales
-            # by design, the two estimands compute different objects
-            # (E[IG] vs E[IG|present]); the caption explains the ~50×
-            # magnitude gap (collapsing rare features under population
-            # weighting). Forcing a shared scale would make Panel A
-            # near-invisible without adding scientific value here,
-            # that visualization lives in the caption + Methods text.
-            xmin, xmax = ax.get_xlim()
-            xrange = xmax - xmin
-            ax.set_xlim(xmin - xrange * 0.18, xmax + xrange * 0.30)
-
-        # Column titles drawn via fig.text so we can anchor them to the
-        # LEFTMOST edge of each panel's content (the y-tick labels), not
-        # the axes' left edge (which sits where x=0). This matches what
-        # the user sees: titles align with "MDD single ep. NOS" on the
-        # left and "Psychosis NOS" on the right.
-        for i, ax in enumerate(axes):
-            # Get the axes' bounding box AFTER subplots_adjust, including
-            # the tick labels on the left (so the title starts where the
-            # labels start).
-            pos = ax.get_position()
-            # Use the panel's left edge as the title's x anchor; the
-            # tick-label area is to the LEFT of pos.x0, but matplotlib's
-            # default tight layout doesn't tell us its width, use a
-            # fixed-fraction offset that visually lands at the start of
-            # the tick-label column.
-            title_x = max(0.01, pos.x0 - 0.10)
-            # Gap bumped from 0.015 to 0.030 so subtitle has clear
-            # vertical breathing room above the topmost row.
-            title_y = pos.y1 + 0.030
-            fig.text(
-                title_x, title_y,
-                f"$\\bf{{{TOK_HEADS[i]}.}}$  " + TOK_SUBTITLES[i],
-                fontsize=14, ha="left", va="bottom", fontweight="bold",
-            )
-
-        # (No shared legend, the inline value annotations + the x-axis
-        # label "← protective    risk →" + the red/blue color convention
-        # are self-explanatory. A separate legend was redundant.)
-
-        # Tight layout, but reserve top space for the legend.
-        fig.tight_layout(rect=[0, 0, 1, 0.97])
-        fig.savefig(args.output_path, dpi=args.dpi, bbox_inches="tight")
-        plt.close(fig)
+        _render_token_panels_a4(tok_specs[0]["values"], tok_specs[0]["labels"],
+                                tok_specs[1]["values"], tok_specs[1]["labels"],
+                                args.output_path, args.dpi)
         size_kb = os.path.getsize(args.output_path) // 1024
         print(f"[6] Saved figure (2-panel token-level): "
               f"{args.output_path} ({size_kb} KB)")

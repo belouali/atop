@@ -290,7 +290,7 @@ def main() -> None:
     print(f"  Wilcoxon AToP > random: p = {pval:.2e}")
 
     # AUC between curves (comprehensiveness) — area between AToP and random
-    auc_diff = np.trapz(ca_m - cr_m, ks)
+    auc_diff = np.trapezoid(ca_m - cr_m, ks)
     print(f"  Comprehensiveness AUC gap (AToP - random): {auc_diff:.4f}")
 
     # ── Backing CSV ──

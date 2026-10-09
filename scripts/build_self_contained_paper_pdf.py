@@ -52,6 +52,12 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
 
+_RLParagraph = Paragraph
+
+
+def Paragraph(text, *args, **kwargs):  # noqa: N802 (drop-in for reportlab)
+    return _RLParagraph(_fix_glyphs(text), *args, **kwargs)
+
 # ── Register TTF fonts with full Unicode coverage ─────────────────────
 # The default Times-Roman PostScript Type 1 font in reportlab covers
 # Latin-1 only, Greek (Σ, σ), modifier letters (ŷ), arrows (→) all
@@ -80,6 +86,55 @@ def _register_ttfs():
 
 
 SERIF_FAMILY = _register_ttfs()
+
+
+# ── Glyph coverage ─────────────────────────────────────────────────────
+# Times New Roman lacks most Unicode subscript letters (e.g. U+2C7C "ⱼ",
+# "ₘ", "₀") and some math symbols ("∈", "∝"), which reportlab renders as
+# empty boxes. Every Paragraph passes through _fix_glyphs: Unicode
+# sub/superscript letters become <sub>/<super> markup with ordinary
+# glyphs, and any other character missing from the serif font is drawn
+# from Apple Symbols when that font has it.
+_SUB = dict(zip("₀₁₂₃₄₅₆₇₈₉ₐₑₒₓₕₖₗₘₙₚₛₜᵢⱼᵣᵤᵥ", "0123456789aeoxhklmnpstijruv"))
+_SUP = dict(zip("ᵃᵇᶜᵈᵉᶠᵍʰⁱʲᵏˡᵐⁿᵒᵖʳˢᵗᵘᵛʷˣʸᶻ", "abcdefghijklmnoprstuvwxyz"))
+_FALLBACK_FONT = None
+if SERIF_FAMILY and os.path.exists("/System/Library/Fonts/Apple Symbols.ttf"):
+    pdfmetrics.registerFont(TTFont("AppleSymbols",
+                                   "/System/Library/Fonts/Apple Symbols.ttf"))
+    _FALLBACK_FONT = "AppleSymbols"
+
+
+def _fix_glyphs(xml: str) -> str:
+    if not xml or not SERIF_FAMILY:
+        return xml
+    serif = pdfmetrics.getFont("TNR").face.charToGlyph
+    fallback = (pdfmetrics.getFont(_FALLBACK_FONT).face.charToGlyph
+                if _FALLBACK_FONT else {})
+    out, mode, buf = [], None, []
+
+    def flush():
+        if buf:
+            tag = {"sub": "sub", "sup": "super"}.get(mode)
+            body = "".join(buf)
+            out.append(f"<{tag}>{body}</{tag}>" if tag else
+                       f'<font name="{_FALLBACK_FONT}">{body}</font>')
+            buf.clear()
+
+    for ch in xml:
+        if ch in _SUB:
+            kind, rep = "sub", _SUB[ch]
+        elif ch in _SUP:
+            kind, rep = "sup", _SUP[ch]
+        elif ord(ch) > 127 and ord(ch) not in serif and ord(ch) in fallback:
+            kind, rep = "fb", ch
+        else:
+            kind, rep = None, ch
+        if kind != mode:
+            flush()
+            mode = kind
+        (buf if kind else out).append(rep)
+    flush()
+    return "".join(out)
 
 
 def _font(name: str, *, bold: bool = False, italic: bool = False) -> str:
@@ -827,7 +882,8 @@ def block_to_story(blk: Block, S: Dict[str, ParagraphStyle]):
     if blk.kind == "spacer":
         return [Spacer(1, 8)]
     if blk.kind == "table":
-        return [_render_table(blk, S)]
+        out = _render_table(blk, S)
+        return out if isinstance(out, list) else [out]
     return []
 
 
@@ -850,6 +906,8 @@ def _column_widths(header: List[str], n_cols: int, usable: float) -> List[float]
         "AUROC": 0.9, "ΔAUROC": 0.9, "95% CI": 1.4,
         "p (two-sided)": 1.1,
         "ΣIG": 0.7, "Δŷ": 0.7, "OR": 0.7, "n": 0.5,
+        "Family": 1.5, "ΣIG obs.": 0.85, "ΣIG rev.": 0.85, "Atten. %": 0.75,
+        "Fell %": 0.7, "Sign %": 0.7, "p": 0.9,
     }
     if not header:
         return [usable / n_cols] * n_cols
@@ -890,7 +948,10 @@ def _render_table(blk: Block, S: Dict[str, ParagraphStyle]):
         ("RIGHTPADDING", (0, 0), (-1, -1), 4),
     ])
     t.setStyle(style)
-    return KeepTogether([t, Spacer(1, 8)])
+    # Tables may split across pages (header row repeats); wrapping a tall
+    # table in KeepTogether pushed it whole to the next page and stranded
+    # its caption.
+    return [t, Spacer(1, 8)]
 
 
 # ── Figure embedding helpers ──────────────────────────────────────────
@@ -1090,7 +1151,19 @@ def parse_figure_legends(path):
 
 
 # ── Build! ────────────────────────────────────────────────────────────
-def build():
+ARXIV_PDF = os.path.join(HERE, "..", "..", "manuscript", "jamia_submission",
+                          "AToP_arxiv_preprint.pdf")
+
+# Shown under the affiliations in --preprint mode. JAMIA permits posting the
+# Author's Original Version to a preprint server before acceptance; once the
+# paper is accepted this line must say so instead, and the preprint may not be
+# updated further.
+PREPRINT_NOTE = ("Preprint: author's original version, not peer reviewed. "
+                 "Under review. Code: https://github.com/belouali/atop "
+                 "(release v1.0.1).")
+
+
+def build(preprint: bool = False):
     print(f"[1] Parsing main DOCX: {os.path.basename(MAIN_DOCX)}")
     main_blocks, meta = parse_main_docx(MAIN_DOCX)
     docx_legends = parse_figure_legends(MAIN_DOCX)
@@ -1104,7 +1177,7 @@ def build():
     print(f"    {len(supp_blocks)} supplement blocks")
 
     S = build_styles()
-    doc = PaperDocTemplate(OUT_PDF)
+    doc = PaperDocTemplate(ARXIV_PDF if preprint else OUT_PDF)
     story = []
 
     # ── Title block ────────────────────────────────────────────────
@@ -1113,6 +1186,9 @@ def build():
         story.append(Paragraph(meta["authors"], S["author"]))
     for aff in meta["affiliations"]:
         story.append(Paragraph(aff, S["affiliation"]))
+    if preprint:
+        story.append(Spacer(1, 4))
+        story.append(Paragraph(PREPRINT_NOTE, S["affiliation"]))
     story.append(Spacer(1, 6))
     story.append(HRFlowable(width="100%",
                               thickness=0.4,
@@ -1181,7 +1257,7 @@ def build():
     # Portrait page content area (used for narrow figures):
     page_w = letter[0] - 2 * 1.05 * inch
     page_h = letter[1] - 2 * 0.95 * inch
-    fig_max_h_p = page_h * 0.62
+    fig_max_h_p = page_h * 0.92   # tall portrait figures keep print size; caption flows on
     # Landscape page content area:
     ls_w = LETTER_LS[0] - 2 * 0.55 * inch
     ls_h = LETTER_LS[1] - 2 * 0.65 * inch
@@ -1301,11 +1377,17 @@ def build():
         story.extend(block_to_story(blk, S))
 
     # ── Build! ─────────────────────────────────────────────────────
-    print(f"[3] Building PDF: {OUT_PDF}")
+    print(f"[3] Building PDF: {ARXIV_PDF if preprint else OUT_PDF}")
     doc.build(story)
-    sz = os.path.getsize(OUT_PDF) / 1024
-    print(f"    Wrote {OUT_PDF} ({sz:.0f} KB)")
+    _out = ARXIV_PDF if preprint else OUT_PDF
+    sz = os.path.getsize(_out) / 1024
+    print(f"    Wrote {_out} ({sz:.0f} KB)")
 
 
 if __name__ == "__main__":
-    build()
+    import argparse
+    _ap = argparse.ArgumentParser(description=__doc__)
+    _ap.add_argument("--preprint", action="store_true",
+                     help="emit the arXiv preprint variant (adds a preprint "
+                          "status line; writes AToP_arxiv_preprint.pdf)")
+    build(**vars(_ap.parse_args()))

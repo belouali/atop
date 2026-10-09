@@ -84,6 +84,17 @@ def main() -> None:
          "from positive label (planned care, not unplanned)")
     _arrow(ax, CX, 12.5 - H / 2, CX, 10.8 + H / 2)
 
+    # 3b. Outcome exclusion: in-hospital deaths are removed before
+    #     labeling (compute_readmission_labels drops hospital_expire_flag
+    #     == 1), so the flow from source admissions to analytic cohort is
+    #     fully accounted for.
+    # main box right edge is CX + W/2 = 6.6; place the exclusion box so
+    # its left edge sits clear of it, with the arrow spanning the gap
+    _box(ax, 8.45, 10.8, 2.8, EH,
+         "11,801 admissions excluded (2.2%)\nin-hospital death, cannot be readmitted",
+         fc=EXCL_FC, ec=EXCL_EC, fontsize=9.5)
+    _arrow(ax, CX + W / 2, 10.8, 8.45 - 2.8 / 2, 10.8)
+
     # 4. Analytic cohort
     _box(ax, CX, 9.05, W, H,
          "Analytic cohort\n"

@@ -71,7 +71,7 @@ def _abbreviate_label(lab: str) -> str:
     return lab
 
 
-def _wrap_long_label(lab: str, max_chars: int = 70) -> str:
+def _wrap_long_label(lab: str, max_chars: int = 200) -> str:
     """Hard-wrap a pattern label longer than max_chars at the last space
     before the limit. Pattern labels can be 80+ chars when they include
     multi-token co-occurrences inside curly braces."""
@@ -115,6 +115,70 @@ def _prep_panel(df: pd.DataFrame, n_show: int,
     return values, labels
 
 
+
+def _render_pattern_panels_a4(values_a, labels_a, values_b, labels_b,
+                              output_path, dpi=300):
+    """Figure 4 at print size for an A4/Letter page (6.5 in wide).
+
+    Panels are stacked (A above B) so long pattern labels fit on one line
+    at 7 pt, and both panels share one x-axis range so bar lengths are
+    directly comparable across the two pools.
+    """
+    from matplotlib.ticker import MaxNLocator
+    fig_w = 6.5
+    fs_label, fs_val, fs_tick, fs_xlab, fs_head, fs_sub = 7, 6.3, 7, 7.5, 9, 8
+    pitch = 0.126                      # inches per row
+    n_a, n_b = len(values_a), len(values_b)
+    head_h, axis_h, gap_h = 0.50, 0.30, 0.30
+    xlab_h = 0.42
+    h_a, h_b = n_a * pitch, n_b * pitch
+    fig_h = head_h + h_a + axis_h + gap_h + head_h + h_b + axis_h + xlab_h
+    lab_w, right = 3.25 / fig_w, 0.08 / fig_w
+    fig = plt.figure(figsize=(fig_w, fig_h))
+    y_b = (xlab_h + axis_h) / fig_h
+    y_a = y_b + (h_b + head_h + gap_h + axis_h) / fig_h
+    ax_a = fig.add_axes([lab_w, y_a, 1 - lab_w - right, h_a / fig_h])
+    ax_b = fig.add_axes([lab_w, y_b, 1 - lab_w - right, h_b / fig_h])
+    data_max = max(max(abs(v) for v in values_a), max(abs(v) for v in values_b))
+    lim = data_max * 1.32
+    panels = [
+        (ax_a, values_a, labels_a, "A  All patterns",
+         "Top 30 patterns of any shape, ranked by carrier-averaged |\u03a3IG|"),
+        (ax_b, values_b, labels_b, "B  Cross-visit patterns",
+         "Top 30 patterns spanning \u22652 visits with \u22652 tokens, same ranking"),
+    ]
+    for ax, vals, labs, _, _ in panels:
+        signed_ig_bars(values=vals, labels=labs, ax=ax, fontsize=fs_label,
+                       bar_height=0.62)
+        pad = data_max * 0.02
+        for i, v in enumerate(vals):
+            ax.text(v + (pad if v >= 0 else -pad), i, f"{v:+.3f}",
+                    ha="left" if v >= 0 else "right", va="center",
+                    fontsize=fs_val, color="#222222")
+        ax.set_xlim(-lim, lim)
+        ax.set_ylim(-0.6, len(vals) - 0.4)
+        ax.xaxis.set_major_locator(MaxNLocator(nbins=6, symmetric=True))
+        ax.tick_params(axis="x", labelsize=fs_tick, length=3)
+        ax.tick_params(axis="y", length=0, pad=3)
+        for sp in ("top", "right"):
+            ax.spines[sp].set_visible(False)
+    ax_b.set_xlabel(r"$E[\Sigma\mathrm{IG}\,|\,\mathrm{present}]$"
+                    "     \u2190 protective    risk \u2192",
+                    fontsize=fs_xlab, labelpad=4)
+    fig.canvas.draw()
+    renderer = fig.canvas.get_renderer()
+    for ax, _, _, head, sub in panels:
+        bb = ax.get_position()
+        x0 = ax.get_tightbbox(renderer).transformed(fig.transFigure.inverted()).x0
+        fig.text(x0, bb.y1 + 0.27 / fig_h, head, fontsize=fs_head,
+                 fontweight="bold", ha="left", va="bottom")
+        fig.text(x0, bb.y1 + 0.08 / fig_h, sub, fontsize=fs_sub,
+                 ha="left", va="bottom", color="#333333")
+    os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
+    fig.savefig(output_path, dpi=dpi, bbox_inches="tight", pad_inches=0.04)
+    plt.close(fig)
+
+
 def main() -> None:
     p = argparse.ArgumentParser(
         description="Render Figure 4 (pattern-level attribution, 2-panel bar chart).")
@@ -147,119 +211,8 @@ def main() -> None:
     values_a, labels_a = _prep_panel(df_a, args.n_show, show_n=args.show_n)
     values_b, labels_b = _prep_panel(df_b, args.n_show, show_n=args.show_n)
 
-    # ── Composition mirrors make_fig3.py's 2-panel layout ─────────────
-    # Pattern labels are much longer than token labels (Figure 3); each
-    # panel needs LOTS of horizontal room for both labels and bars.
-    # Row pitch also has to be bigger to accommodate wrapped 2-line
-    # labels for long curly-brace patterns.
-    rows_panel = max(len(values_a), len(values_b))
-    panel_w = 13.0          # wide for long pattern labels
-    panel_h = max(10.0, rows_panel * 0.55 + 2.5)
-    fig_w = 2 * panel_w + 3.0
-    fig_h = panel_h + 0.8
-    fig, axes = plt.subplots(
-        1, 2, figsize=(fig_w, fig_h),
-        gridspec_kw={"width_ratios": [1, 1], "wspace": 0.65},
-    )
-
-    # Subtitles mirror make_fig3.py's "ranking: description" structure.
-    # Math notation (E[ΣIG | present]) lives on the x-axis below.
-    PAT_SUBTITLES = {
-        0: "Top 30 patterns ranked by marginal contribution to model predictions",
-        1: "Top 30 cross-visit patterns ranked by marginal contribution to model predictions",
-    }
-    PAT_HEADS = {0: "A", 1: "B"}
-    # X-axis label: same two-line format as Figure 3 (math + direction arrows).
-    # Double newline puts visible vertical space between the math
-    # formula and the direction-arrow line so they don't read as a
-    # single jammed block.
-    PAT_XLABELS = {
-        0: r"$E[\Sigma\mathrm{IG}\,|\,\mathrm{present}]$" + "\n\n" + r"← protective    risk →",
-        1: r"$E[\Sigma\mathrm{IG}\,|\,\mathrm{present}]$" + "\n\n" + r"← protective    risk →",
-    }
-
-    panel_data = [
-        (values_a, labels_a),
-        (values_b, labels_b),
-    ]
-    for i, (ax, (vals, labs)) in enumerate(zip(axes, panel_data)):
-        signed_ig_bars(
-            values=vals, labels=labs,
-            ax=ax, fontsize=args.fontsize,
-            show_value_annotations=True,
-        )
-        # labelpad=30 (was default ~4) adds substantial vertical
-        # breathing room between the x-axis tick numbers and the
-        # formula+arrows label text below them.
-        ax.set_xlabel(PAT_XLABELS[i], fontsize=args.fontsize, labelpad=30)
-        ax.tick_params(axis="x", labelsize=args.fontsize - 1)
-        for s in ("top", "right"):
-            ax.spines[s].set_visible(False)
-        # Pad the LEFT side of the x-axis range so negative-bar value
-        # annotations (rendered to the LEFT of the bar tip) don't
-        # overlap the pattern labels in the y-tick column. Right side
-        # gets a smaller pad, positive-bar annotations sit just past
-        # the tip and never collide with labels.
-        xmin, xmax = ax.get_xlim()
-        xrange = xmax - xmin
-        ax.set_xlim(xmin - xrange * 0.30, xmax + xrange * 0.10)
-
-    # ── Shared x-axis across BOTH panels ───────────────────────────────
-    # The legend claims the panels share a scale so cross-pool magnitudes
-    # are directly comparable, and the Discussion quantifies that gap. If
-    # each panel auto-scaled to its own data the comparison would be
-    # visually false: a +0.8 cross-visit bar would render the same length
-    # as a +1.5 single-visit bar. Force one symmetric range, driven by the
-    # larger pool, onto both axes.
-    data_max = max(
-        max((abs(v) for v in values_a), default=0.0),
-        max((abs(v) for v in values_b), default=0.0),
-    )
-    shared_lim = data_max * 1.45  # headroom for value annotations
-    for ax in axes:
-        ax.set_xlim(-shared_lim, shared_lim)
-    print(f"  [xaxis] shared range +/-{shared_lim:.2f} "
-          f"(max |Sigma IG| = {data_max:.3f}) applied to both panels")
-
-    # ── Bars-to-text ratio: 40/60 split per panel ──────────────────────
-    # Bars area takes 40% of each panel column; y-tick labels take 60%.
-    # The extra 5% (vs the earlier 35%) gives negative-bar value
-    # annotations enough room not to overlap the pattern labels in the
-    # tick column. Layout is final after this; tight_layout below would
-    # un-do it, so we don't call tight_layout for Figure 4.
-    fig.canvas.draw()
-    BARS_FRACTION = 0.40
-    for ax in axes:
-        pos = ax.get_position()
-        new_width = pos.width * BARS_FRACTION
-        new_x0 = pos.x0 + pos.width * (1 - BARS_FRACTION)
-        ax.set_position([new_x0, pos.y0, new_width, pos.height])
-
-    # Column titles drawn via fig.text, left-anchored at the panel's
-    # tick-label edge. After the 35/65 split above, the tick-label
-    # column starts well to the LEFT of the axes, re-measure via
-    # tight bounding box (which now includes the wide tick-label area)
-    # to anchor precisely.
-    fig.canvas.draw()
-    for i, ax in enumerate(axes):
-        tbbox = ax.get_tightbbox(fig.canvas.get_renderer())
-        tbbox_fig = tbbox.transformed(fig.transFigure.inverted())
-        title_x = tbbox_fig.x0
-        # Gap between subtitle and panel top, bumped from 0.005 to
-        # 0.020 so the subtitle has visible breathing room above the
-        # topmost row of pattern labels.
-        title_y = tbbox_fig.y1 + 0.020
-        fig.text(
-            title_x, title_y,
-            f"$\\bf{{{PAT_HEADS[i]}.}}$  " + PAT_SUBTITLES[i],
-            fontsize=16, ha="left", va="bottom", fontweight="bold",
-        )
-
-    # NOTE: no tight_layout call, it would undo the manual
-    # set_position() above and reset the 35/65 split.
-    os.makedirs(os.path.dirname(args.output_path), exist_ok=True)
-    fig.savefig(args.output_path, dpi=args.dpi, bbox_inches="tight")
-    plt.close(fig)
+    _render_pattern_panels_a4(values_a, labels_a, values_b, labels_b,
+                              args.output_path, args.dpi)
     size_kb = os.path.getsize(args.output_path) // 1024
     print(f"[3] Saved figure (2-panel pattern-level): "
           f"{args.output_path} ({size_kb} KB)")

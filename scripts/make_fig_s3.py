@@ -364,7 +364,7 @@ def main() -> None:
     axA.set_ylabel("KernelSHAP (signed)",
                     fontsize=12, fontweight="bold", labelpad=8)
     axA.set_title(
-        f"A · Exemplar patient. top {args.top_k_tokens} tokens by |IG|\n"
+        f"A · Exemplar patient: top {args.top_k_tokens} tokens by |IG|\n"
         f"Pearson r = {r_p:.3f}    Spearman ρ = {rho_p:.3f}",
         fontsize=12, loc="left", pad=10,
     )
@@ -405,7 +405,7 @@ def main() -> None:
     axB.set_ylabel("KernelSHAP (z-score)",
                     fontsize=12, fontweight="bold", labelpad=8)
     axB.set_title(
-        f"B · Aggregate. {n_done} test patients × top-{args.agg_top_k}\n"
+        f"B · Aggregate: {n_done} test patients × top-{args.agg_top_k}\n"
         f"n = {len(agg_df):,} pairs    Pearson r = {r_a:.3f}    "
         f"Spearman ρ = {rho_a:.3f}    "
         f"Per-patient Jaccard@{K_OVERLAP} = {jacc_mean:.2f} (mean)",

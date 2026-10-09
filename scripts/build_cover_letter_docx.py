@@ -79,24 +79,16 @@ def build() -> None:
               "method-dependent. Clinical plausibility review was internal "
               "and non-blinded, and we make no claim of clinical utility.")
 
-    para(doc, "**Special considerations.** An abstract describing this work "
-              "was submitted to the AMIA 2026 Annual Symposium "
-              "[AUTHOR: confirm status — submitted / accepted / "
-              "presented]. The present manuscript is a substantially "
-              "expanded treatment: it adds the carrier-conditional "
-              "estimand analysis, the pattern-level aggregation and "
-              "deduplication, the faithfulness and temporal-order "
-              "validation, the KernelSHAP cross-method replication, and the "
-              "visit-matched outcome analysis, none of which appear in the "
-              "abstract. There are no previous reviews of this manuscript "
-              "to report.")
+    para(doc, "**Special considerations.** There are no related papers "
+              "by the authors published or under consideration, and no "
+              "previous reviews of this manuscript to report.")
 
     para(doc, "The manuscript is original, has not been published "
               "previously, and is not under consideration elsewhere. Both "
               "authors have approved the submission and agree to be "
               "accountable for the work. We declare no competing interests. "
               "The framework code is publicly available at "
-              "https://github.com/belouali/atop (release v1.0.0), and all "
+              "https://github.com/belouali/atop (release v1.0.1), and all "
               "analytic outputs "
               "reported in the manuscript can be regenerated from MIMIC-IV "
               "v3.1 using those scripts.")

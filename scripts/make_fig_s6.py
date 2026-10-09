@@ -124,7 +124,7 @@ def main() -> None:
     ax2.axhline(0, color="black", linewidth=0.6, linestyle=":")
     ax2.set_ylabel("\u0394\u0177", fontsize=12, fontweight="bold", labelpad=8)
     ax2.set_title(
-        f"B \u00B7 Box-and-whisker \u2014 n = {len(val):,} patterns",
+        f"B \u00B7 Box-and-whisker, n = {len(val):,} patterns",
         fontsize=12, loc="left", pad=10,
     )
     ax2.tick_params(labelsize=10)

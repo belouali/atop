@@ -1,7 +1,7 @@
 """build_tables_only_docx, quick-review document with only the tables.
 
 Generates ``AToP_JAMIA_tables_only.docx`` containing all 4 main-paper
-tables plus Table S1, with their captions and nothing else (no prose,
+tables plus Table S2, with their captions and nothing else (no prose,
 no figures). Convenient for table-focused review without scrolling
 through the whole manuscript.
 
@@ -100,7 +100,7 @@ def build() -> None:
     title(doc, "AToP JAMIA submission, tables for quick review")
     para(doc,
          "This document contains all main-paper tables (Tables 1-4) and "
-         "Table S1 from the supplement, with their captions, and nothing "
+         "Table S2 from the supplement, with their captions, and nothing "
          "else. Generated from the same CSVs the manuscript uses, so "
          "content here matches the manuscript exactly.",
          italic=True)
@@ -155,7 +155,7 @@ def build() -> None:
     )
     page_break(doc)
 
-    # ── Table 2 (Model performance, promoted from old Table S1) ──
+    # ── Table 2 (Model performance, promoted from old Table S2) ──
     df2 = _read_csv("Table2_model_performance.csv")
     table_title(doc, "Table 2",
                   "Predictive performance: Transformer vs LACE-covariate baselines.")
@@ -186,7 +186,7 @@ def build() -> None:
             "The two baselines also differ from each other: LACE "
             "XGBoost vs LACE LR, ΔAUROC = +0.069 (+0.063, +0.076), "
             "p < 0.001. Pattern mining pipeline counts are detailed in "
-            "Table S1."
+            "Table S2."
         ),
     )
     page_break(doc)
@@ -228,7 +228,7 @@ def build() -> None:
             "n = number of test-cohort carriers of the pattern; "
             "IG = integrated gradients. Crude per-pattern readmission "
             "rates and cohort-baseline relative risks are not shown; see "
-            "Supplementary Table S6 for visit-matched, within-cohort "
+            "Supplementary Table S3 for visit-matched, within-cohort "
             "adjusted odds ratios."
         ),
         note=(
@@ -278,7 +278,7 @@ def build() -> None:
             "n = number of test-cohort carriers of the pattern; "
             "IG = integrated gradients. As in Table 3, crude readmission "
             "rates and cohort-baseline relative risks are not shown; see "
-            "Supplementary Table S6 for visit-matched adjusted odds ratios."
+            "Supplementary Table S3 for visit-matched adjusted odds ratios."
         ),
         note=(
             "Same structure as Table 3 but drawn from the **cross-"
@@ -293,10 +293,10 @@ def build() -> None:
     )
     page_break(doc)
 
-    # ── Table S1 (Mining summary, demoted from old Table 2) ──
-    heading(doc, "Supplement, Table S1", level=1)
+    # ── Table S2 (Mining summary, demoted from old Table 2) ──
+    heading(doc, "Supplement, Table S2", level=1)
     df_s1 = _read_csv("Table2_mining_summary.csv")
-    table_title(doc, "Table S1", "AToP pattern mining pipeline summary.")
+    table_title(doc, "Table S2", "AToP pattern mining pipeline summary.")
     _rows_s1 = []
     _last_s1 = None
     for _, r in df_s1.iterrows():

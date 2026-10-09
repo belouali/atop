@@ -216,6 +216,84 @@ def _draw_dumbbell_panel(ax, sel: pd.DataFrame, resolver: PatternLabelResolver,
         ax.spines[side].set_visible(False)
 
 
+
+def _render_dumbbells_a4(sel_a, sel_b, resolver, output_path, dpi=300,
+                         show_n=False, x_lim=(-0.3, 0.3)):
+    """Figure 5 at print size for an A4/Letter page (6.5 in wide).
+
+    Same stacked layout as Figure 4 (A above B, one shared x-axis), with
+    dot and arrow sizes scaled to 7 pt labels. Rows within each panel are
+    ordered by |delta_y| (largest masking effect at the top).
+    """
+    fig_w = 6.5
+    fs_label, fs_val, fs_tick, fs_xlab, fs_head, fs_sub = 7, 6.3, 7, 7.5, 9, 8
+    pitch = 0.126
+    n_a, n_b = len(sel_a), len(sel_b)
+    head_h, axis_h, gap_h, xlab_h = 0.50, 0.30, 0.30, 0.42
+    h_a, h_b = n_a * pitch, n_b * pitch
+    fig_h = head_h + h_a + axis_h + gap_h + head_h + h_b + axis_h + xlab_h
+    lab_w, right = 3.55 / fig_w, 0.08 / fig_w
+    fig = plt.figure(figsize=(fig_w, fig_h))
+    y_b = (xlab_h + axis_h) / fig_h
+    y_a = y_b + (h_b + head_h + gap_h + axis_h) / fig_h
+    ax_a = fig.add_axes([lab_w, y_a, 1 - lab_w - right, h_a / fig_h])
+    ax_b = fig.add_axes([lab_w, y_b, 1 - lab_w - right, h_b / fig_h])
+    panels = [
+        (ax_a, sel_a, "A  All patterns",
+         "Masking effect of the Figure 4A patterns, ordered by |\u0394\u0177|"),
+        (ax_b, sel_b, "B  Cross-visit patterns",
+         "Masking effect of the Figure 4B patterns, ordered by |\u0394\u0177|"),
+    ]
+    xrange = x_lim[1] - x_lim[0]
+    for ax, sel, _, _ in panels:
+        labels = []
+        for _, r in sel.iterrows():
+            lab = _abbreviate_label(resolver.format_pattern(r["pattern"], short_names=True))
+            if show_n:
+                lab = f"{lab}  (n={int(r['n_matched_test'])})"
+            labels.append(lab)
+        deltas = list(sel["mean_delta_mask"])
+        y = list(range(len(deltas)))
+        ax.scatter([0] * len(y), y, marker="s", color=COLOR_BASE, s=7,
+                   zorder=2, linewidths=0)
+        for i, d in enumerate(deltas):
+            color = COLOR_RISK if d > 0 else COLOR_PROT
+            ax.annotate("", xy=(d, i), xytext=(0, i),
+                        arrowprops=dict(arrowstyle="-|>,head_length=0.35,head_width=0.2",
+                                        color=color, lw=1.1, shrinkA=1, shrinkB=2),
+                        zorder=3)
+            ax.plot(d, i, "o", color=color, markersize=3.6,
+                    markeredgecolor="white", markeredgewidth=0.5, zorder=4)
+            off = xrange * 0.025 * (1 if d >= 0 else -1)
+            ax.text(d + off, i, f"{d:+.3f}", fontsize=fs_val, color="#222222",
+                    ha="left" if d >= 0 else "right", va="center", zorder=5)
+        ax.set_yticks(y)
+        ax.set_yticklabels(labels, fontsize=fs_label)
+        ax.tick_params(axis="y", pad=3, length=0)
+        ax.axvline(0, color="black", linewidth=0.6, linestyle="--", alpha=0.55)
+        ax.set_xlim(*x_lim)
+        ax.set_ylim(-0.6, len(y) - 0.4)
+        ax.set_xticks([-0.2, -0.1, 0.0, 0.1, 0.2])
+        ax.tick_params(axis="x", labelsize=fs_tick, length=3)
+        for side in ("top", "right"):
+            ax.spines[side].set_visible(False)
+    ax_b.set_xlabel(r"$\Delta\hat{y} = \hat{y}_{\mathrm{original}} - \hat{y}_{\mathrm{masked}}$"
+                    "     \u2190 protective    risk-supporting \u2192",
+                    fontsize=fs_xlab, labelpad=4)
+    fig.canvas.draw()
+    renderer = fig.canvas.get_renderer()
+    for ax, _, head, sub in panels:
+        bb = ax.get_position()
+        x0 = ax.get_tightbbox(renderer).transformed(fig.transFigure.inverted()).x0
+        fig.text(x0, bb.y1 + 0.27 / fig_h, head, fontsize=fs_head,
+                 fontweight="bold", ha="left", va="bottom")
+        fig.text(x0, bb.y1 + 0.08 / fig_h, sub, fontsize=fs_sub,
+                 ha="left", va="bottom", color="#333333")
+    os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
+    fig.savefig(output_path, dpi=dpi, bbox_inches="tight", pad_inches=0.04)
+    plt.close(fig)
+
+
 def main() -> None:
     p = argparse.ArgumentParser(
         description="Render Figure 5 (perturbation-validation dumbbell, 2-panel).")
@@ -282,105 +360,8 @@ def main() -> None:
     # ── Compose figure ───────────────────────────────────────────────
     resolver = PatternLabelResolver(args.run_dir, verbose=False)
 
-    # Both panels: SYMMETRIC xlim at (-0.3, +0.3). Same fixed range
-    # across both pools so dumbbell lengths are directly comparable
-    # by eye. Ticks land at -0.2, 0.0, 0.2 on both.
-    xlim_a = (-0.3, 0.3)
-    xlim_b = (-0.3, 0.3)
-    panel_xlims = [xlim_a, xlim_b]
-
-    # ── Composition matches make_fig4.py EXACTLY ──────────────────────
-    # Same panel_w (13.0), same wspace (0.65), same height formula, so
-    # Fig 5 reads as a layout sibling of Fig 4, not a wider, more
-    # awkward cousin.
-    rows_panel = max(len(sel_a), len(sel_b))
-    panel_w = 13.0           # matches make_fig4.py
-    panel_h = max(10.0, rows_panel * 0.55 + 2.5)
-    fig_w = 2 * panel_w + 3.0
-    fig_h = panel_h + 0.8
-    fig, axes = plt.subplots(
-        1, 2, figsize=(fig_w, fig_h),
-        gridspec_kw={"width_ratios": [1, 1], "wspace": 0.65},
-    )
-
-    # Subtitles parallel to make_fig4.py: "Pool name: description (qualifier)"
-    # Subtitle framing balances two needs:
-    #   1. The ARROW visualizes the pattern's contribution to predicted
-    #      risk (not the masking action itself), so "contribution" is
-    #      the subject and the arrow direction stays intuitive.
-    #   2. The reader must understand this is methodologically DIFFERENT
-    #      from Figs 3/4 (which use IG attribution). The "validated by
-    #      masking" qualifier flags this as the perturbation-validation
-    #      figure, the empirical confirmation that IG-attributed
-    #      patterns actually move the model's output causally.
-    DUM_SUBTITLES = {
-        0: "Masking effect of top patterns on predicted readmission risk",
-        1: "Masking effect of top cross-visit patterns on predicted readmission risk",
-    }
-    DUM_HEADS = {0: "A", 1: "B"}
-    # X-axis label: Δŷ = ŷ_original − ŷ_masked (standard occlusion/ERASER
-    # importance convention, matching Tables 3/4, Methods, the faithfulness
-    # analysis, and the red=risk / right=positive orientation of Figs 3/4).
-    #   • risk-supporting pattern → masking lowers ŷ → Δŷ > 0 → red, RIGHT
-    #   • protective pattern       → masking raises ŷ → Δŷ < 0 → blue, LEFT
-    # Double newline adds vertical space between the formula and the
-    # direction-arrow line so they don't read as one jammed block.
-    DUM_XLABEL = (
-        r"$\Delta\hat{y} = \hat{y}_{\mathrm{original}} - \hat{y}_{\mathrm{masked}}$"
-        + "\n\n" + r"← protective    risk-supporting →"
-    )
-
-    panel_data = [sel_a, sel_b]
-    for i, (ax, sel) in enumerate(zip(axes, panel_data)):
-        _draw_dumbbell_panel(
-            ax, sel, resolver,
-            fontsize=args.fontsize, x_lim=panel_xlims[i],
-            show_n=args.show_n,
-        )
-        # xlabel matches Fig 4 exactly: same fontsize + labelpad=30
-        # for substantial vertical breathing room between x-tick
-        # numbers and the formula+arrows label.
-        ax.set_xlabel(DUM_XLABEL, fontsize=args.fontsize, labelpad=30)
-        ax.tick_params(axis="x", labelsize=args.fontsize - 1)
-        # Force xticks to -0.2, 0.0, 0.2 so both panels show the same
-        # three-tick pattern regardless of matplotlib's auto-tick choice.
-        ax.set_xticks([-0.2, 0.0, 0.2])
-
-    # ── Bars-to-text ratio: 40/60 split per panel ──────────────────────
-    # Mirrors make_fig4.py. Dumbbells area takes 40% of each panel column;
-    # y-tick labels take 60%. This gives pattern labels room to be large
-    # without losing dumbbell legibility. No tight_layout below, it would
-    # undo this manual placement.
-    fig.canvas.draw()
-    BARS_FRACTION = 0.40
-    for ax in axes:
-        pos = ax.get_position()
-        new_width = pos.width * BARS_FRACTION
-        new_x0 = pos.x0 + pos.width * (1 - BARS_FRACTION)
-        ax.set_position([new_x0, pos.y0, new_width, pos.height])
-
-    # Column titles drawn via fig.text, left-anchored at the panel's
-    # tick-label edge. After the 40/60 split, the tick-label column
-    # starts well to the LEFT of the axes, re-measure via tight
-    # bounding box (which now includes the wide tick-label area)
-    # to anchor precisely. Same logic as make_fig4.py.
-    fig.canvas.draw()
-    for i, ax in enumerate(axes):
-        tbbox = ax.get_tightbbox(fig.canvas.get_renderer())
-        tbbox_fig = tbbox.transformed(fig.transFigure.inverted())
-        title_x = tbbox_fig.x0
-        title_y = tbbox_fig.y1 + 0.020  # matches Fig 4 (bumped from 0.005)
-        fig.text(
-            title_x, title_y,
-            f"$\\bf{{{DUM_HEADS[i]}.}}$  " + DUM_SUBTITLES[i],
-            fontsize=16, ha="left", va="bottom", fontweight="bold",
-        )
-
-    # NOTE: no tight_layout call, it would undo the manual
-    # set_position() above and reset the 40/60 split.
-    os.makedirs(os.path.dirname(args.output_path), exist_ok=True)
-    fig.savefig(args.output_path, dpi=args.dpi, bbox_inches="tight")
-    plt.close(fig)
+    _render_dumbbells_a4(sel_a, sel_b, resolver, args.output_path, args.dpi,
+                         show_n=args.show_n)
     size_kb = os.path.getsize(args.output_path) // 1024
     print(f"\n[5] Saved figure (2-panel dumbbell): "
           f"{args.output_path} ({size_kb} KB)")

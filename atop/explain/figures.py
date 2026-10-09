@@ -22,6 +22,10 @@ from atop.utils import (
     roc_curve_np, pr_curve_np,
 )
 from atop.mining.patterns import _parse_episode_pattern, _is_subpattern, _is_subsequence
+from atop.explain.scoring import (
+    build_patient_token_occurrences, build_presence_index, candidate_rows,
+    episode_to_itemsets, match_and_score_episode,
+)
 from atop.explain.matching import (
     _match_all_patterns, _compute_pattern_mass, _extract_pattern_tokens,
     PatternIndex,
@@ -758,78 +762,45 @@ def _render_fig6(out_dir, icd_titles, ig_global, shap_global, df_pathways,
 
 
 def _compute_panel_c(df_patterns, df_seq, df_ig, mining_method, label=""):
-    """Compute Panel C pattern results using occurrence-aggregated attribution.
+    """Score every pattern in ``df_patterns`` over the split with the single
+    per-patient rule in :mod:`atop.explain.scoring`.
 
-    Vectorized version (Apr 2026): builds a sparse boolean
-    ``patients × tokens`` presence matrix once, then per-pattern uses a
-    single vectorized boolean reduction to filter to candidate carriers
-    before doing the (still-Python) temporal matching. At v5.5 scale
-    (~40k patterns × ~43k patients) this is roughly 5-15× faster than
-    the previous nested-Python-loop implementation. The output is
-    bit-identical to the legacy version.
+    Rule (shared with ``cooccurrence.score_all_raw_patterns``): each patient's
+    IG rows are indexed as ``token -> [(visit_idx, ig_signed), ...]``; a
+    pattern's visit steps are matched greedily left to right, each step to the
+    earliest visit strictly later than the previous step's visit in which all
+    of the step's tokens occur; the patient's score is the sum of the signed
+    IG of each step token at its matched visit.  ``ig_signed_mean`` is the
+    mean over carriers and ``n_present`` the number of carriers.  Presence is
+    taken from ``df_ig`` (every token position the model saw), so carriers
+    are full-presence carriers; ``df_seq`` is accepted for API compatibility
+    only.
 
-    For each pattern, finds patients whose token set ⊇ pattern tokens,
-    then runs greedy left-to-right temporal matching using ``visit_idx``
-    ordering. Patient-level score = sum of signed IG at matched
-    positions. Global pattern importance = mean across carrying patients.
+    Vectorized: a sparse ``patients x tokens`` presence matrix is built once
+    and each pattern is reduced to its candidate carriers before the (still
+    Python) temporal match.
     """
-    from scipy.sparse import csr_matrix
-
     is_episode = (mining_method == "episode")
     pattern_results = []
     if df_patterns.empty or df_ig.empty:
         return pd.DataFrame(pattern_results)
 
-    ig_col = "ig_signed" if "ig_signed" in df_ig.columns else "ig_abs"
-    has_visit_idx = "visit_idx" in df_ig.columns
-    if not has_visit_idx:
+    if "visit_idx" not in df_ig.columns:
         print(f"  [{label}] WARNING: df_ig missing visit_idx, "
               "cannot verify temporal order, falling back to token co-occurrence only")
 
-    # ── Build per-patient token→[(visit_idx, ig_value)] lookup ───────────
-    # Group by patient, then within each patient collect (visit_idx, ig) per token.
-    # For occurrence matching we need to know which visit each token appeared in.
+    # ── Per-patient token -> [(visit_idx, ig_value)] index (rule step 1) ──
     print(f"  [{label}] Building per-patient token occurrence index...")
-    patient_tokens = {}  # key → {token_str: [(visit_idx, ig_val), ...]}
-    for (pid, hid), grp in df_ig.groupby(["patient_id", "index_hadm_id"]):
-        key = (str(pid), str(hid))
-        tok_occ = {}
-        for _, row in grp.iterrows():
-            tok = row["token_str"]
-            vidx = int(row["visit_idx"]) if has_visit_idx else 0
-            ig_val = float(row[ig_col])
-            if tok not in tok_occ:
-                tok_occ[tok] = []
-            tok_occ[tok].append((vidx, ig_val))
-        # Sort each token's occurrences by visit_idx for greedy matching
-        for tok in tok_occ:
-            tok_occ[tok].sort(key=lambda x: x[0])
-        patient_tokens[key] = tok_occ
+    patient_tokens = build_patient_token_occurrences(df_ig)
 
     n_patients_total = len(patient_tokens)
     prefix = f"    [{label}] " if label else "    "
     print(f"{prefix}{n_patients_total} test patients indexed", flush=True)
 
-    # ── Build sparse patient × token presence matrix for vectorized lookup ─
-    # Replaces the per-pattern `set.issubset(tok_occ.keys())` check (O(N×T)
-    # Python) with a single sparse-matrix sum (vectorized C). Typically
-    # rejects 99%+ of patients per pattern in microseconds instead of
-    # milliseconds.
+    # ── Sparse patient x token presence matrix for the candidate pre-filter ─
     print(f"  [{label}] Building sparse presence matrix for vectorized carrier lookup...", flush=True)
-    patient_keys = list(patient_tokens.keys())          # stable ordering
-    pat_key_to_row = {k: i for i, k in enumerate(patient_keys)}
-    all_tokens = sorted({t for tok_occ in patient_tokens.values() for t in tok_occ})
-    tok_to_col = {t: j for j, t in enumerate(all_tokens)}
-    rows, cols = [], []
-    for k, tok_occ in patient_tokens.items():
-        r = pat_key_to_row[k]
-        for tok in tok_occ:
-            rows.append(r)
-            cols.append(tok_to_col[tok])
-    presence = csr_matrix(
-        (np.ones(len(rows), dtype=np.int8), (rows, cols)),
-        shape=(len(patient_keys), len(all_tokens)),
-    )
+    index = build_presence_index(patient_tokens)
+    presence = index.presence
     print(f"{prefix}presence matrix: {presence.shape[0]} patients × "
           f"{presence.shape[1]} tokens, {presence.nnz:,} non-zeros "
           f"({100 * presence.nnz / (presence.shape[0] * presence.shape[1]):.2f}% density)",
@@ -845,36 +816,27 @@ def _compute_panel_c(df_patterns, df_seq, df_ig, mining_method, label=""):
         sup = pat_row["n_admissions_present"]
 
         if is_episode:
-            ep = _parse_episode_pattern(pat_str)
-            # Episode: list of frozensets, each frozenset is a within-visit itemset
-            # Temporal order: itemset i must match visit ≤ itemset i+1's visit
-            pat_itemsets = [list(s) for s in ep]
+            # Episode: one itemset per visit step.
+            pat_itemsets = episode_to_itemsets(_parse_episode_pattern(pat_str))
         else:
+            # Flat pattern: each token is its own singleton step.
             flat = [p.strip() for p in pat_str.split(" -> ")]
-            # Flat pattern: each token is its own singleton "itemset"
             pat_itemsets = [[t] for t in flat]
 
         all_tokens_needed = set()
         for itemset in pat_itemsets:
             all_tokens_needed.update(itemset)
 
-        patient_scores = []
-        n_concordant = 0
-        matched_patient_keys = set()
-
         # Vectorized carrier filter: patients with ALL required tokens.
-        # If any required token isn't in the global vocab, no patient can carry → skip.
-        needed_cols = [tok_to_col[t] for t in all_tokens_needed if t in tok_to_col]
-        if len(needed_cols) != len(all_tokens_needed):
+        # If any required token isn't in the cohort vocab, no patient can carry → skip.
+        candidate_rows_ = candidate_rows(index, all_tokens_needed)
+        if candidate_rows_ is None:
             n_no_match += 1
             if (pat_idx + 1) % progress_step == 0:
                 print(f"{prefix}{pat_idx + 1}/{n_total_patterns} patterns scored "
                       f"({len(pattern_results)} with carriers, {n_no_match} no match)",
                       flush=True)
             continue
-        sub = presence[:, needed_cols]                              # n_patients × n_needed
-        per_patient_count = np.asarray(sub.sum(axis=1)).ravel()     # int per patient
-        candidate_rows = np.where(per_patient_count == len(needed_cols))[0]
 
         # Periodic progress print (every ~5%)
         if (pat_idx + 1) % progress_step == 0:
@@ -882,64 +844,15 @@ def _compute_panel_c(df_patterns, df_seq, df_ig, mining_method, label=""):
                   f"({len(pattern_results)} with carriers, {n_no_match} no match)",
                   flush=True)
 
-        for r in candidate_rows:
-            key = patient_keys[r]
-            tok_occ = patient_tokens[key]
-
-            # Greedy left-to-right matching: for each itemset in order,
-            # find the earliest visit_idx ≥ previous match where all
-            # tokens in the itemset are present.
-            matched_positions = []  # list of (token, visit_idx, ig_val)
-            match_ok = True
-            min_visit = -1  # next itemset must be at visit > this (cross-visit)
-                            # or >= this (same-visit allowed for episode within-set)
-
-            for itemset_i, itemset in enumerate(pat_itemsets):
-                # For episode patterns: all tokens in this itemset must appear
-                # in the same visit, at visit_idx > min_visit (strict for cross-visit)
-                # For the first itemset, any visit is fine.
-                #
-                # Strategy: find the earliest visit where all tokens in this
-                # itemset are present at visit_idx > min_visit.
-
-                # Collect candidate visits: visits where ALL tokens in this itemset appear
-                token_visit_sets = []
-                for tok in itemset:
-                    visits_for_tok = {v for v, _ in tok_occ[tok] if v > min_visit}
-                    token_visit_sets.append(visits_for_tok)
-
-                if not token_visit_sets:
-                    match_ok = False
-                    break
-
-                # Intersect: visits where all tokens in this itemset co-occur
-                common_visits = token_visit_sets[0]
-                for vs in token_visit_sets[1:]:
-                    common_visits &= vs
-                    if not common_visits:
-                        break
-
-                if not common_visits:
-                    match_ok = False
-                    break
-
-                # Pick earliest valid visit
-                chosen_visit = min(common_visits)
-                min_visit = chosen_visit  # next itemset must be strictly after
-
-                # Collect IG values for each token at this visit
-                for tok in itemset:
-                    # Find the IG for this token at chosen_visit
-                    for v, ig_val in tok_occ[tok]:
-                        if v == chosen_visit:
-                            matched_positions.append((tok, v, ig_val))
-                            break
-
-            if not match_ok or not matched_positions:
+        patient_scores = []
+        n_concordant = 0
+        matched_patient_keys = set()
+        for r in candidate_rows_:
+            key = index.patient_keys[r]
+            # Rule steps 2-3: greedy earliest-visit match + signed-IG sum.
+            is_carrier, patient_ig_sum = match_and_score_episode(pat_itemsets, patient_tokens[key])
+            if not is_carrier:
                 continue
-
-            # Patient-level pattern score: sum of IG at matched positions
-            patient_ig_sum = sum(ig_val for _, _, ig_val in matched_positions)
             patient_scores.append(patient_ig_sum)
             matched_patient_keys.add(key)
 

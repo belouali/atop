@@ -191,7 +191,7 @@ def _embed_image_scaled(doc: Document, path: str, max_w_in: float):
         iw, ih = im.size
     aspect = iw / ih
     # Cap the height so very tall figures don't overflow the page.
-    max_h_in = 7.5
+    max_h_in = 8.8   # tall portrait figures (Figs 4-5) fill the Letter text block; caption flows on
     width = max_w_in
     height = width / aspect
     if height > max_h_in:
