@@ -179,6 +179,82 @@ def _render_pattern_panels_a4(values_a, labels_a, values_b, labels_b,
     plt.close(fig)
 
 
+
+def _wrap_pattern_label(lab, max_chars=30):
+    """Break a long pattern label into two lines, preferring a break after a
+    visit arrow, then after an item separator, closest to the middle."""
+    import re as _re
+    if len(lab) <= max_chars:
+        return lab
+    mid = len(lab) / 2
+    for pattern in (r"\u2192 ", r"(; |, )"):
+        cands = [m.end() for m in _re.finditer(pattern, lab)
+                 if 4 < m.end() < len(lab) - 4
+                 and m.end() <= max_chars + 6 and len(lab) - m.end() <= max_chars + 6]
+        if cands:
+            best = min(cands, key=lambda i: abs(i - mid))
+            return lab[:best].rstrip() + "\n" + lab[best:].lstrip()
+    bp = lab.rfind(" ", 0, max_chars)
+    return lab[:bp] + "\n" + lab[bp + 1:] if bp > 0 else lab
+
+
+
+def _two_column_axes(n_rows, fig_w=6.5, lab_w=1.95, bar_w=1.1, gap=0.2,
+                     pitch=0.225, head_h=0.78, foot_h=0.72):
+    """Figure-3-style geometry: two columns, labels left of each bar panel."""
+    fig_h = head_h + n_rows * pitch + foot_h
+    fig = plt.figure(figsize=(fig_w, fig_h))
+    bottom, top = foot_h / fig_h, 1 - head_h / fig_h
+    x_a = lab_w / fig_w
+    x_b = (2 * lab_w + bar_w + gap) / fig_w
+    ax_a = fig.add_axes([x_a, bottom, bar_w / fig_w, top - bottom])
+    ax_b = fig.add_axes([x_b, bottom, bar_w / fig_w, top - bottom])
+    return fig, ax_a, ax_b, top, fig_h
+
+
+def _render_pattern_panels_side(values_a, labels_a, values_b, labels_b,
+                                output_path, dpi=300):
+    """Figure 4 in the two-column geometry of Figure 3 (6.5 in wide)."""
+    from matplotlib.ticker import MaxNLocator
+    fs_label, fs_val, fs_tick, fs_xlab, fs_head, fs_sub = 6.5, 5.8, 6.5, 7, 9, 7.5
+    n = max(len(values_a), len(values_b))
+    fig, ax_a, ax_b, top, fig_h = _two_column_axes(n)
+    data_max = max(max(abs(v) for v in values_a), max(abs(v) for v in values_b))
+    lim = data_max * 1.75
+    panels = [
+        (ax_a, values_a, labels_a, "A  All patterns",
+         "Top 30 of any shape, by carrier-averaged |\u03a3IG|"),
+        (ax_b, values_b, labels_b, "B  Cross-visit patterns",
+         "\u22652 visits, \u22652 tokens; top 30 by |\u03a3IG|"),
+    ]
+    for ax, vals, labs, _, _ in panels:
+        signed_ig_bars(values=vals, labels=[_wrap_pattern_label(l) for l in labs],
+                       ax=ax, fontsize=fs_label, bar_height=0.6)
+        pad = data_max * 0.03
+        for i, v in enumerate(vals):
+            ax.text(v + (pad if v >= 0 else -pad), i, f"{v:+.3f}",
+                    ha="left" if v >= 0 else "right", va="center",
+                    fontsize=fs_val, color="#222222")
+        ax.set_xlim(-lim, lim)
+        ax.set_ylim(-0.6, len(vals) - 0.4)
+        ax.xaxis.set_major_locator(MaxNLocator(nbins=4, symmetric=True))
+        ax.tick_params(axis="x", labelsize=fs_tick, length=3)
+        ax.tick_params(axis="y", length=0, pad=3)
+        ax.set_xlabel(r"$E[\Sigma\mathrm{IG}\,|\,\mathrm{present}]$" + "\n\u2190 protective    risk \u2192",
+                      fontsize=fs_xlab, labelpad=4)
+        for sp in ("top", "right"):
+            ax.spines[sp].set_visible(False)
+    fig.canvas.draw()
+    renderer = fig.canvas.get_renderer()
+    for ax, _, _, head, sub in panels:
+        x0 = ax.get_tightbbox(renderer).transformed(fig.transFigure.inverted()).x0
+        fig.text(x0, top + 0.40 / fig_h, head, fontsize=fs_head, fontweight="bold", ha="left", va="bottom")
+        fig.text(x0, top + 0.17 / fig_h, sub, fontsize=fs_sub, ha="left", va="bottom", color="#333333")
+    os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
+    fig.savefig(output_path, dpi=dpi, bbox_inches="tight", pad_inches=0.04)
+    plt.close(fig)
+
+
 def main() -> None:
     p = argparse.ArgumentParser(
         description="Render Figure 4 (pattern-level attribution, 2-panel bar chart).")
@@ -189,6 +265,8 @@ def main() -> None:
                    help="Top-N per panel (default 30).")
     p.add_argument("--fontsize", type=int, default=FONTSIZE)
     p.add_argument("--dpi", type=int, default=DPI)
+    p.add_argument("--layout", default="side", choices=["stacked", "side"],
+                   help="side: two columns like Figure 3 (default); stacked: A above B.")
     p.add_argument("--output-path",
                    default="../manuscript/jamia_submission/figures/Figure4.png")
     p.add_argument("--panels-dir", default=None,
@@ -211,8 +289,12 @@ def main() -> None:
     values_a, labels_a = _prep_panel(df_a, args.n_show, show_n=args.show_n)
     values_b, labels_b = _prep_panel(df_b, args.n_show, show_n=args.show_n)
 
-    _render_pattern_panels_a4(values_a, labels_a, values_b, labels_b,
-                              args.output_path, args.dpi)
+    if args.layout == "side":
+        _render_pattern_panels_side(values_a, labels_a, values_b, labels_b,
+                                    args.output_path, args.dpi)
+    else:
+        _render_pattern_panels_a4(values_a, labels_a, values_b, labels_b,
+                                  args.output_path, args.dpi)
     size_kb = os.path.getsize(args.output_path) // 1024
     print(f"[3] Saved figure (2-panel pattern-level): "
           f"{args.output_path} ({size_kb} KB)")

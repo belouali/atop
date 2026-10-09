@@ -1196,11 +1196,11 @@ def build() -> None:
               "conditional \u03a3 IG, cross-visit only (\u22652 visit blocks, "
               "\u22652 tokens; the canonical AToP output). Both panels show "
               "top-30 representatives by |\u03a3 IG| after Jaccard \u2265 0.2 "
-              "deduplication on carrier-set overlap. Panels are stacked "
-              "and share one x-axis.")
+              "deduplication on carrier-set overlap. Panels share one "
+              "x-axis.")
     para(doc, "Alt text: Two-panel horizontal bar chart of pattern-"
-              "level signed \u03a3 IG. Top panel: all patterns. "
-              "Bottom panel: cross-visit patterns only. Bars "
+              "level signed \u03a3 IG. Left panel: all patterns. "
+              "Right panel: cross-visit patterns only. Bars "
               "are red for risk-increasing and blue for protective.")
 
     # Figure 5 (perturbation dumbbell)
@@ -1214,8 +1214,8 @@ def build() -> None:
               "\u0394\u0177 = \u0177_original \u2212 \u0177_masked, as in Tables 3 "
               "and 4: \u0394\u0177 > 0 (red, right) means masking lowered "
               "predicted risk, so the pattern is risk-supporting; "
-              "\u0394\u0177 < 0 (blue, left) means protective. Panels are "
-              "stacked and share one x-axis. Masking "
+              "\u0394\u0177 < 0 (blue, left) means protective. Panels share "
+              "one x-axis. Masking "
               "is whitelist-driven, each pattern having been selected by "
               "its IG ranking, so Figure 5 tests the IG-flagged subset "
               "rather than screening the full pattern space.")
@@ -1224,8 +1224,8 @@ def build() -> None:
               "dumbbells on the right = risk-supporting patterns "
               "(masking lowered predicted risk, \u0394\u0177 > 0); blue "
               "dumbbells on the left = protective patterns (masking "
-              "raised predicted risk, \u0394\u0177 < 0). Top panel = all "
-              "patterns (no shape minimums). Bottom panel = cross-visit "
+              "raised predicted risk, \u0394\u0177 < 0). Left panel = all "
+              "patterns (no shape minimums). Right panel = cross-visit "
               "patterns (\u22652 visits, \u22652 tokens).")
 
     # ── Save ─────────────────────────────────────────────────────────

@@ -294,6 +294,87 @@ def _render_dumbbells_a4(sel_a, sel_b, resolver, output_path, dpi=300,
     plt.close(fig)
 
 
+
+def _wrap_pattern_label(lab, max_chars=30):
+    """Break a long pattern label into two lines, preferring a break after a
+    visit arrow, then after an item separator, closest to the middle."""
+    import re as _re
+    if len(lab) <= max_chars:
+        return lab
+    mid = len(lab) / 2
+    for pattern in (r"\u2192 ", r"(; |, )"):
+        cands = [m.end() for m in _re.finditer(pattern, lab)
+                 if 4 < m.end() < len(lab) - 4
+                 and m.end() <= max_chars + 6 and len(lab) - m.end() <= max_chars + 6]
+        if cands:
+            best = min(cands, key=lambda i: abs(i - mid))
+            return lab[:best].rstrip() + "\n" + lab[best:].lstrip()
+    bp = lab.rfind(" ", 0, max_chars)
+    return lab[:bp] + "\n" + lab[bp + 1:] if bp > 0 else lab
+
+
+
+def _two_column_axes(n_rows, fig_w=6.5, lab_w=1.95, bar_w=1.1, gap=0.2,
+                     pitch=0.225, head_h=0.78, foot_h=0.72):
+    """Figure-3-style geometry: two columns, labels left of each bar panel."""
+    fig_h = head_h + n_rows * pitch + foot_h
+    fig = plt.figure(figsize=(fig_w, fig_h))
+    bottom, top = foot_h / fig_h, 1 - head_h / fig_h
+    x_a = lab_w / fig_w
+    x_b = (2 * lab_w + bar_w + gap) / fig_w
+    ax_a = fig.add_axes([x_a, bottom, bar_w / fig_w, top - bottom])
+    ax_b = fig.add_axes([x_b, bottom, bar_w / fig_w, top - bottom])
+    return fig, ax_a, ax_b, top, fig_h
+
+
+def _render_dumbbells_side(sel_a, sel_b, resolver, output_path, dpi=300, show_n=False):
+    """Figure 5 in the two-column geometry of Figure 3 (6.5 in wide)."""
+    fs_label, fs_val, fs_tick, fs_xlab, fs_head, fs_sub = 6.5, 5.8, 6.5, 7, 9, 7.5
+    n = max(len(sel_a), len(sel_b))
+    fig, ax_a, ax_b, top, fig_h = _two_column_axes(n)
+    data_max = max(sel_a["mean_delta_mask"].abs().max(), sel_b["mean_delta_mask"].abs().max())
+    lim = data_max * 1.75
+    panels = [(ax_a, sel_a, "A  All patterns", "Masking effect of the Figure 4A set, by |\u0394\u0177|"),
+              (ax_b, sel_b, "B  Cross-visit patterns", "Masking effect of the Figure 4B set, by |\u0394\u0177|")]
+    for ax, sel, _, _ in panels:
+        labels = []
+        for _, r in sel.iterrows():
+            lab = _abbreviate_label(resolver.format_pattern(r["pattern"], short_names=True))
+            if show_n:
+                lab = f"{lab}  (n={int(r['n_matched_test'])})"
+            labels.append(_wrap_pattern_label(lab))
+        deltas = list(sel["mean_delta_mask"]); y = list(range(len(deltas)))
+        ax.scatter([0] * len(y), y, marker="s", color=COLOR_BASE, s=6, zorder=2, linewidths=0)
+        for i, d in enumerate(deltas):
+            color = COLOR_RISK if d > 0 else COLOR_PROT
+            ax.annotate("", xy=(d, i), xytext=(0, i),
+                        arrowprops=dict(arrowstyle="-|>,head_length=0.3,head_width=0.18",
+                                        color=color, lw=1.0, shrinkA=1, shrinkB=2), zorder=3)
+            ax.plot(d, i, "o", color=color, markersize=3.2, markeredgecolor="white", markeredgewidth=0.5, zorder=4)
+            off = data_max * 0.09 * (1 if d >= 0 else -1)
+            ax.text(d + off, i, f"{d:+.3f}", fontsize=fs_val, color="#222222",
+                    ha="left" if d >= 0 else "right", va="center", zorder=5)
+        ax.set_yticks(y); ax.set_yticklabels(labels, fontsize=fs_label)
+        ax.tick_params(axis="y", pad=3, length=0)
+        ax.axvline(0, color="black", linewidth=0.6, linestyle="--", alpha=0.55)
+        ax.set_xlim(-lim, lim); ax.set_ylim(-0.6, len(y) - 0.4)
+        ax.set_xticks([-0.2, 0.0, 0.2])
+        ax.tick_params(axis="x", labelsize=fs_tick, length=3)
+        ax.set_xlabel(r"$\Delta\hat{y} = \hat{y}_{\mathrm{original}} - \hat{y}_{\mathrm{masked}}$" + "\n\u2190 protective    risk-supporting \u2192",
+                      fontsize=fs_xlab, labelpad=4)
+        for side in ("top", "right"):
+            ax.spines[side].set_visible(False)
+    fig.canvas.draw()
+    renderer = fig.canvas.get_renderer()
+    for ax, _, head, sub in panels:
+        x0 = ax.get_tightbbox(renderer).transformed(fig.transFigure.inverted()).x0
+        fig.text(x0, top + 0.40 / fig_h, head, fontsize=fs_head, fontweight="bold", ha="left", va="bottom")
+        fig.text(x0, top + 0.17 / fig_h, sub, fontsize=fs_sub, ha="left", va="bottom", color="#333333")
+    os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
+    fig.savefig(output_path, dpi=dpi, bbox_inches="tight", pad_inches=0.04)
+    plt.close(fig)
+
+
 def main() -> None:
     p = argparse.ArgumentParser(
         description="Render Figure 5 (perturbation-validation dumbbell, 2-panel).")
@@ -304,6 +385,8 @@ def main() -> None:
                    help="Top-N per panel (default 30, matches Fig 3 Panel C/D).")
     p.add_argument("--fontsize", type=int, default=FONTSIZE)
     p.add_argument("--dpi", type=int, default=DPI)
+    p.add_argument("--layout", default="side", choices=["stacked", "side"],
+                   help="side: two columns like Figure 3 (default); stacked: A above B.")
     p.add_argument("--output-path",
                    default="../manuscript/jamia_submission/figures/Figure5.png")
     p.add_argument("--panels-dir", default=None,
@@ -360,8 +443,12 @@ def main() -> None:
     # ── Compose figure ───────────────────────────────────────────────
     resolver = PatternLabelResolver(args.run_dir, verbose=False)
 
-    _render_dumbbells_a4(sel_a, sel_b, resolver, args.output_path, args.dpi,
-                         show_n=args.show_n)
+    if args.layout == "side":
+        _render_dumbbells_side(sel_a, sel_b, resolver, args.output_path, args.dpi,
+                               show_n=args.show_n)
+    else:
+        _render_dumbbells_a4(sel_a, sel_b, resolver, args.output_path, args.dpi,
+                             show_n=args.show_n)
     size_kb = os.path.getsize(args.output_path) // 1024
     print(f"\n[5] Saved figure (2-panel dumbbell): "
           f"{args.output_path} ({size_kb} KB)")
