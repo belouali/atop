@@ -327,11 +327,18 @@ def _two_column_axes(n_rows, fig_w=6.5, lab_w=1.95, bar_w=1.1, gap=0.2,
     return fig, ax_a, ax_b, top, fig_h
 
 
-def _render_dumbbells_side(sel_a, sel_b, resolver, output_path, dpi=300, show_n=False):
+def _render_dumbbells_side(sel_a, sel_b, resolver, output_path, dpi=300, show_n=False, wide=False):
     """Figure 5 in the two-column geometry of Figure 3 (6.5 in wide)."""
-    fs_label, fs_val, fs_tick, fs_xlab, fs_head, fs_sub = 6.5, 5.8, 6.5, 7, 9, 7.5
+    if wide:   # landscape: one-line labels, 9 in wide
+        fs_label, fs_val, fs_tick, fs_xlab, fs_head, fs_sub = 7, 6.3, 7, 7.5, 9.5, 8
+        geo = dict(fig_w=9.0, lab_w=3.3, bar_w=1.05, gap=0.2, pitch=0.165, head_h=0.72, foot_h=0.66)
+        wrap_at = 200
+    else:
+        fs_label, fs_val, fs_tick, fs_xlab, fs_head, fs_sub = 6.5, 5.8, 6.5, 7, 9, 7.5
+        geo = {}
+        wrap_at = 30
     n = max(len(sel_a), len(sel_b))
-    fig, ax_a, ax_b, top, fig_h = _two_column_axes(n)
+    fig, ax_a, ax_b, top, fig_h = _two_column_axes(n, **geo)
     data_max = max(sel_a["mean_delta_mask"].abs().max(), sel_b["mean_delta_mask"].abs().max())
     lim = data_max * 1.75
     panels = [(ax_a, sel_a, "A  All patterns", "Masking effect of the Figure 4A set, by |\u0394\u0177|"),
@@ -342,7 +349,7 @@ def _render_dumbbells_side(sel_a, sel_b, resolver, output_path, dpi=300, show_n=
             lab = _abbreviate_label(resolver.format_pattern(r["pattern"], short_names=True))
             if show_n:
                 lab = f"{lab}  (n={int(r['n_matched_test'])})"
-            labels.append(_wrap_pattern_label(lab))
+            labels.append(_wrap_pattern_label(lab, wrap_at))
         deltas = list(sel["mean_delta_mask"]); y = list(range(len(deltas)))
         ax.scatter([0] * len(y), y, marker="s", color=COLOR_BASE, s=6, zorder=2, linewidths=0)
         for i, d in enumerate(deltas):
@@ -385,8 +392,8 @@ def main() -> None:
                    help="Top-N per panel (default 30, matches Fig 3 Panel C/D).")
     p.add_argument("--fontsize", type=int, default=FONTSIZE)
     p.add_argument("--dpi", type=int, default=DPI)
-    p.add_argument("--layout", default="side", choices=["stacked", "side"],
-                   help="side: two columns like Figure 3 (default); stacked: A above B.")
+    p.add_argument("--layout", default="wide", choices=["stacked", "side", "wide"],
+                   help="wide: landscape two columns with one-line labels (default); side: portrait two columns with wrapped labels; stacked: A above B.")
     p.add_argument("--output-path",
                    default="../manuscript/jamia_submission/figures/Figure5.png")
     p.add_argument("--panels-dir", default=None,
@@ -443,9 +450,9 @@ def main() -> None:
     # ── Compose figure ───────────────────────────────────────────────
     resolver = PatternLabelResolver(args.run_dir, verbose=False)
 
-    if args.layout == "side":
+    if args.layout in ("side", "wide"):
         _render_dumbbells_side(sel_a, sel_b, resolver, args.output_path, args.dpi,
-                               show_n=args.show_n)
+                               show_n=args.show_n, wide=(args.layout == "wide"))
     else:
         _render_dumbbells_a4(sel_a, sel_b, resolver, args.output_path, args.dpi,
                              show_n=args.show_n)

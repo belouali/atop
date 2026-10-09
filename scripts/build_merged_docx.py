@@ -31,6 +31,7 @@ from docx import Document
 from docx.shared import Inches, Pt
 from docx.opc.constants import RELATIONSHIP_TYPE as RT
 from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_BREAK
+from docx.enum.section import WD_SECTION, WD_ORIENT
 from docx.oxml.ns import qn
 from PIL import Image
 
@@ -47,6 +48,31 @@ OUT_PATH  = os.path.join(SUBMISSION_DIR, "AToP_merged.docx")
 # Page geometry: portrait Word page minus margins. The default python-docx
 # page is 8.5 × 11 inches with 1" margins → ~6.5" usable width.
 USABLE_W_INCHES = 6.5
+# Landscape pages for wide figures: 0.6" margins on 11 x 8.5 in leave
+# 9.8 x 7.3 in; the figure is capped so its caption fits underneath.
+WIDE_ASPECT = 1.2
+LANDSCAPE_MARGIN_INCHES = 0.6
+LANDSCAPE_W_INCHES = 9.4
+LANDSCAPE_FIG_H_INCHES = 5.6
+
+
+def _start_section(doc, landscape: bool):
+    """Start a new page in landscape or portrait orientation."""
+    sec = doc.add_section(WD_SECTION.NEW_PAGE)
+    w, h = sec.page_width, sec.page_height
+    if landscape:
+        if w < h:
+            sec.page_width, sec.page_height = h, w
+        sec.orientation = WD_ORIENT.LANDSCAPE
+        for side in ("left_margin", "right_margin", "top_margin", "bottom_margin"):
+            setattr(sec, side, Inches(LANDSCAPE_MARGIN_INCHES))
+    else:
+        if w > h:
+            sec.page_width, sec.page_height = h, w
+        sec.orientation = WD_ORIENT.PORTRAIT
+        for side in ("left_margin", "right_margin", "top_margin", "bottom_margin"):
+            setattr(sec, side, Inches(1))
+    return sec
 
 # Main figures: ordered list, each with a path + caption + alt text.
 # Pulled from the main builder so the merged DOCX renders the same five
@@ -181,7 +207,8 @@ def _add_runs_with_md_bold(paragraph, text: str):
             run.bold = True
 
 
-def _embed_image_scaled(doc: Document, path: str, max_w_in: float):
+def _embed_image_scaled(doc: Document, path: str, max_w_in: float,
+                        max_h_in: float = 8.8):
     """Add a centered picture, scaled to max_w_in inches wide."""
     if not os.path.exists(path):
         return
@@ -190,8 +217,7 @@ def _embed_image_scaled(doc: Document, path: str, max_w_in: float):
     with Image.open(path) as im:
         iw, ih = im.size
     aspect = iw / ih
-    # Cap the height so very tall figures don't overflow the page.
-    max_h_in = 8.8   # tall portrait figures (Figs 4-5) fill the Letter text block; caption flows on
+    # Cap the height so tall figures do not overflow the page.
     width = max_w_in
     height = width / aspect
     if height > max_h_in:
@@ -295,13 +321,28 @@ def _append_figures_section(doc: Document):
     # submission DOCX. MAIN_FIGURES captions are a fallback only.
     legends = _parse_main_legends(MAIN_DOCX)
     for f in MAIN_FIGURES:
-        _page_break(doc)
         fpath = os.path.join(FIG_DIR, f["file"])
-        _embed_image_scaled(doc, fpath, USABLE_W_INCHES)
+        with Image.open(fpath) as im:
+            iw, ih = im.size
+            dpi = (im.info.get("dpi") or (300, 300))[0] or 300
+        # Landscape page only for figures drawn at landscape print size
+        # (Figures 4 and 5: ~9 in wide); Figure 1 already fits portrait and
+        # Figure 2 is a large raster that is scaled to portrait width.
+        wide = (iw / ih > WIDE_ASPECT) and (7.0 <= iw / dpi <= 10.5)
+        if wide:
+            # Wide figures (Figures 4 and 5) get their own landscape page so
+            # they keep print size instead of shrinking to portrait width.
+            _start_section(doc, landscape=True)
+            _embed_image_scaled(doc, fpath, LANDSCAPE_W_INCHES, max_h_in=LANDSCAPE_FIG_H_INCHES)
+        else:
+            _page_break(doc)
+            _embed_image_scaled(doc, fpath, USABLE_W_INCHES)
         lg = legends.get(f["label"], {})
         cap = lg.get("caption")
         cap = f"**{f['label']}.** {cap}" if cap else f["caption"]
         _add_figure_caption(doc, cap, lg.get("alt") or f["alt"])
+        if wide:
+            _start_section(doc, landscape=False)
 
 
 SUPP_SECTIONS = ("Supplementary Methods", "Supplementary Results",

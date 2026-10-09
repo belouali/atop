@@ -213,12 +213,19 @@ def _two_column_axes(n_rows, fig_w=6.5, lab_w=1.95, bar_w=1.1, gap=0.2,
 
 
 def _render_pattern_panels_side(values_a, labels_a, values_b, labels_b,
-                                output_path, dpi=300):
+                                output_path, dpi=300, wide=False):
     """Figure 4 in the two-column geometry of Figure 3 (6.5 in wide)."""
     from matplotlib.ticker import MaxNLocator
-    fs_label, fs_val, fs_tick, fs_xlab, fs_head, fs_sub = 6.5, 5.8, 6.5, 7, 9, 7.5
+    if wide:   # landscape: one-line labels, 9 in wide
+        fs_label, fs_val, fs_tick, fs_xlab, fs_head, fs_sub = 7, 6.3, 7, 7.5, 9.5, 8
+        geo = dict(fig_w=9.0, lab_w=3.3, bar_w=1.05, gap=0.2, pitch=0.165, head_h=0.72, foot_h=0.66)
+        wrap_at = 200
+    else:
+        fs_label, fs_val, fs_tick, fs_xlab, fs_head, fs_sub = 6.5, 5.8, 6.5, 7, 9, 7.5
+        geo = {}
+        wrap_at = 30
     n = max(len(values_a), len(values_b))
-    fig, ax_a, ax_b, top, fig_h = _two_column_axes(n)
+    fig, ax_a, ax_b, top, fig_h = _two_column_axes(n, **geo)
     data_max = max(max(abs(v) for v in values_a), max(abs(v) for v in values_b))
     lim = data_max * 1.75
     panels = [
@@ -228,7 +235,7 @@ def _render_pattern_panels_side(values_a, labels_a, values_b, labels_b,
          "\u22652 visits, \u22652 tokens; top 30 by |\u03a3IG|"),
     ]
     for ax, vals, labs, _, _ in panels:
-        signed_ig_bars(values=vals, labels=[_wrap_pattern_label(l) for l in labs],
+        signed_ig_bars(values=vals, labels=[_wrap_pattern_label(l, wrap_at) for l in labs],
                        ax=ax, fontsize=fs_label, bar_height=0.6)
         pad = data_max * 0.03
         for i, v in enumerate(vals):
@@ -265,8 +272,8 @@ def main() -> None:
                    help="Top-N per panel (default 30).")
     p.add_argument("--fontsize", type=int, default=FONTSIZE)
     p.add_argument("--dpi", type=int, default=DPI)
-    p.add_argument("--layout", default="side", choices=["stacked", "side"],
-                   help="side: two columns like Figure 3 (default); stacked: A above B.")
+    p.add_argument("--layout", default="wide", choices=["stacked", "side", "wide"],
+                   help="wide: landscape two columns with one-line labels (default); side: portrait two columns with wrapped labels; stacked: A above B.")
     p.add_argument("--output-path",
                    default="../manuscript/jamia_submission/figures/Figure4.png")
     p.add_argument("--panels-dir", default=None,
@@ -289,9 +296,9 @@ def main() -> None:
     values_a, labels_a = _prep_panel(df_a, args.n_show, show_n=args.show_n)
     values_b, labels_b = _prep_panel(df_b, args.n_show, show_n=args.show_n)
 
-    if args.layout == "side":
+    if args.layout in ("side", "wide"):
         _render_pattern_panels_side(values_a, labels_a, values_b, labels_b,
-                                    args.output_path, args.dpi)
+                                    args.output_path, args.dpi, wide=(args.layout == "wide"))
     else:
         _render_pattern_panels_a4(values_a, labels_a, values_b, labels_b,
                                   args.output_path, args.dpi)
