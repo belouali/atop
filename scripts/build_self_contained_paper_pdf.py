@@ -629,8 +629,11 @@ def parse_supplement_docx(path: str) -> List[Block]:
     p_by_xml = {p._p: p for p in paragraphs}
     t_by_xml = {t._tbl: t for t in tables}
 
-    in_main_section = False  # True after "Supplementary Figures"
+    in_main_section = False  # True after the first region heading
     last_seen_fig_id: Optional[str] = None  # e.g. "S1" or "S4a"
+    # The front page repeats every section and exhibit title as a contents
+    # list; it ends with the "*This supplementary material..." footnote.
+    front_done = False
 
     for child in body.iterchildren():
         tag = child.tag
@@ -640,6 +643,11 @@ def parse_supplement_docx(path: str) -> List[Block]:
                 continue
             t = p.text.strip()
             if not t:
+                continue
+
+            if not front_done:
+                if t.lstrip("*").startswith("This supplementary material"):
+                    front_done = True
                 continue
 
             # Region entry points. The text sections (Supplementary
