@@ -212,9 +212,23 @@ def _two_column_axes(n_rows, fig_w=6.5, lab_w=1.95, bar_w=1.1, gap=0.2,
     return fig, ax_a, ax_b, top, fig_h
 
 
+PATTERN_PANEL_TEXT = [
+    ("A  All patterns", "Top 30 of any shape, by carrier-averaged |\u03a3IG|"),
+    ("B  Cross-visit patterns", "\u22652 visits, \u22652 tokens; top 30 by |\u03a3IG|"),
+]
+PATTERN_XLABEL = (r"$E[\Sigma\mathrm{IG}\,|\,\mathrm{present}]$"
+                  + "\n\u2190 protective    risk \u2192")
+
+
 def _render_pattern_panels_side(values_a, labels_a, values_b, labels_b,
-                                output_path, dpi=300, wide=False):
-    """Figure 4 in the two-column geometry of Figure 3 (6.5 in wide)."""
+                                output_path, dpi=300, wide=False, *,
+                                panel_text=None, xlabel=None, geo_override=None):
+    """Figure 4 in the two-column geometry of Figure 3 (6.5 in wide).
+
+    ``panel_text`` (two (head, sub) tuples), ``xlabel`` and ``geo_override``
+    (keys of ``_two_column_axes``) let the SHAP replication (Figure S12)
+    reuse the geometry; the defaults reproduce Figure 4 exactly.
+    """
     from matplotlib.ticker import MaxNLocator
     if wide:   # landscape: one-line labels, 9 in wide
         fs_label, fs_val, fs_tick, fs_xlab, fs_head, fs_sub = 7, 6.3, 7, 7.5, 9.5, 8
@@ -224,15 +238,17 @@ def _render_pattern_panels_side(values_a, labels_a, values_b, labels_b,
         fs_label, fs_val, fs_tick, fs_xlab, fs_head, fs_sub = 6.5, 5.8, 6.5, 7, 9, 7.5
         geo = {}
         wrap_at = 30
+    if geo_override:
+        geo = {**geo, **geo_override}
+    (head_a, sub_a), (head_b, sub_b) = panel_text or PATTERN_PANEL_TEXT
+    xlabel = xlabel or PATTERN_XLABEL
     n = max(len(values_a), len(values_b))
     fig, ax_a, ax_b, top, fig_h = _two_column_axes(n, **geo)
     data_max = max(max(abs(v) for v in values_a), max(abs(v) for v in values_b))
     lim = data_max * 1.75
     panels = [
-        (ax_a, values_a, labels_a, "A  All patterns",
-         "Top 30 of any shape, by carrier-averaged |\u03a3IG|"),
-        (ax_b, values_b, labels_b, "B  Cross-visit patterns",
-         "\u22652 visits, \u22652 tokens; top 30 by |\u03a3IG|"),
+        (ax_a, values_a, labels_a, head_a, sub_a),
+        (ax_b, values_b, labels_b, head_b, sub_b),
     ]
     for ax, vals, labs, _, _ in panels:
         signed_ig_bars(values=vals, labels=[_wrap_pattern_label(l, wrap_at) for l in labs],
@@ -247,8 +263,7 @@ def _render_pattern_panels_side(values_a, labels_a, values_b, labels_b,
         ax.xaxis.set_major_locator(MaxNLocator(nbins=4, symmetric=True))
         ax.tick_params(axis="x", labelsize=fs_tick, length=3)
         ax.tick_params(axis="y", length=0, pad=3)
-        ax.set_xlabel(r"$E[\Sigma\mathrm{IG}\,|\,\mathrm{present}]$" + "\n\u2190 protective    risk \u2192",
-                      fontsize=fs_xlab, labelpad=4)
+        ax.set_xlabel(xlabel, fontsize=fs_xlab, labelpad=4)
         for sp in ("top", "right"):
             ax.spines[sp].set_visible(False)
     fig.canvas.draw()

@@ -114,38 +114,48 @@ def _select_panel_c_patterns(
 
 
 
+TOKEN_PANEL_TEXT = [
+    ("A  Population-weighted", "Mean IG over all patients",
+     r"$E[\mathrm{IG}]$" + "\n\u2190 protective    risk \u2192"),
+    ("B  Carrier-conditional", "Mean IG among patients with the token",
+     r"$E[\mathrm{IG}\,|\,\mathrm{present}]$" + "\n\u2190 protective    risk \u2192"),
+]
+
+
 def _render_token_panels_a4(values_a, labels_a, values_b, labels_b,
-                            output_path, dpi=300):
+                            output_path, dpi=300, *, panel_text=None,
+                            lab_w_in=1.42, fig_h=8.4, val_fmts=None):
     """Figure 3 at print size for an A4/Letter text block (6.5 in wide).
 
     Drawn at the size it is printed, so fonts stay legible (7.5 pt labels,
     9 pt titles) instead of being shrunk from a poster-sized canvas. Each
     panel gets a short two-line title anchored over its own label column.
+
+    ``panel_text`` (two (head, sub, xlabel) tuples), ``lab_w_in`` (label
+    column width) and ``fig_h`` let the SHAP replication (Figure S12) reuse
+    the geometry; the defaults reproduce Figure 3 exactly.
     """
     from matplotlib.ticker import MaxNLocator
-    fig_w, fig_h = 6.5, 8.4
+    fig_w = 6.5
     fs_label, fs_val, fs_tick, fs_xlab, fs_head, fs_sub = 7.5, 6.5, 7, 7.5, 9, 8
-    lab_w, gap, right = 1.42 / fig_w, 0.30 / fig_w, 0.06 / fig_w
+    lab_w, gap, right = lab_w_in / fig_w, 0.30 / fig_w, 0.06 / fig_w
+    (head_a, sub_a, xlab_a), (head_b, sub_b, xlab_b) = panel_text or TOKEN_PANEL_TEXT
     bar_w = (1 - 2 * lab_w - gap - right) / 2
     top, bottom = 1 - 0.78 / fig_h, 0.80 / fig_h
     fig = plt.figure(figsize=(fig_w, fig_h))
     ax_a = fig.add_axes([lab_w, bottom, bar_w, top - bottom])
     ax_b = fig.add_axes([lab_w + bar_w + gap + lab_w, bottom, bar_w, top - bottom])
     panels = [
-        (ax_a, values_a, labels_a, "A  Population-weighted",
-         "Mean IG over all patients",
-         r"$E[\mathrm{IG}]$" + "\n\u2190 protective    risk \u2192"),
-        (ax_b, values_b, labels_b, "B  Carrier-conditional",
-         "Mean IG among patients with the token",
-         r"$E[\mathrm{IG}\,|\,\mathrm{present}]$" + "\n\u2190 protective    risk \u2192"),
+        (ax_a, values_a, labels_a, head_a, sub_a, xlab_a),
+        (ax_b, values_b, labels_b, head_b, sub_b, xlab_b),
     ]
-    for ax, vals, labs, _, _, xlab in panels:
+    for (ax, vals, labs, _, _, xlab), vfmt in zip(panels, val_fmts or ("{:+.3f}", "{:+.3f}")):
         signed_ig_bars(values=vals, labels=labs, ax=ax, fontsize=fs_label,
                        bar_height=0.62)
         m = max(abs(v) for v in vals)
         pad = m * 0.03
         for i, v in enumerate(vals):
-            ax.text(v + (pad if v >= 0 else -pad), i, f"{v:+.3f}",
+            ax.text(v + (pad if v >= 0 else -pad), i, vfmt.format(v),
                     ha="left" if v >= 0 else "right", va="center",
                     fontsize=fs_val, color="#222222")
         ax.set_xlim(-m * 1.6, m * 1.6)

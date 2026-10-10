@@ -1379,48 +1379,51 @@ def build(preprint: bool = False):
             m = s_fig_re.match(blk.text)
             if m:
                 kind, fid = m.groups()
-                # Locate the matching PNG so we can sniff its aspect
-                # ratio and decide portrait vs landscape.
-                cand = None
+                # Locate the matching PNG(s) so we can sniff the aspect
+                # ratio and decide portrait vs landscape. A figure may map
+                # to several files (Figure S12 spans two pages): each file
+                # gets its own page and the caption follows the last one.
+                cands = []
                 if kind == "Figure":
                     mapped = SUPP_IMAGE_PATHS.get(f"Figure {fid}")
-                    if mapped and os.path.exists(mapped):
-                        cand = mapped
-                    elif os.path.isdir(SUP_FIG_DIR):
+                    if isinstance(mapped, (list, tuple)):
+                        cands = [m for m in mapped if m and os.path.exists(m)]
+                    elif mapped and os.path.exists(mapped):
+                        cands = [mapped]
+                    if not cands and os.path.isdir(SUP_FIG_DIR):
                         for fn in sorted(os.listdir(SUP_FIG_DIR)):
                             if (fn.startswith(f"Figure{fid}_")
                                     and fn.endswith(".png")):
-                                cand = os.path.join(SUP_FIG_DIR, fn)
+                                cands = [os.path.join(SUP_FIG_DIR, fn)]
                                 break
-                    if cand is None:
+                    if not cands:
                         print(f"  [WARN] no image for Figure {fid}")
-                aspect = _image_aspect(cand) if cand else 1.0
-                use_landscape = (kind == "Figure"
-                                  and aspect > LANDSCAPE_ASPECT_THRESHOLD)
-
-                if section_emitted:
-                    if use_landscape:
-                        story.append(NextPageTemplate("landscape"))
+                use_landscape = False
+                for cand in (cands or [None]):
+                    aspect = _image_aspect(cand) if cand else 1.0
+                    use_landscape = (kind == "Figure"
+                                      and aspect > LANDSCAPE_ASPECT_THRESHOLD)
+                    if section_emitted:
+                        story.append(NextPageTemplate(
+                            "landscape" if use_landscape else "inner"))
+                        story.append(PageBreak())
                     else:
-                        story.append(NextPageTemplate("inner"))
-                    story.append(PageBreak())
-                else:
-                    # First S-figure inherits the page already created
-                    # earlier so the "Supplementary Material" heading
-                    # can sit at its top. The first figure stays on a
-                    # portrait page so the heading style matches the
-                    # rest of the document.
-                    story.append(Paragraph("Supplementary Material",
-                                              S["section"]))
-                    section_emitted = True
-                    use_landscape = False  # keep heading on portrait
-                if cand:
-                    if use_landscape:
-                        img = _figure_image(cand, ls_w, fig_max_h_ls)
-                    else:
-                        img = _figure_image(cand, page_w, fig_max_h_p)
-                    if img is not None:
-                        story.append(img)
+                        # First S-figure inherits the page already created
+                        # earlier so the "Supplementary Material" heading
+                        # can sit at its top. The first figure stays on a
+                        # portrait page so the heading style matches the
+                        # rest of the document.
+                        story.append(Paragraph("Supplementary Material",
+                                                  S["section"]))
+                        section_emitted = True
+                        use_landscape = False  # keep heading on portrait
+                    if cand:
+                        if use_landscape:
+                            img = _figure_image(cand, ls_w, fig_max_h_ls)
+                        else:
+                            img = _figure_image(cand, page_w, fig_max_h_p)
+                        if img is not None:
+                            story.append(img)
                 # Emit the caption + (next iteration will emit the alt
                 # text if present).
                 story.extend(block_to_story(blk, S))

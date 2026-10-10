@@ -183,6 +183,67 @@ def figure_placeholder(doc, label: str, legend: str, *,
         p.add_run(alt)
 
 
+def figure_two_part(doc, label: str, legend: str, *,
+                    portrait_path: str | None, landscape_path: str | None,
+                    portrait_width_in: float = 6.5,
+                    landscape_width_in: float = 9.4,
+                    landscape_margin_in: float = 0.6) -> None:
+    """Insert a figure whose panels span two pages: a portrait part on the
+    current page, then a landscape part in its own landscape section with
+    the caption under it. The page setup in force before the call is
+    restored afterwards (a new portrait section, so the next exhibit starts
+    on a fresh page without an extra page break). Missing images fall back
+    to placeholder lines, as in ``figure_placeholder``.
+    """
+    from docx.enum.section import WD_ORIENT, WD_SECTION
+
+    def _picture(path, width_in, what):
+        p = doc.add_paragraph()
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        p.paragraph_format.space_before = Pt(12)
+        p.paragraph_format.space_after = Pt(6)
+        if path and os.path.exists(path):
+            p.add_run().add_picture(path, width=Inches(width_in))
+        else:
+            r = p.add_run(f"[FIGURE PLACEHOLDER: paste {label} ({what}) here]")
+            r.italic = True
+
+    prev = doc.sections[-1]
+    saved = {k: getattr(prev, k) for k in (
+        "page_width", "page_height", "orientation", "left_margin",
+        "right_margin", "top_margin", "bottom_margin")}
+
+    _picture(portrait_path, portrait_width_in, "first page")
+
+    sec = doc.add_section(WD_SECTION.NEW_PAGE)
+    w, h = sec.page_width, sec.page_height
+    if w < h:
+        sec.page_width, sec.page_height = h, w
+    sec.orientation = WD_ORIENT.LANDSCAPE
+    for side in ("left_margin", "right_margin", "top_margin", "bottom_margin"):
+        setattr(sec, side, Inches(landscape_margin_in))
+
+    _picture(landscape_path, landscape_width_in, "second page")
+    # The caption shares the landscape page with the second part. At body
+    # size and double spacing it would spill onto a third, landscape page,
+    # so it is set compact (9 pt, single spaced), the size the merged
+    # document gives every supplementary caption.
+    p = doc.add_paragraph()
+    pf = p.paragraph_format
+    pf.line_spacing = 1.0
+    pf.space_before = Pt(6)
+    pf.space_after = Pt(0)
+    r = p.add_run(f"{label}. ")
+    r.bold = True
+    r.font.size = Pt(9)
+    r = p.add_run(legend)
+    r.font.size = Pt(9)
+
+    sec = doc.add_section(WD_SECTION.NEW_PAGE)
+    for k, v in saved.items():
+        setattr(sec, k, v)
+
+
 def table_caption(doc, label: str, caption: str) -> None:
     p = doc.add_paragraph()
     r = p.add_run(f"{label}. ")
