@@ -6,7 +6,7 @@ Comprehensive rebuild of the main manuscript reflecting the post-redesign state:
   * 2-panel Fig 4 (cross-visit + all patterns dumbbells)
   * Carrier-conditional vs population-weighted aggregation as the
     headline methodological framing (D0)
-  * Cross-method validation via cohort SHAP (Fig S11, 25/30 token agreement)
+  * Cross-method validation via cohort SHAP (Figures S12 and S13, 25/30 token agreement)
   * Updated Tables 2 (baselines) and 3 (cross-visit phenotype clusters)
   * R1\u2013R7 quantitative findings + D0\u2013D4 discussion entries from
     MANUSCRIPT_OBSERVATIONS.md
@@ -885,12 +885,12 @@ def build() -> None:
 
     heading(doc, "Cross-method comparison.", level=2)
     para(doc, 'With KernelSHAP in place of IG on the full test cohort, '
+              'per-patient agreement is shown in Figure S11, and '
               'carrier-conditional token top-30 rankings agreed on 25 of '
-              '30 features; patient-level agreement between the two '
-              'methods is shown in Figure S11. At the pattern level, '
-              'agreement was 21 of 30 for the all-patterns ranking and 7 '
-              'of 30 for the cross-visit ranking (Figure S12; '
-              'Supplementary Results). A likely contributor is that '
+              '30 features (Figure S12). At the pattern level, agreement '
+              'was 21 of 30 for the all-patterns ranking and 7 of 30 for '
+              'the cross-visit ranking (Figure S13; Supplementary '
+              'Results). A likely contributor is that '
               'KernelSHAP redistributes interaction credit, whereas IG '
               'sums per-token contributions additively. Disagreement '
               'between explanation methods applied to the same model is a'
@@ -976,7 +976,7 @@ def build() -> None:
               'is a tractability heuristic; risk-pattern rankings are '
               'stable across τ ∈ [0.60, 0.95] (top-30 overlap ≥ 0.67), '
               'protective-pattern rankings less so (0.20 between the '
-              'extremes; Figure S13), and the threshold has no principled'
+              'extremes; Figure S14), and the threshold has no principled'
               ' rule. (vii) The Table 2 performance gap reflects feature '
               'richness and architecture jointly; feature-matched '
               'ablations are left to future work. (viii) In-hospital '

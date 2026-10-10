@@ -25,7 +25,7 @@ import pandas as pd
 
 sys.path.insert(0, os.path.dirname(__file__))
 from _docx_helpers import (
-    new_document, title, heading, para, figure_placeholder, figure_two_part,
+    new_document, title, heading, para, figure_placeholder, figure_landscape,
     table_caption, table_title, table_legend, make_table,
     page_break, hrule,
 )
@@ -68,11 +68,9 @@ IMAGE_PATHS = {
     "Figure S5":  os.path.join(SUPPLEMENTS_DIR, "FigureS8_full_pool_jaccard_sensitivity.png"),
     "Figure S3":  os.path.join(SUPPLEMENTS_DIR, "FigureS9_aggregation_comparison.png"),
     "Figure S6": os.path.join(SUPPLEMENTS_DIR, "FigureS10_pattern_aggregation_comparison.png"),
-    # Figure S12 spans two pages (token panels portrait, pattern panels
-    # landscape); the PDF builder places each file on its own page.
-    "Figure S12": [os.path.join(SUPPLEMENTS_DIR, "FigureS12a_shap_tokens.png"),
-                  os.path.join(SUPPLEMENTS_DIR, "FigureS12b_shap_patterns.png")],
-    "Figure S13": os.path.join(SUPPLEMENTS_DIR, "FigureS12_ig_mass_sensitivity.png"),
+    "Figure S12": os.path.join(SUPPLEMENTS_DIR, "FigureS12_shap_tokens.png"),
+    "Figure S13": os.path.join(SUPPLEMENTS_DIR, "FigureS13_shap_patterns.png"),
+    "Figure S14": os.path.join(SUPPLEMENTS_DIR, "FigureS14_ig_mass_sensitivity.png"),
     "Figure S9": os.path.join(SUPPLEMENTS_DIR, "FigureS13_faithfulness.png"),
     "Figure S1": os.path.join(SUPPLEMENTS_DIR, "FigureS14_consort.png"),
 }
@@ -348,7 +346,8 @@ def build() -> None:
               "full test cohort (N = 43,602 patients with valid "
               "sequences, ~50 KernelSHAP coalitions per patient). "
               "The cohort-level cross-method comparison is "
-              "reported in Figure S12.")
+              "reported in Figure S12 (token level) and Figure S13 "
+              "(pattern level).")
     para(doc, "At the token level (Figure 3B equivalent), IG and "
               "SHAP carrier-conditional top-30 rankings agree on 25 of "
               "30 features (tokens with at least 10 sampled carriers). "
@@ -359,7 +358,7 @@ def build() -> None:
               "rank-shuffling between adjacent positions.")
     para(doc, "At the pattern level, agreement is 21 of 30 for the "
               "all-patterns ranking and 7 of 30 for the cross-visit-only "
-              "ranking. The two methods therefore agree substantially on "
+              "ranking (Figure S13). The two methods therefore agree substantially on "
               "the all-patterns ranking but diverge on the cross-visit "
               "ranking. Disagreement between explanation methods applied "
               "to the same model is a well-documented and largely "
@@ -656,44 +655,47 @@ def build() -> None:
         "dashed line = y = x. KernelSHAP here used 200 coalition samples "
         "per patient on the top-K-by-IG token subset for high-precision "
         "per-patient values; this differs from the cohort-level comparison "
-        "in Figure S12, which used ~50 coalitions per patient to keep the "
+        "in Figures S12 and S13, which used ~50 coalitions per patient to keep the "
         "full 43,602-patient run tractable. Cohort-level cross-method "
-        "overlap statistics are reported in Figure S12.",
+        "overlap statistics are reported in Figures S12 and S13.",
         image_path=IMAGE_PATHS.get("Figure S11"))
 
     page_break(doc)
-    heading(doc, "Figure S12. Cross-method comparison with KernelSHAP",
+    heading(doc, "Figure S12. Token-level attribution with KernelSHAP",
              level=2)
-    figure_two_part(doc, "Figure S12",
-        "KernelSHAP replication of Figures 3 and 4 on the full test cohort "
-        "(N = 43,602 patients with valid sequences), using the same "
-        "carrier-conditional and pattern-level aggregation conventions as "
-        "the IG-based global attribution. Panels A and B (preceding page) "
-        "are the token-level rankings: population-weighted mean SHAP (A) "
-        "and carrier-conditional mean SHAP (B). Panels C and D (this page) "
-        "are the carrier-averaged \u03a3SHAP rankings for all patterns (C) and "
-        "for cross-visit patterns (D). Tokens and patterns with fewer than "
-        "10 sampled carriers were excluded before ranking. Cross-method "
-        "overlap statistics: token-level carrier-conditional 25 / 30 "
-        "features agree between IG and SHAP top-30; pattern-level "
-        "all-patterns 21 / 30; pattern-level cross-visit-only 7 / 30. "
-        "The lower cross-visit agreement points to a difference in how "
-        "the methods score multi-token compositional patterns: "
-        "a likely contributor is that KernelSHAP's coalition sampling "
-        "redistributes interaction credit, whereas IG sums per-token "
-        "contributions additively, so multi-token sums scale with K. "
-        "Agreement is high at the token level and for the all-patterns "
-        "ranking; the divergence is concentrated in the ordering of "
-        "cross-visit patterns. The 25 / 30 token agreement indicates that "
-        "the token-level findings are not specific to IG.",
-        portrait_path=IMAGE_PATHS["Figure S12"][0],
-        landscape_path=IMAGE_PATHS["Figure S12"][1])
+    figure_placeholder(doc, "Figure S12",
+        "KernelSHAP counterpart of Figure 3 on the full test cohort "
+        "(N = 43,602 patients with valid sequences): population-weighted "
+        "(A) and carrier-conditional (B) mean SHAP per token, top 30 by "
+        "absolute value, with the same aggregation conventions as the IG "
+        "ranking; tokens with fewer than 10 sampled carriers were excluded "
+        "before ranking. The carrier-conditional top-30 shares 25 of 30 "
+        "tokens with the IG top-30, so the token-level findings are not "
+        "specific to IG.",
+        image_path=IMAGE_PATHS.get("Figure S12"))
 
-    # figure_two_part ends with a new portrait section, so Figure S13
-    # already starts on a fresh page (no page_break here).
-    heading(doc, "Figure S13. Sensitivity to the IG saliency-mass threshold",
+    # Figure S13 is drawn at landscape print size: figure_landscape opens a
+    # landscape section (heading, image, caption on one page) and returns to
+    # portrait on a new page, so Figure S14 needs no page break.
+    figure_landscape(doc, "Figure S13",
+        "Figure S13. Pattern-level attribution with KernelSHAP",
+        "KernelSHAP counterpart of Figure 4 on the full test cohort: "
+        "carrier-averaged \u03a3SHAP for all patterns (A) and for cross-visit "
+        "patterns (B), top 30 by absolute value after Jaccard \u2265 0.2 "
+        "deduplication; patterns with fewer than 10 sampled carriers were "
+        "excluded before ranking. Agreement with the IG rankings is 21 of "
+        "30 for all patterns and 7 of 30 for cross-visit patterns. The "
+        "lower cross-visit agreement points to a difference in how the "
+        "methods score multi-token compositional patterns: a likely "
+        "contributor is that KernelSHAP's coalition sampling redistributes "
+        "interaction credit, whereas IG sums per-token contributions "
+        "additively, so multi-token sums scale with K. The divergence is "
+        "concentrated in the ordering of cross-visit patterns.",
+        image_path=IMAGE_PATHS.get("Figure S13"))
+
+    heading(doc, "Figure S14. Sensitivity to the IG saliency-mass threshold",
              level=2)
-    figure_placeholder(doc, "Figure S13",
+    figure_placeholder(doc, "Figure S14",
         "Four-panel 2×2 sensitivity analysis of the AToP downstream pipeline "
         "to the IG saliency-mass threshold τ. The default τ = 0.80 (per-"
         "patient cumulative |IG| mass cap) is varied across τ ∈ {0.60, "
@@ -710,7 +712,7 @@ def build() -> None:
         "ranking. Top risk patterns and their ΣIG ranking are robust to the "
         "choice of saliency-mass threshold τ; the protective side is more "
         "sensitive, consistent with panel D.",
-        image_path=IMAGE_PATHS.get("Figure S13"))
+        image_path=IMAGE_PATHS.get("Figure S14"))
 
     page_break(doc)
 
@@ -743,7 +745,7 @@ def build() -> None:
             "training-cohort output, without reference to any outcome "
             "label or to the test set. No parameter was selected by "
             "optimizing a test-set outcome. Sensitivity sweeps for the saliency-mass "
-            "threshold and the Jaccard threshold are in Figures S13 and "
+            "threshold and the Jaccard threshold are in Figures S14 and "
             "S4\u2013S5, respectively."
         ),
     )

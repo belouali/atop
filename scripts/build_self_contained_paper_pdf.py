@@ -1381,7 +1381,7 @@ def build(preprint: bool = False):
                 kind, fid = m.groups()
                 # Locate the matching PNG(s) so we can sniff the aspect
                 # ratio and decide portrait vs landscape. A figure may map
-                # to several files (Figure S12 spans two pages): each file
+                # to several files (a figure spanning pages): each file
                 # gets its own page and the caption follows the last one.
                 cands = []
                 if kind == "Figure":

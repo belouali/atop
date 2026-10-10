@@ -183,37 +183,24 @@ def figure_placeholder(doc, label: str, legend: str, *,
         p.add_run(alt)
 
 
-def figure_two_part(doc, label: str, legend: str, *,
-                    portrait_path: str | None, landscape_path: str | None,
-                    portrait_width_in: float = 6.5,
-                    landscape_width_in: float = 9.4,
-                    landscape_margin_in: float = 0.6) -> None:
-    """Insert a figure whose panels span two pages: a portrait part on the
-    current page, then a landscape part in its own landscape section with
-    the caption under it. The page setup in force before the call is
-    restored afterwards (a new portrait section, so the next exhibit starts
-    on a fresh page without an extra page break). Missing images fall back
-    to placeholder lines, as in ``figure_placeholder``.
+def figure_landscape(doc, label: str, heading_text: str, legend: str, *,
+                     image_path: str | None, width_in: float = 9.4,
+                     margin_in: float = 0.6) -> None:
+    """Insert a figure drawn at landscape print size (about 9.4 in wide) in
+    its own landscape section: heading, image and caption on one page. The
+    caption is set compact (9 pt, single spaced, the size the merged
+    document gives every supplementary caption) because at body size and
+    double spacing it would spill onto a second landscape page. The page
+    setup in force before the call is restored in a new section, so the
+    next exhibit starts on a fresh page without a page break. A missing
+    image falls back to a placeholder line, as in ``figure_placeholder``.
     """
     from docx.enum.section import WD_ORIENT, WD_SECTION
-
-    def _picture(path, width_in, what):
-        p = doc.add_paragraph()
-        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        p.paragraph_format.space_before = Pt(12)
-        p.paragraph_format.space_after = Pt(6)
-        if path and os.path.exists(path):
-            p.add_run().add_picture(path, width=Inches(width_in))
-        else:
-            r = p.add_run(f"[FIGURE PLACEHOLDER: paste {label} ({what}) here]")
-            r.italic = True
 
     prev = doc.sections[-1]
     saved = {k: getattr(prev, k) for k in (
         "page_width", "page_height", "orientation", "left_margin",
         "right_margin", "top_margin", "bottom_margin")}
-
-    _picture(portrait_path, portrait_width_in, "first page")
 
     sec = doc.add_section(WD_SECTION.NEW_PAGE)
     w, h = sec.page_width, sec.page_height
@@ -221,13 +208,19 @@ def figure_two_part(doc, label: str, legend: str, *,
         sec.page_width, sec.page_height = h, w
     sec.orientation = WD_ORIENT.LANDSCAPE
     for side in ("left_margin", "right_margin", "top_margin", "bottom_margin"):
-        setattr(sec, side, Inches(landscape_margin_in))
+        setattr(sec, side, Inches(margin_in))
 
-    _picture(landscape_path, landscape_width_in, "second page")
-    # The caption shares the landscape page with the second part. At body
-    # size and double spacing it would spill onto a third, landscape page,
-    # so it is set compact (9 pt, single spaced), the size the merged
-    # document gives every supplementary caption.
+    heading(doc, heading_text, level=2)
+    p = doc.add_paragraph()
+    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p.paragraph_format.space_before = Pt(12)
+    p.paragraph_format.space_after = Pt(6)
+    if image_path and os.path.exists(image_path):
+        p.add_run().add_picture(image_path, width=Inches(width_in))
+    else:
+        r = p.add_run(f"[FIGURE PLACEHOLDER: paste {label} image here]")
+        r.italic = True
+
     p = doc.add_paragraph()
     pf = p.paragraph_format
     pf.line_spacing = 1.0

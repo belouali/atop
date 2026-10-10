@@ -33,7 +33,7 @@ Plots a 2x2:
   D. Top-K protective pattern Jaccard overlap matrix across thresholds
 
 Output:
-  manuscript/jamia_submission/figures/supplements/FigureS12_ig_mass_sensitivity.png
+  manuscript/jamia_submission/figures/supplements/FigureS14_ig_mass_sensitivity.png
   runs/<run>/5_analysis/fig_s12_ig_mass_sensitivity.csv (raw counts per tau)
 
 Usage:
@@ -173,13 +173,13 @@ def jaccard(a: set, b: set) -> float:
 
 
 def main() -> None:
-    p = argparse.ArgumentParser(description="Render Figure S12 (IG-mass sensitivity)")
+    p = argparse.ArgumentParser(description="Render Figure S14 (IG-mass sensitivity)")
     p.add_argument("--run_dir", default="../runs/mimiciv_readmission_30d")
     p.add_argument("--split", default="test")
     p.add_argument("--top-k", type=int, default=TOP_K)
     p.add_argument("--output-path",
                    default="../manuscript/jamia_submission/figures/supplements/"
-                           "FigureS12_ig_mass_sensitivity.png")
+                           "FigureS14_ig_mass_sensitivity.png")
     p.add_argument("--csv-path", default=None)
     p.add_argument("--dpi", type=int, default=300)
     args = p.parse_args()
@@ -341,7 +341,7 @@ def main() -> None:
                      ha="center", va="center", fontsize=9, color=color)
     plt.colorbar(im, ax=axD, fraction=0.046, pad=0.04, label="Jaccard")
 
-    # No in-image suptitle prefix; the DOCX caption supplies "Figure S12. ..."
+    # No in-image suptitle prefix; the DOCX caption supplies "Figure S14. ..."
     fig.suptitle(f"Sensitivity to IG saliency-mass threshold τ "
                   f"(test cohort, top-{args.top_k} pattern stability)",
                   fontsize=13, fontweight="bold", y=0.995)
