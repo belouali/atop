@@ -1,0 +1,345 @@
+token_readable,short_name
+C:R45851 (SI),SI
+"C:F329 (MDD, single ep.)",MDD
+"C:F332 (MDD, recurrent severe without psychoti)",Recurrent MDD (severe)
+"C:F29 (Psychosis, unsp. not due to a substance or known physio)",Psychosis
+"C:F419 (Anxiety disorder, unsp.)",Anxiety
+"C:F4310 (Post-traumatic stress disorder, uns)",PTSD
+"C:F319 (Bipolar disorder, unsp.)",Bipolar
+C:F39 (Unspecified mood [affective] disorder),Mood disorder
+C:Z915 (Hx self-harm),Hx self-harm
+C:Z590 (Homelessness),Homelessness
+C:30981 (Posttraumatic stress disorder),PTSD
+"C:F3284 (MDD, single episode, severe without psychotic features)",MDD (severe)
+"C:F3024 (Bipolar, manic without psychotic features)",Bipolar (manic)
+"C:F20 (Schizophrenia, unsp.)",Schizophrenia
+C:F22 (Delusional disorders),Delusional disorder
+C:F23 (Brief psychotic disorder),Brief psychosis
+"C:F10120 (Alcohol abuse, uncomplicated)",Alcohol abuse
+"C:F10239 (EtOH intox., unsp.)",Alcohol intoxication, unsp.
+"C:T391X2A (Poisoning by 4-Aminophenol derivatives, intentional self-har)",Acetaminophen OD (intentional self-harm)
+"C:T432X2A (Poisoning by selective serotonin reuptake inhibitors, intent)",SSRI OD (intentional self-harm)
+C:T424X2A (Poisoning by benzodiazepine-based tranquilizers),Benzodiazepine OD
+"C:T390X1A (Poisoning by aromatic analgesics, NEC)",Analgesic poisoning
+"C:T880XXA (Other adverse food reactions, NEC, init)",Adverse food reaction
+C:J36 (Peritonsillar abscess),Peritonsillar abscess
+"C:J030 (Acute tonsillitis, unsp.)",Acute tonsillitis
+C:O00 (Tubal pregnancy),Tubal pregnancy
+C:O021 (Missed abortion),Missed abortion
+"C:S7201XA (Unspecified intracapsular fracture of right femur, initial e)",Hip fracture (R)
+C:S8020 (Closed fracture of other facial bones),Facial fracture
+C:O2449 (32 weeks gestation of pregnancy),32 weeks gestation
+C:S5250 (Open fracture of lower end of radius with ulna),Radius/ulna fracture
+C:K8066 (Calculus of gallbladder and bile duct with chronic cholecyst),Gallstone + cholecystitis
+"C:S8181 (Laceration without foreign body, left knee, initial encounte)",Knee laceration
+"C:O479 (Other threatened labor, antepartum condition or complication)",Threatened labor
+C:O134 (Gestational hypertension),Gestational HTN
+C:R402 (Transient global amnesia),Transient amnesia
+"C:F17210 (Nicotine dep., cigarettes, uncomplicated)",Nicotine dependence
+C:G893 (Neoplasm pain),Neoplasm pain
+C:D630 (Anemia (neoplastic)),Anemia
+C:Z5111,Chemo encounter
+C:T451X5A (Adverse effect of antineoplastic and immunosuppressive drugs),Chemo adverse effect
+C:R188 (Other ascites),Ascites
+"C:N179 (AKI, unsp.)",AKI
+C:E871 (Hyponatremia),Hyponatremia
+C:I5030 (Unspecified diastolic (congestive) heart failure),Diastolic HF
+C:I5033 (Acute on chronic diastolic (congestive) heart failure),Diastolic HF (acute/chronic)
+C:I5043 (Acute on chronic combined systolic (congestive) and diastoli),Combined HF (acute/chronic)
+C:I214 (Non-ST elevation (NSTEMI) myocardial infarction),NSTEMI
+C:I4891 (Unspecified AFib),AFib
+C:I2510 (Atherosclerotic heart disease of native coronary artery with),ASHD
+C:J918 (Pleural effusion in other conditions classified elsewhere),Pleural effusion
+C:E43 (Unspecified severe protein-calorie malnutrition),Severe malnutrition
+C:E440 (Moderate protein-calorie malnutrition),Moderate malnutrition
+"C:N390 (UTI, site not specified)",UTI
+C:Z9119 (Patient's noncompliance with other medical treatment and reg),Noncompliance
+C:N180 (End stage renal disease),ESRD
+"C:K5900 (Constipation, unsp.)",Constipation
+"C:M109 (Gout, unsp.)",Gout
+"C:G8929 (Hemiplegia, unsp.)",Hemiplegia
+C:Z370 (Single live birth),Live birth
+C:O701 (Second degree perineal laceration during delivery),Perineal laceration
+"C:64891 (Maternal conditions NEC, d)",Maternal complications
+"C:R079 (Chest pain, unsp.)",Chest pain
+"C:78659 (Chest pain, other)",Chest pain (other)
+C:K219 (Gastro-esophageal reflux disease without esophagitis),GERD
+C:R55 (Syncope),Syncope
+C:G4733 (Obstructive sleep apnea (adult) (pediatric)),Sleep apnea
+C:G8929 (Other chronic pain),Chronic pain
+"C:2724 (HLD, unsp.)",HLD
+C:I10 (HTN),HTN
+"C:E785 (HLD, unsp.)",HLD
+C:I120 (Hypertensive chronic kidney disease with stage 5 chronic kid),HTN + CKD5
+C:I129 (Hypertensive chronic kidney disease with stage 1 through sta),HTN + CKD
+C:I130 (Hypertensive heart and chronic kidney disease with heart fai),HTN + HF + CKD
+C:N400 (Benign prostatic hyperplasia without lower urinary tract sym),BPH
+C:Z870 (Personal history of diseases of the respiratory system),Hx respiratory disease
+P:9925 (Injection or infusion of cancer chemotherapeutic substance),Chemo infusion
+P:3E04305 (Introduction of Other Antineoplastic into Central Vein,IV Antineoplastic
+P:9915 (Parenteral infusion of concentrated nutritional substances),Parenteral nutrition
+P:8848 (Arteriography of femoral and other lower extremity arteries),Leg arteriography
+P:02HV33Z (Insertion of Infusion Device into Superior Vena Cava,SVC line insertion
+P:0066 (Percutaneous transluminal coronary angioplasty [PTCA]),PTCA
+P:3E0G36Z (Introduction of Nutritional Substance into Upper GI,Enteral nutrition
+P:3E0G76Z (Introduction of Nutritional Substance into Upper GI,Enteral nutrition
+P:5187 (Endoscopic insertion of stent (tube) into bile duct),Biliary stent
+P:3897 (Central venous catheter placement with guidance),Central line
+P:8938 (Other nonoperative respiratory measurements),Resp. measurements
+P:8856 (Coronary arteriography using two catheters),Coronary angiography
+P:10D00Z1 (Extraction of Products of Conception,Assisted delivery
+P:10E0XZZ (Delivery of Products of Conception,Vaginal delivery
+P:3722 (Left heart cardiac catheterization),Left heart cath
+P:5491 (Percutaneous abdominal drainage),Paracentesis
+P:3995 (Hemodialysis),Hemodialysis
+P:8154 (Total knee replacement),Knee replacement
+P:4A02X4Z (Measurement of Cardiac Electrical Activity,Cardiac monitoring
+P:5A1221Z (Performance of Cardiac Output,Cardiac output
+P:5A2204Z (Restoration of Cardiac Rhythm,Cardioversion
+P:BW03ZZZ (Plain Radiography of Chest),Chest X-ray
+D:Influenza A Virus (H1N1) Antigen,Flu vaccine
+D:Polyethylene Glycol 3350,PEG 3350
+D:Magnesium Hydroxide,Mg Hydroxide
+D:Calcium Carbonate,Calcium Carbonate
+D:Streptococcus Pneumoniae Type 1 Capsular Polysaccharide Antigen,Pneumococcal vaccine
+"D:Insulin, Regular, Human",Regular insulin
+D:Insulin Lispro,Insulin Lispro
+"Poisoning by 4-Aminophenol derivatives, intentional self-har",Acetaminophen OD (intentional self-harm)
+"Poisoning by selective serotonin reuptake inhibitors, intent",SSRI OD (intentional self-harm)
+Poisoning by benzodiazepine-based tranquilizers,Benzodiazepine OD
+"Poisoning by aromatic analgesics, NEC",Analgesic poisoning
+"Other adverse food reactions, NEC, init",Adverse food reaction
+"MDD, single episode, severe without ps",MDD (severe)
+"Bipolar, manic without psychotic fe",Bipolar (manic)
+"EtOH intox., unsp.",Alcohol intoxication, unsp.
+"Nicotine dep., cigarettes, uncomplicated",Nicotine dependence
+"Unspecified intracapsular fracture of right femur, initial e",Hip fracture (R)
+Calculus of gallbladder and bile duct with chronic cholecyst,Gallstone + cholecystitis
+"Laceration without foreign body, left knee, initial encounte",Knee laceration
+"Other threatened labor, antepartum condition or complication",Threatened labor
+Dilation of Right Renal Artery with Drug-eluting Intralumina,Renal artery dilation (drug-eluting)
+Extirpation of Matter from Intracranial Subarachnoid Space,Intracranial clot removal
+"Excision of Right Middle Lung Lobe, Open Approach, Diagnosti",R lung lobe excision (dx)
+"Excision of Left Lower Lung Lobe, Open Approach, Diagnostic",L lung lobe excision (dx)
+"Resection of Left Axillary Lymphatic, Open Approach",L axillary lymph node resection
+"Occlusion of Esophageal Vein with Intraluminal Device, Percu",Esophageal varix banding
+Introduction of Other New Technology Therapeutic Substance i,Novel therapeutic agent
+"Rupture of uterus before onset of labor, delivered, with or",Uterine rupture (delivered)
+"Staphylococcal arthritis, left ankle and foot",Staph arthritis (L ankle)
+Gonococcal infection of other musculoskeletal tissue,Gonococcal MSK infection
+"Infection following immunization, initial encounter",Post-immunization infection
+"Reposition Nasal Septum, Open Approach",Septoplasty
+"Unspecified fracture of shaft of unsp. tibia, initial",Tibial shaft fracture
+Boutonniere deformity of left finger(s),Boutonniere deformity (L)
+"Displaced fracture of neck of fifth metacarpal bone, right h",5th metacarpal fracture (R)
+"Abrasion of unsp. finger, initial encounter",Finger abrasion
+"Drainage of Right Axilla, Open Approach",R axilla drainage
+"Underdosing of other laxatives, initial encounter",Laxative underdosing
+Benign neoplasm of other specified female genital organs,Benign genital neoplasm
+Malignant neoplasm of cardia,Gastric cardia cancer
+"Acute pancreatitis, unsp.",Acute pancreatitis, unsp.
+Pityriasis rubra pilaris,Pityriasis rubra pilaris
+"Schizophrenia, unsp.",Schizophrenia
+Delusional disorders,Delusional disorder
+"Acute tonsillitis, unsp.",Acute tonsillitis
+Chest pain,Chest pain
+Anemia,Anemia
+32 weeks gestation of pregnancy,32 weeks gestation
+Open fracture of lower end of radius with ulna,Radius/ulna fracture
+Closed fracture of other facial bones,Facial fracture
+Transient global amnesia,Transient amnesia
+"C:Z6841 (Body mass index [BMI] 19.9 or less, adult)",Underweight
+"Body mass index [BMI] 19.9 or less, adult",Underweight
+C:E43 (Unspecified severe protein-calorie malnutrition),Severe malnutrition
+Unspecified severe protein-calorie malnutrition,Severe malnutrition
+"Body mass index [BMI] 19.9 or less, adult)",Underweight
+"C:Z6841 (Body mass index [BMI] 19.9 or less, adult",Underweight
+"Unspecified severe protein-calorie malnutrition, Body mass index [BMI] 19.9 or less, adult",Severe malnutrition + Underweight
+"{Unspecified severe protein-calorie malnutrition, Body mass index [BMI] 19.9 or less, adult}",{Severe malnutrition, Underweight}
+"Other adverse food reactions, NEC, int",Adverse food reaction
+"MDO, single episode, severe without ps",MDD (severe)
+"MDD, single episode, severe without ps",MDD (severe)
+"Bipolar, manic without psychotic fe",Bipolar (manic)
+"Poisoning by selective serotonin reuptake inhibitors, Intent",SSRI OD (intentional self-harm)
+"Transient hypertension of pregnancy, antepartum condition or",Gestational HTN
+"Maternal conditions NEC, a",Maternal complications
+"Unspecified intracapsular fracture of right femur, initial c",Hip fracture (R)
+Open fracture of lower end of radius with ulna,Radius/ulna fracture
+Dilation of Right Renal Artery with Drug-eluting Intralumina,Renal artery dilation
+"Excision of Right Middle Lung Lobe, Open Approach, Diagnosti",R lung lobe excision (dx)
+"Rupture of uterus before onset of labor, delivered, with or",Uterine rupture (delivered)
+"Unspecified fracture of shaft of unsp. tibia, initial",Tibial shaft fracture
+"Occlusion of Esophageal Vein with Intraluminal Device, Percu",Esophageal varix banding
+"Displaced fracture of neck of fifth metacarpal bone, right h",5th metacarpal fracture (R)
+Introduction of Other New Technology Therapeutic Substance I,Novel therapeutic agent
+Introduction of Other New Technology Therapeutic Substance i,Novel therapeutic agent
+"Severe malnutrition, Body mass index (BMI) 19.9 or less, adult",Severe malnutrition + Underweight
+"EtOH intox., unsp.",Alcohol intoxication, unsp.
+"Acute tonsillitis, unsp.",Acute tonsillitis
+"Schizophrenia, unsp.",Schizophrenia
+"Heart failure, unsp.",Heart failure, unsp.
+Gonecoccal infection of other musculoskeletal tissue,Gonococcal MSK infection
+Gonococcal infection of other musculoskeletal tissue,Gonococcal MSK infection
+Extirpation of Matter from Intracranial Subarachnoid Space,Intracranial clot removal
+"Resection of Left Axillary Lymphatic, Open Approach",L axillary lymph node resection
+Benign neoplasm of other specified female genital organs,Benign genital neoplasm
+Benign neoplasms of other specified female genital organs,Benign genital neoplasm
+Boutonniere deformity of left finger(s),Boutonniere deformity (L)
+"Excision of Left Lower Lung Lobe, Open Approach, Diagnostic",L lung lobe excision (dx)
+"Abrasion of unsp. finger, initial encounter",Finger abrasion
+"Underdosing of other laxatives, initial encounter",Laxative underdosing
+"Infection following immunization, initial encounter",Post-immunization infection
+"Reposition Nasal Septum, Open Approach",Septoplasty
+"Drainage of Right Axilla, Open Approach",R axilla drainage
+Malignant neoplasm of cardia,Gastric cardia cancer
+"Acute pancreatitis, unsp.",Acute pancreatitis, unsp.
+Pityriasis rubra pilaris,Pityriasis rubra pilaris
+Chest pain,Chest pain
+Anemia,Anemia
+Psychosis,Psychosis
+SI,SI
+MDD,MDD
+Recurrent MDD (severe),Recurrent MDD (severe)
+Delusional disorders,Delusional disorder
+Delusional disorder,Delusional disorder
+Pleural effusion in other conditions classified elsewhere,Pleural effusion
+Pleural effusion,Pleural effusion
+"Nicotine dep., cigarettes, uncomplicated",Nicotine dependence
+"Staphylococcal arthritis, left ankle and foot",Staph arthritis (L ankle)
+"Body mass index [BMI] 19.9 or less, adult)",Underweight
+"Body mass index (BMI) 19.9 or less, adult",Underweight
+"Body mass index [BMI] 19.9 or less, adult",Underweight
+Severe malnutrition,Severe malnutrition
+Unspecified severe protein-calorie malnutrition,Severe malnutrition
+uncomplicated,uncomp.
+Uncomplicated,uncomp.
+"Nicotine dependence, cigarettes, uncomplicated",Nicotine dep.
+Recurrent MDD (severe),Recurrent MDD (sev.)
+recurrent severe without psychoti,Recurrent MDD (sev.)
+intentional self-harm,ISH
+intentional self-har,ISH
+Intentional self-harm,ISH
+Acetaminophen OD (intentional self-harm),Acetaminophen OD (ISH)
+SSRI OD (intentional self-harm),SSRI OD (ISH)
+Benzodiazepine OD,Benzo OD
+Analgesic poisoning,Analgesic OD
+"Major depressive disorder, single episode",MDD (single ep.)
+"Major depressive disorder, single ep",MDD (single ep.)
+Obstructive sleep apnea (adult) (pediatric),Sleep apnea
+Obstructive sleep apnea,Sleep apnea
+Gastroesophageal reflux disease,GERD
+Essential (primary) hypertension,HTN
+Type 2 diabetes mellitus without complications,T2DM
+Unspecified essential hypertension,HTN
+Pure hypercholesterolemia,Hypercholesterolemia
+"Hyperlipidemia, unspecified",HLD
+Acute posthemorrhagic anemia,Posthemorrhagic anemia
+"Urinary tract infection, site not specified",UTI
+"Chronic obstructive pulmonary disease, unspecified",COPD
+Benign prostatic hyperplasia,BPH
+"Hypothyroidism, unspecified",Hypothyroidism
+Hypertensive chronic kidney disease,HTN CKD
+Atrial fibrillation,AFib
+Congestive heart failure,CHF
+Coronary atherosclerosis,CAD
+Influenza vaccine,Flu vaccine
+H1 vaccine,Flu vaccine
+Neoplasm pain,Neoplasm pain
+Anemia in neoplastic disease,Anemia (neoplastic)
+"Acute kidney failure, unspecified",AKI
+Suicidal ideations,SI
+Single live birth,Live birth
+Perineal laceration during delivery,Perineal laceration
+Second degree perineal laceration during delivery,2nd deg. perineal laceration
+C:10_R079,Chest pain NOS
+C:10_R45851,SI
+C:10_F329,MDD single ep. NOS
+C:10_F332,Recurrent severe MDD
+C:10_F322,Severe MDD
+C:10_F29,Psychosis NOS
+C:10_F39,Mood disorder NOS
+C:10_F319,Bipolar disorder NOS
+C:10_F3110,Bipolar manic
+C:10_F4310,PTSD NOS
+C:10_N179,AKI NOS
+C:10_D630,Cancer anemia
+C:10_G893,Cancer pain
+C:10_I10,Hypertension
+C:10_K219,GERD
+C:10_Z370,Live birth
+C:10_R55,Syncope
+C:10_R188,Ascites
+C:10_O001,Ectopic pregnancy
+C:10_J0390,Tonsillitis NOS
+C:10_J36,Peritonsillar abscess
+C:10_F10129,Alcohol intox NOS
+C:10_F1010,Alcohol abuse uncomp.
+C:10_T43222A,SSRI OD self-harm
+C:10_T391X2A,Acetamin OD self-harm
+C:10_T781XXA,Food reaction
+C:9_9654,Analgesic OD
+C:9_30981,PTSD
+C:9_78659,Atypical chest pain
+P:9_5491,Abd. drainage
+P:9_8938,Resp measurements
+P:9_9925,Chemo infusion
+P:10_10D00Z1,C-section
+P:10_10E0XZZ,Resp monitoring
+D:RX_2418,Vitamin D
+D:RX_1657128,Influenza A Ag
+C:10_E119,T2DM
+C:10_E785,Hyperlipidemia NOS
+C:10_I4891,AFib NOS
+C:10_I509,CHF NOS
+C:10_J449,COPD NOS
+C:10_N390,UTI
+C:10_G4733,Sleep apnea
+C:10_E039,Hypothyroidism NOS
+C:10_N400,BPH
+C:10_F17210,Nicotine dep.
+C:10_Z87891,Hx nicotine dep.
+C:10_Z915,Hx self-harm
+C:10_O701,Perineal laceration
+C:9_1985,Bone metastases
+C:9_2724,Hyperlipidemia NOS
+C:9_64233,Gestational hypertension
+C:9_64403,Threatened preterm labor
+C:9_64893,Maternal comorbidity
+C:10_S72011A,R hip fracture
+C:10_S81012A,L knee laceration
+C:10_K8064,Gallstone cholecystitis
+C:10_C250,Pancreatic head cancer
+C:9_1570,Pancreatic head cancer
+C:10_B9620,E. coli (causative)
+C:10_C771,Secondary malignant neoplasm (intra-abdominal LN)
+C:10_C775,Secondary malignant neoplasm
+C:10_C786,Secondary malignant neoplasm (retroperitoneal)
+C:10_E113591,T2DM with proliferative retinopathy
+C:10_E1140,T2DM with diabetic neuropathy
+C:10_I130,Hypertensive heart & CKD
+C:10_I2510,Atherosclerotic heart disease
+C:10_I5033,Acute-on-chronic CHF
+C:10_K289,Gastrojejunal ulcer NOS
+C:10_T859XXA,Complication of internal prosthetic device
+C:10_Z803,Family Hx malignant neoplasm
+P:10_0DJD8ZZ,Lower GI inspection
+P:10_0UT50ZZ,Resection of right fallopian tube
+P:10_0W9930Z,Drainage of right pleural cavity (with device)
+P:10_0W9B30Z,Drainage of left pleural cavity (with device)
+P:10_0W9B3ZZ,Drainage of left pleural cavity (percutaneous)
+P:10_0W9G3ZX,Drainage of peritoneal cavity (percutaneous)
+P:10_0Y6H0Z2,Detachment at right lower leg (mid)
+P:10_4A133B3,Monitoring of arterial pressure (pulm.)
+P:10_5A1945Z,Respiratory ventilation (24-96h)
+C:10_Z8041,Family Hx malignant neoplasm (ovary)
+C:10_Z800,Family Hx malignant neoplasm (GI)
+C:10_R410,Loss of consciousness NOS
+C:10_R180,Malignant ascites
+C:10_J9811,Atelectasis
+C:10_F419,Anxiety disorder NOS
+C:10_K219,GERD NOS
+C:10_K9181,Persistent postoperative fistula
+C:10_T380X5A,Adverse effect of glucocorticoids
+C:10_O365930,"Poor fetal growth, 3rd trimester"
+C:9_9708,Other CNS stimulant poisoning
+C:10_I6200,Nontraumatic SDH NOS
