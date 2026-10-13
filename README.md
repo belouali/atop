@@ -156,6 +156,7 @@ docs/images/     figures used in this README
 - MIMIC-IV v3.1 (credentialed access via PhysioNet)
 
 Install dependencies with `pip install -e .` (see `pyproject.toml`).
+The LACE baselines and the paired bootstrap behind Table 2 also need xgboost, pinned to the version that reproduces the table: `pip install -e .[baselines]`.
 
 ## Citation
 

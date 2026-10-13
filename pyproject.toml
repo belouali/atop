@@ -31,6 +31,9 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest", "pytest-cov", "black", "ruff"]
+# LACE baselines and the paired bootstrap (scripts/reproduce_lace_baselines.py,
+# scripts/table_s1_auroc_bootstrap.py): pinned to the version that reproduces Table 2.
+baselines = ["xgboost==3.4.1"]
 
 [project.urls]
 Homepage = "https://github.com/belouali/atop"
