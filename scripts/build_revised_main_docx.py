@@ -1042,7 +1042,7 @@ def build() -> None:
               "completion of CITI Data or Specimens Only Research "
               "training and a signed Data Use Agreement. The AToP "
               "framework code is publicly available at "
-              "https://github.com/belouali/atop (release v1.0.1, the "
+              "https://github.com/belouali/atop (release v1.0.2, the "
               "version used for this work), including the five-step "
               "pipeline, phenotype classifier, masking-validation "
               "pipeline, preprocessing and RxNorm mapping, model "

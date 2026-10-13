@@ -1183,7 +1183,7 @@ ARXIV_PDF = os.path.join(HERE, "..", "..", "manuscript", "jamia_submission",
 # updated further.
 PREPRINT_NOTE = ("Preprint: author's original version, not peer reviewed. "
                  "Under review. Code: https://github.com/belouali/atop "
-                 "(release v1.0.1).")
+                 "(release v1.0.2).")
 
 
 def build(preprint: bool = False):
