@@ -149,10 +149,7 @@ def build() -> None:
     # Word-count statement (JAMIA title-page requirement). JAMIA Research
     # and Applications caps the body at 4,000 words and the structured
     # abstract at 250.
-    para(doc, "**Word count:** Abstract 243 (limit 250); Body "
-              "(Background through Conclusion, excluding title page, "
-              "abstract, references, tables and figure legends) "
-              "approximately 3,920 (limit 4,000).")
+    para(doc, "**Word count:** Abstract 250; Body 3,976.")
     hrule(doc)
 
     # ── Abstract ─────────────────────────────────────────────────────
@@ -167,10 +164,9 @@ def build() -> None:
               "frequent episodes from attribution-salient segments, "
               "aggregates attribution among patients whose records "
               "contain each token or pattern, and collapses near-"
-              "duplicates by patient overlap. For validation, we used "
-              "masking, reversed-order analysis, token-level faithfulness "
-              "tests, and cross-method comparison with KernelSHAP in the "
-              "held-out test cohort.")
+              "duplicates by patient overlap. Validation used masking, "
+              "reversed-order analysis, token-level faithfulness tests, "
+              "and KernelSHAP comparison in the test cohort.")
     para(doc, "**Results:** The Transformer achieved AUROC 0.77 and "
               "PR-AUC 0.34. Population-weighted attribution emphasized "
               "high-prevalence codes with small per-patient impact. "
@@ -180,22 +176,23 @@ def build() -> None:
               "ideation (SI), and severe major depressive disorder (MDD). "
               "Pattern-level attribution identified within-visit "
               "co-occurrences and cross-visit trajectories not captured "
-              "by token rankings, including psychiatric ({MDD, SI} "
-              "\u2192 SI) and oncologic (cancer anemia \u2192 ascites) "
-              "sequences.")
-    para(doc, "**Discussion:** Carrier-conditional aggregation moves the "
-              "explanation from the common to the decisive. At the token "
-              "level the strongest signals are psychiatric crisis codes; "
-              "across visits they are depression with suicidal ideation "
-              "that recurs and worsens, and cancer progressing to anemia "
-              "and ascites. Masking patterns shifted predictions in the "
-              "attributed direction, and reversing visit order attenuated "
-              "attribution. Pattern values remain attribution "
-              "allocations, and cross-visit rankings are method "
-              "dependent.")
+              "by token rankings: risk-increasing psychiatric sequences "
+              "({MDD, SI} \u2192 SI) and oncologic progressions (cancer "
+              "anemia \u2192 ascites), alongside protective obstetric and "
+              "chest-pain-workup patterns.")
+    para(doc, "**Discussion:** Carrier-conditional aggregation shifts "
+              "attention from common codes to rare, highly attributed "
+              "markers. At the token level, prominent signals were "
+              "psychiatric crisis codes; across visits, patterns included "
+              "recurrent depression with suicidal ideation and cancer "
+              "anemia followed by ascites. Masking patterns shifted "
+              "predictions in the attributed direction, and reversing "
+              "visit order often attenuated attribution. Pattern values "
+              "remain attribution allocations, and cross-visit rankings "
+              "were method dependent.")
     para(doc, "**Conclusion:** AToP turns a Transformer\u2019s attributions "
               "into clinically legible trajectories, showing which "
-              "events, in which order, drive its readmission "
+              "events, in which order, may drive its readmission "
               "predictions.")
 
     page_break(doc)
