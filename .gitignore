@@ -48,3 +48,6 @@ Thumbs.db
 # defensively in case anyone ever places them inside atop_package/)
 archive/
 manuscript/
+
+# Analyses run but not reported in the paper (kept locally, not distributed)
+scripts/parked/
