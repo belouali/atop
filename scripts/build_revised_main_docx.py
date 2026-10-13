@@ -149,7 +149,7 @@ def build() -> None:
     # Word-count statement (JAMIA title-page requirement). JAMIA Research
     # and Applications caps the body at 4,000 words and the structured
     # abstract at 250.
-    para(doc, "**Word count:** Abstract 214 (limit 250); Body "
+    para(doc, "**Word count:** Abstract 243 (limit 250); Body "
               "(Background through Conclusion, excluding title page, "
               "abstract, references, tables and figure legends) "
               "approximately 3,920 (limit 4,000).")
@@ -158,42 +158,45 @@ def build() -> None:
     # ── Abstract ─────────────────────────────────────────────────────
     heading(doc, "Abstract", level=1)
     para(doc, "**Objective:** To develop and evaluate AToP (Attribution "
-              "to Temporal Patterns), a post-hoc framework that converts "
-              "per-token Integrated Gradients (IG) from a Transformer into "
-              "structured temporal pattern narratives.")
+              "to Temporal Patterns), a post-hoc explainability framework "
+              "that converts per-token Integrated Gradients (IG) from a "
+              "Transformer into structured temporal pattern narratives.")
     para(doc, "**Materials and Methods:** AToP was applied to a single-"
               "stream Transformer trained on MIMIC-IV v3.1 (218,196 "
               "patients; 12.6% unplanned 30-day readmission). It mines "
               "frequent episodes from attribution-salient segments, "
               "aggregates attribution among patients whose records "
               "contain each token or pattern, and collapses near-"
-              "duplicates by patient overlap. Validation used masking, "
-              "reversed-order analysis, token-level faithfulness tests, "
-              "and cross-method comparison with KernelSHAP in "
-              "the held-out test cohort.")
+              "duplicates by patient overlap. For validation, we used "
+              "masking, reversed-order analysis, token-level faithfulness "
+              "tests, and cross-method comparison with KernelSHAP in the "
+              "held-out test cohort.")
     para(doc, "**Results:** The Transformer achieved AUROC 0.77 and "
-              "PR-AUC 0.34, exceeding logistic regression (0.66) and "
-              "XGBoost (0.73) using LACE-based covariates; this was not a "
-              "feature-matched comparison. Population-weighted "
-              "attribution emphasized high-prevalence codes, whereas "
-              "carrier-conditional attribution, the mean among patients "
+              "PR-AUC 0.34. Population-weighted attribution emphasized "
+              "high-prevalence codes with small per-patient impact. "
+              "Carrier-conditional attribution, the mean among patients "
               "with the token, surfaced rare high-attribution psychiatric "
               "markers including psychosis, self-harm overdose, suicidal "
-              "ideation, and severe major depressive disorder. Pattern-"
-              "level attribution identified within-visit co-occurrences "
-              "and cross-visit psychiatric and oncologic trajectories not "
-              "captured by token rankings. KernelSHAP agreed with IG on "
-              "25/30 carrier-conditional tokens but 7/30 cross-visit "
-              "patterns.")
-    para(doc, "**Discussion:** AToP extends token-level attribution to "
-              "structured temporal representations of model behavior. "
-              "Pattern values are attribution allocations rather than "
-              "uniquely identified effects, and cross-visit rankings were "
-              "attribution-method dependent.")
-    para(doc, "**Conclusion:** AToP provides a complementary "
-              "representation of sequence-model behavior by organizing "
-              "attributed EHR events into within-visit and cross-visit "
-              "temporal patterns.")
+              "ideation (SI), and severe major depressive disorder (MDD). "
+              "Pattern-level attribution identified within-visit "
+              "co-occurrences and cross-visit trajectories not captured "
+              "by token rankings, including psychiatric ({MDD, SI} "
+              "\u2192 SI) and oncologic (cancer anemia \u2192 ascites) "
+              "sequences.")
+    para(doc, "**Discussion:** Carrier-conditional aggregation moves the "
+              "explanation from the common to the decisive. At the token "
+              "level the strongest signals are psychiatric crisis codes; "
+              "across visits they are depression with suicidal ideation "
+              "that recurs and worsens, and cancer progressing to anemia "
+              "and ascites. Masking patterns shifted predictions in the "
+              "attributed direction, and reversing visit order attenuated "
+              "attribution. Pattern values remain attribution "
+              "allocations, and cross-visit rankings are method "
+              "dependent.")
+    para(doc, "**Conclusion:** AToP turns a Transformer\u2019s attributions "
+              "into clinically legible trajectories, showing which "
+              "events, in which order, drive its readmission "
+              "predictions.")
 
     page_break(doc)
 
