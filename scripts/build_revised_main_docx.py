@@ -149,7 +149,7 @@ def build() -> None:
     # Word-count statement (JAMIA title-page requirement). JAMIA Research
     # and Applications caps the body at 4,000 words and the structured
     # abstract at 250.
-    para(doc, "**Word count:** Abstract 250; Body 3,976.")
+    para(doc, "**Word count:** Abstract 250; Body 3,996.")
     hrule(doc)
 
     # ── Abstract ─────────────────────────────────────────────────────
@@ -438,13 +438,16 @@ def build() -> None:
               "yielding three pattern types: single-token events, within-"
               "visit co-occurrences, and cross-visit sequences. Mining "
               "used a minimum support fraction of 0.001 within each "
-              "outcome class and a maximum length of four visit blocks.")
-    para(doc, "The full mined pattern set was used for per-patient "
-              "explanations and the all-patterns ranking. For the cross-"
-              "visit view, we applied two post-mining reporting criteria: "
-              "patterns had to span at least two visits and contain at "
-              "least two tokens. These criteria defined the cross-visit "
-              "reporting view and did not constrain the mining process.")
+              "outcome class and a maximum length of four visit blocks; "
+              "the episodes mined in the two classes were pooled.")
+    para(doc, "Every pooled episode with at least five test-cohort "
+              "carriers entered the all-patterns ranking, and every pooled "
+              "episode spanning at least two visits with at least two "
+              "tokens and at least three test-cohort carriers entered the "
+              "cross-visit ranking; these reporting criteria did not "
+              "constrain mining. Per-patient explanations matched against "
+              "the subset of pooled episodes that also reached support "
+              "0.001 across the whole training cohort.")
     para(doc, "To reduce near-duplicate patterns, we compared the sets of "
               "test-cohort patients whose records contained each pattern "
               "using Jaccard similarity. Patterns with Jaccard similarity "

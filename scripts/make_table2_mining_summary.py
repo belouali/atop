@@ -111,6 +111,27 @@ def _mining_counts(layout: RunLayout, split: str,
     n_single_visit_cooc = int(cat_counts.get("single_visit_cooccurrence", 0))
     n_cross_visit = int(cat_counts.get("cross_visit", 0))
 
+    # Raw mining cache: per-class episode counts (support 0.001 of each
+    # class) and the pooled distinct set that the global rankings score.
+    # ``n_total`` above is the subset that also clears support 0.001 of the
+    # whole training cohort when re-matched across both classes.
+    raw_files = sorted(f for f in os.listdir(layout.mining_dir)
+                       if f.startswith("raw_") and f.endswith(".pkl"))
+    n_case_mined = n_ctrl_mined = n_pooled = sup_case = sup_ctrl = None
+    if raw_files:
+        with open(os.path.join(layout.mining_dir, raw_files[-1]), "rb") as f:
+            raw = pickle.load(f)
+        pooled_keys = set()
+        for coh in ("freq_case", "freq_ctrl"):
+            for _s, ep, _c in raw[coh]:
+                pooled_keys.add(tuple(frozenset(b) for b in ep))
+        n_case_mined = len(raw["freq_case"])
+        n_ctrl_mined = len(raw["freq_ctrl"])
+        n_pooled = len(pooled_keys)
+        sup_case = min(s for s, _e, _c in raw["freq_case"])
+        sup_ctrl = min(s for s, _e, _c in raw["freq_ctrl"])
+    whole_cohort_support = int(df_scored["n_admissions_present"].min())
+
     # Full-pool count (every distinct pattern in the raw mining cache scored
     # against the test cohort; built by ``score_all_raw_patterns``)
     full_pool_pkl = os.path.join(layout.analysis_dir,
@@ -119,8 +140,10 @@ def _mining_counts(layout: RunLayout, split: str,
         with open(full_pool_pkl, "rb") as f:
             df_full = pickle.load(f)
         n_full_pool = int(len(df_full))
+        full_pool_min_carriers = int(df_full["n_present"].min())
     else:
         n_full_pool = None
+        full_pool_min_carriers = None
 
     reps_xv = get_jaccard_representatives(layout.analysis_dir, split, jaccard_threshold)
     n_dedup_xv = len(reps_xv) if reps_xv is not None else None
@@ -172,6 +195,13 @@ def _mining_counts(layout: RunLayout, split: str,
 
     return {
         "patterns_min_support":      n_total,
+        "whole_cohort_support":      whole_cohort_support,
+        "n_case_mined":              n_case_mined,
+        "n_ctrl_mined":              n_ctrl_mined,
+        "n_pooled":                  n_pooled,
+        "support_case":              sup_case,
+        "support_ctrl":              sup_ctrl,
+        "full_pool_min_carriers":    full_pool_min_carriers,
         "n_single_token":            n_single_token,
         "n_single_visit_cooc":       n_single_visit_cooc,
         "n_cross_visit":             n_cross_visit,
@@ -227,8 +257,10 @@ def main() -> None:
     # patient counts redundant with Table 1). No cross-references to other
     # figures or tables.
     jstr = f"{args.jaccard_threshold:.2f}"
-    mine_sec = "Frequent-episode mining (training cohort, min-support 0.001)"
-    score_sec = "Candidate patterns scored on test cohort"
+    mine_sec = ("Frequent-episode mining (training cohort, support 0.001 "
+                "within each outcome class)")
+    score_sec = (f"Candidate patterns scored on test cohort (the "
+                 f"{_fmt_int(mining['n_pooled'])} pooled episodes)")
     rep_sec = f"Representatives after Jaccard dedup (j = {jstr}, test carriers)"
     rows = [
         # section, metric, value
@@ -242,7 +274,17 @@ def main() -> None:
          "Token compression ratio (full / salient)",
          f"{attr['compression']:.1f}"],
 
-        [mine_sec, "Episodes mined",
+        [mine_sec, f"Episodes mined in readmitted patients "
+                   f"(\u2265{mining['support_case']} carriers)",
+         _fmt_int(mining["n_case_mined"])],
+        [mine_sec, f"Episodes mined in non-readmitted patients "
+                   f"(\u2265{mining['support_ctrl']} carriers)",
+         _fmt_int(mining["n_ctrl_mined"])],
+        [mine_sec, "Distinct episodes after pooling",
+         _fmt_int(mining["n_pooled"])],
+        [mine_sec, f"Pooled episodes also at whole-cohort support 0.001 "
+                   f"(\u2265{mining['whole_cohort_support']} carriers; "
+                   f"per-patient explanation dictionary)",
          _fmt_int(mining["patterns_min_support"])],
         [mine_sec, "    Single-token patterns",
          _fmt_int(mining["n_single_token"])],
@@ -251,9 +293,11 @@ def main() -> None:
         [mine_sec, "    Cross-visit patterns",
          _fmt_int(mining["n_cross_visit"])],
 
-        [score_sec, "Full pool (all shapes)",
+        [score_sec, f"Full pool, all shapes, \u2265{mining['full_pool_min_carriers']} "
+                    f"test carriers",
          _fmt_int(mining["full_pool_patterns"])],
-        [score_sec, "    Cross-visit subset",
+        [score_sec, "    Cross-visit subset (\u22652 visits, \u22652 tokens), "
+                    "\u22653 test carriers",
          _fmt_int(mining["cross_visit_scored"])],
 
         [rep_sec, "Full pool (all shapes)",

@@ -92,14 +92,14 @@ def main() -> None:
     # its left edge sits clear of it, with the arrow spanning the gap
     _box(ax, 8.45, 10.8, 2.8, EH,
          "11,801 admissions excluded (2.2%)\nin-hospital death, cannot be readmitted",
-         fc=EXCL_FC, ec=EXCL_EC, fontsize=9.5)
+         fc=EXCL_FC, ec=EXCL_EC, fontsize=8.6)
     _arrow(ax, CX + W / 2, 10.8, 8.45 - 2.8 / 2, 10.8)
 
     # 4. Analytic cohort
     _box(ax, CX, 9.05, W, H,
          "Analytic cohort\n"
          "218,196 patients · 12.6% unplanned 30-day readmission",
-         fontsize=11.5, weight="bold")
+         fontsize=10.2, weight="bold")
     _arrow(ax, CX, 10.8 - H / 2, CX, 9.05 + H / 2)
 
     # 5. Split header
@@ -126,8 +126,9 @@ def main() -> None:
     # 7. Mining (from train) + attribution (from test)
     _box(ax, 1.7, 3.2, 3.0, 1.5,
          "Pattern mining\n(train salient tokens)\n"
-         "24,490 mined (min-support)\n9,213 cross-visit reps (j≥0.2)",
-         fontsize=9.5)
+         "70,278 episodes mined (pooled)\n24,490 at whole-cohort support\n"
+         "9,213 cross-visit reps (j≥0.2)",
+         fontsize=8.8)
     _arrow(ax, 1.7, sy - 0.75, 1.7, 3.2 + 0.75)
 
     _box(ax, 7.4, 3.2, 3.0, 1.5,
