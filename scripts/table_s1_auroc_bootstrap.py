@@ -26,7 +26,7 @@ from xgboost import XGBClassifier
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from atop.run_layout import RunLayout
 
-# Resolve from env so make_table_s1 / a CLI caller can override without
+# Resolve from env so a CLI caller can override without
 # touching this file.
 BUNDLE = os.environ.get("ATOP_RUN_DIR", "../runs/mimiciv_readmission_30d")
 MIMIC_DIR = os.environ.get("ATOP_MIMIC_DIR", "../data/mimiciv/3.1/hosp")

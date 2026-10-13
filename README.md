@@ -133,7 +133,7 @@ python scripts/make_fig_s11_shap_fig3.py --run_dir runs/mimiciv_readmission_30d
 python scripts/make_fig_faithfulness.py --run_dir runs/mimiciv_readmission_30d
 ```
 
-(`make_fig_s2.py` … `make_fig_s12.py` follow the same convention.)
+(The other `make_fig_s*.py` scripts follow the same convention. `scripts/parked/` holds analyses that are not reported in the paper.)
 
 ## Repository layout
 

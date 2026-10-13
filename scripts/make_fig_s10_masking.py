@@ -10,7 +10,7 @@ or in the manuscript Tables 3-4 (ig_value); when
 validation_pattern_directions.csv exists (all patterns scored with the
 unified rule) it takes precedence. Patterns with no direction are grey.
 
-Replaces the earlier mask-vs-shuffle version (make_fig_s6.py); the shuffle
+Replaces the earlier mask-vs-shuffle version (scripts/parked/make_fig_s6.py); the shuffle
 controls are parked as backup and no longer reported.
 
 Usage:

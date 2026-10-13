@@ -17,7 +17,7 @@ tables/backup/.
   patient of 0.075 (mask), 0.049 (within-visit, 66%) and 0.029 (visit
   blocks, 38%); because shuffled inputs are out of distribution, the
   reversal analysis carries the order claim. Script:
-  scripts/rerun_perturbation_per_patient.py; per-patient values in
+  scripts/parked/rerun_perturbation_per_patient.py; per-patient values in
   runs/mimiciv_readmission_30d/5_analysis/backup/ (patient-level, never
   commit). The mask-vs-shuffle figure is figures/supplements/backup/.
   Note: the shuffle runs and the first per-patient rerun used the earlier
