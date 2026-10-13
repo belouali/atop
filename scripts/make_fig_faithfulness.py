@@ -195,8 +195,11 @@ def main() -> None:
 
         comp_atop.append(_pad(np.abs(y0 - comp_a)))
         suff_atop.append(_pad(np.abs(y0 - suff_a)))
-        comp_rand.append(_pad(np.abs(y0 - np.mean(comp_r_draws, axis=0))))
-        suff_rand.append(_pad(np.abs(y0 - np.mean(suff_r_draws, axis=0))))
+        # Random baseline: mean over draws of the absolute change, the same
+        # statistic as the AToP curves (not the absolute change of the mean
+        # prediction, which is never larger and understates the baseline).
+        comp_rand.append(_pad(np.mean(np.abs(y0 - np.array(comp_r_draws)), axis=0)))
+        suff_rand.append(_pad(np.mean(np.abs(y0 - np.array(suff_r_draws)), axis=0)))
 
         if (gi + 1) % 50 == 0:
             print(f"    {gi+1}/{len(groups)}", flush=True)
@@ -301,7 +304,10 @@ def main() -> None:
         "comp_rand_mean": cr_m, "comp_rand_lo": cr_lo, "comp_rand_hi": cr_hi,
         "suff_atop_mean": sa_m, "suff_atop_lo": sa_lo, "suff_atop_hi": sa_hi,
         "suff_rand_mean": sr_m, "suff_rand_lo": sr_lo, "suff_rand_hi": sr_hi,
+        # patients contributing at each k (those with at least k salient tokens)
+        "n_patients_k": (~np.isnan(comp_atop)).sum(axis=0),
     }).to_csv(out_csv, index=False)
+    print("    patients per k:", (~np.isnan(comp_atop)).sum(axis=0).tolist())
     print(f"    csv: {out_csv}")
     print(f"    n_patients = {len(groups)}")
 

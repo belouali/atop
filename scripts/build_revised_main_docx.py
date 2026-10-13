@@ -149,7 +149,7 @@ def build() -> None:
     # Word-count statement (JAMIA title-page requirement). JAMIA Research
     # and Applications caps the body at 4,000 words and the structured
     # abstract at 250.
-    para(doc, "**Word count:** Abstract 250; Body 3,939.")
+    para(doc, "**Word count:** Abstract 250; Body 3,975.")
     hrule(doc)
 
     # ── Abstract ─────────────────────────────────────────────────────
@@ -331,19 +331,19 @@ def build() -> None:
               ' layers, and 128-dimensional embeddings was trained using '
               'binary cross-entropy loss with early stopping based on '
               'validation AUROC.')
-    para(doc, "Diagnoses, procedures, medications, and the [VISIT], "
-              "[CLS], and [PAD] special tokens were represented in a "
-              "shared embedding space, allowing the model to learn "
-              "interactions across token types without type-specific "
-              "architectural constraints. The [CLS] representation was "
-              "passed through a linear layer with sigmoid activation to "
-              "produce the predicted readmission probability.")
-    para(doc, "Patients were split at the patient level into training "
-              "(70%; n=152,737), validation (10%; n=21,819), and test "
-              "(20%; n=43,640) cohorts. Of the 43,640 patients in the "
-              "test cohort, 43,602 were included in IG attribution and "
-              "downstream AToP analyses; 38 were excluded because "
-              "attribution yielded no salient-token set.")
+    para(doc, 'Diagnoses, procedures, medications, and the [VISIT], '
+              '[CLS], and [PAD] special tokens were represented in a '
+              'shared embedding space, allowing the model to learn '
+              'interactions across token types without type-specific '
+              'architectural constraints. The [CLS] representation was '
+              'passed through a linear layer with sigmoid activation to '
+              'produce the predicted readmission probability.')
+    para(doc, 'Patients were split at the patient level into training '
+              '(70%; n=152,737), validation (10%; n=21,819), and test '
+              '(20%; n=43,640) cohorts. Of the 43,640 patients in the '
+              'test cohort, 43,602 were included in IG attribution and '
+              'downstream AToP analyses; 38 were excluded because '
+              'attribution yielded no salient-token set.')
 
     heading(doc, "Baselines and performance evaluation", level=2)
     para(doc, 'We compared the Transformer with two baselines trained on '
@@ -381,15 +381,15 @@ def build() -> None:
               'Jaccard-based deduplication using patient overlap to '
               'collapse near-redundant patterns into representative '
               'patterns.')
-    para(doc, "Integrated Gradients was calculated using the model output "
-              "before conversion to a readmission probability. The "
-              "resulting attribution values are therefore on the logit "
-              "scale. By the completeness property, the token "
-              "attributions sum approximately to the difference between "
-              "the patient’s model output and the output for an "
-              "all-[PAD] reference sequence [8,26]. Details of the "
-              "reference sequence and approximation error are provided in "
-              "the Supplementary Methods.")
+    para(doc, 'Integrated Gradients was calculated using the model output'
+              ' before conversion to a readmission probability. The '
+              'resulting attribution values are therefore on the logit '
+              'scale. By the completeness property, the token '
+              'attributions sum approximately to the difference between '
+              'the patient’s model output and the output for an all-[PAD]'
+              ' reference sequence [8,26]. Details of the reference '
+              'sequence and approximation error are provided in the '
+              'Supplementary Methods.')
     para(doc, 'For each patient, a token’s attribution score was its '
               'signed IG value, and a multi-token pattern’s attribution '
               'score was the sum of the signed IG values of its '
@@ -402,60 +402,61 @@ def build() -> None:
               'carrier-conditional attribution was calculated as the mean'
               ' signed IG among patients whose records contained the '
               'token.')
-    para(doc, "The population-weighted attribution for token j was "
-              "calculated as the mean signed IG across all patients:")
+    para(doc, 'The population-weighted attribution for token j was '
+              'calculated as the mean signed IG across all patients:')
     equation(doc, "Aⱼᵖᵒᵖ = (1/N) Σᵢ IGᵢⱼ",
              number=1)
-    para(doc, "Tokens were ranked by the absolute magnitude of "
-              "Aⱼᵖᵒᵖ, while its sign indicated whether the "
-              "token increased or decreased predicted risk. Because "
-              "patients whose records did not contain token j contributed "
-              "zero attribution for that token, Equation (1) can also be "
-              "written as:")
+    para(doc, 'Tokens were ranked by the absolute magnitude of Aⱼᵖᵒᵖ, '
+              'while its sign indicated whether the token increased or '
+              'decreased predicted risk. Because patients whose records '
+              'did not contain token j contributed zero attribution for '
+              'that token, Equation (1) can also be written as:')
     equation(doc, "Aⱼᵖᵒᵖ = P(j present) × "
                   "E[IGⱼ | j present]",
              number=2)
-    para(doc, "Equation (2) shows that population-weighted attribution "
-              "reflects both how often a token occurs and how strongly it "
-              "is attributed when present. Carrier-conditional "
-              "attribution isolates the latter quantity.")
+    para(doc, 'Equation (2) shows that population-weighted attribution '
+              'reflects both how often a token occurs and how strongly it'
+              ' is attributed when present. Carrier-conditional '
+              'attribution isolates the latter quantity.')
     para(doc, "At the pattern level, each carrier's score was obtained by"
               " matching the pattern to the patient's record step by "
               'step: each step was assigned the earliest visit containing'
-              ' all of its tokens, with later steps required to fall in '
-              'strictly later visits. The score summed the signed IG of '
-              "each step's tokens in the assigned visit, and scores were "
-              'averaged across carriers to give the carrier-averaged ΣIG,'
-              ' ranked by |ΣIG| with its sign retained. The per-patient '
-              'explanation display uses a separate non-overlapping '
-              'allocation of salient positions (Supplementary Methods).')
-    para(doc, "Frequent-episode mining [16] was applied only to salient-"
-              "token subsequences from the training cohort. Patterns were "
-              "constructed by either adding a co-occurring token within "
-              "the same visit or appending a token from a later visit, "
-              "yielding three pattern types: single-token events, within-"
-              "visit co-occurrences, and cross-visit sequences. Mining "
-              "used a minimum support fraction of 0.001 within each "
-              "outcome class and a maximum length of four visit blocks; "
-              "the episodes mined in the two classes were pooled.")
-    para(doc, "Every pooled episode with at least five test-cohort "
-              "carriers entered the all-patterns ranking, and every pooled "
-              "episode spanning at least two visits with at least two "
-              "tokens and at least three test-cohort carriers entered the "
-              "cross-visit ranking; these reporting criteria did not "
-              "constrain mining. Per-patient explanations matched against "
-              "the subset of pooled episodes that also reached support "
-              "0.001 across the whole training cohort.")
-    para(doc, "To reduce near-duplicate patterns, we compared the sets of "
-              "test-cohort patients whose records contained each pattern "
-              "using Jaccard similarity. Patterns with Jaccard similarity "
-              "≥0.20 were grouped using greedy clustering, and the "
-              "pattern with the largest absolute attribution magnitude "
-              "within each group was retained as the representative.")
-    para(doc, 'Test-cohort patient sets were used only to deduplicate '
-              'patterns already mined in the training cohort and did not '
-              'influence training, mining thresholds, or attribution '
-              'scores.')
+              ' all its tokens, with later steps required to occur in '
+              'strictly later visits. For each carrier, the score was the'
+              " sum of signed IG values for the pattern's tokens in the "
+              'matched visits. Scores were then averaged across carriers '
+              'to obtain carrier-averaged ΣIG. Patterns were ranked by '
+              'the absolute magnitude of their carrier-averaged ΣIG, with'
+              ' the sign retained to indicate the direction of '
+              'attribution. For the per-patient display, each salient '
+              'token occurrence was counted only once to avoid '
+              'double-counting across overlapping patterns (Supplementary'
+              ' Methods).')
+    para(doc, 'Frequent-episode mining [16] was implemented using a '
+              'level-wise candidate-generation algorithm and applied only'
+              ' to salient-token subsequences from the training cohort. '
+              'Patterns were constructed by either adding a co-occurring '
+              'token within the same visit or appending a token from a '
+              'later visit, yielding three pattern types: single-token '
+              'events, within-visit co-occurrences, and cross-visit '
+              'sequences. Mining was conducted separately in each outcome'
+              ' class, using a minimum support fraction of 0.001 and a '
+              'maximum of four tokens per pattern. The resulting patterns'
+              ' were then pooled into a single set of distinct patterns.')
+    para(doc, 'The pooled patterns formed the candidate set for global '
+              'rankings and per-patient explanations, with eligibility '
+              'criteria described below.')
+    para(doc, 'To reduce near-duplicate patterns, we compared the sets of'
+              ' test-cohort patients whose records contained each pattern'
+              ' using Jaccard similarity. Patterns with Jaccard '
+              'similarity ≥0.20 were grouped using greedy clustering, and'
+              ' the pattern with the largest absolute attribution '
+              'magnitude within each group was retained as the '
+              'representative.')
+    para(doc, 'Test-cohort carrier counts were used to determine '
+              'reporting eligibility, and carrier-set overlap was used '
+              'for deduplication. Neither influenced model training or '
+              'pattern discovery.')
 
     heading(doc, "Parameter choices and sensitivity analyses", level=2)
     para(doc, 'AToP parameters were specified as design or tractability '
@@ -463,75 +464,82 @@ def build() -> None:
               'outcomes. The exception was the 0.25 maximum '
               'drug-prevalence threshold, which was selected by '
               'inspecting patterns mined from the training cohort, '
-              'without using outcome labels or test data. Salient tokens '
-              'were those that, ranked by absolute IG, together accounted'
-              ' for 80% of a patient’s absolute attribution mass, up to '
-              '50 tokens; the 0.80 threshold is a tractability heuristic,'
-              ' and sensitivity was assessed across thresholds from 0.60 '
-              'to 0.95, while the 50-token cap was a safeguard that was '
-              'rarely binding. Integrated Gradients used 30 integration '
-              'steps, with completeness error characterized in the '
-              'Supplementary Methods. All parameter values are listed in '
+              'without using outcome labels or test data.')
+    para(doc, 'After mining, separate eligibility criteria were applied '
+              'to global rankings and per-patient explanations. The '
+              'all-patterns ranking required at least five test-cohort '
+              'carriers, while the cross-visit ranking required at least '
+              'three carriers and patterns spanning at least two visits '
+              'and two tokens. Minimum carrier counts excluded patterns '
+              'represented by very few patients, while the cross-visit '
+              'requirements restricted the analysis to longitudinal '
+              'sequences. Per-patient explanations used the subset of '
+              'pooled patterns observed in at least 0.1% of the full '
+              'training cohort.')
+    para(doc, 'To focus pattern mining on tokens with the largest '
+              'attributions while limiting the search space, we retained,'
+              ' for each patient, the smallest set of tokens accounting '
+              'for 80% of total absolute IG, capped at 50 tokens. We '
+              'assessed sensitivity to the attribution-mass threshold '
+              'across values from 0.60 to 0.95. Additional implementation'
+              ' details are provided in the Supplementary Methods and '
               'Table S1.')
 
     heading(doc, "Validation analyses", level=2)
-    para(doc, "We evaluated AToP using token masking, reversed-order "
-              "analysis between and within patients, "
-              "token-level faithfulness analysis, and cross-method "
-              "comparison with KernelSHAP.")
-    para(doc, 'Masking was applied to the reported patterns and to '
-              'additional high-ranked risk-supporting and protective '
-              'patterns selected by absolute ΣIG across pipeline '
-              'validation runs, 266 unique patterns in total. For token '
-              'masking, token positions corresponding to each pattern '
-              'were replaced with [PAD], and the change in predicted '
-              'readmission probability was calculated as Δŷ = ŷ_original '
-              '− ŷ_masked.')
-    para(doc, 'For the reversed-order analysis, we compared '
-              'carrier-averaged ΣIG between patients whose records '
-              'matched each pattern in the forward order and those whose '
-              'records matched the reversed order; because these are '
-              'different patients, this measures an association between '
-              'event order and attribution. As a within-patient test, for'
-              ' up to 80 carriers of each reported cross-visit pattern we'
-              " reversed the order of the pattern's matched visits within"
-              " the patient's own record, recomputed IG, and rescored the"
-              ' pattern.')
-    para(doc, 'We applied an ERASER-style progressive-masking protocol '
-              '[27] to 500 randomly sampled test patients with at least '
-              'three salient tokens. For k = 1 to 10, comprehensiveness '
-              'was the absolute change in predicted probability after '
-              'replacing the k salient tokens with the largest |IG| by '
-              '[PAD], and sufficiency was the change after retaining only'
-              ' those k tokens and replacing the patient’s remaining '
-              'salient tokens by [PAD]; non-salient and special tokens '
-              'were left unchanged. Each was compared with a '
-              'matched-random baseline that masked or retained the same '
-              'number of tokens drawn at random from the patient’s '
-              'salient set, averaged over five draws. Confidence '
-              'intervals were obtained by bootstrapping patients (1,000 '
-              'resamples), and comprehensiveness at k = 5 was compared '
-              'between IG and random selection using a one-sided Wilcoxon'
-              ' signed-rank test.')
-    para(doc, "As a cross-method comparison, attribution was recomputed "
-              "using KernelSHAP with approximately 50 coalitions per "
-              "patient in the full analytic test cohort. The same "
-              "carrier-conditional token and pattern aggregation "
-              "conventions were then applied to compare the resulting "
-              "global rankings with those obtained using IG.")
+    para(doc, 'We used pattern masking to assess whether the identified '
+              'patterns influenced model predictions. We examined the '
+              'role of temporal order by comparing attribution for '
+              'forward and reversed patterns across patients and '
+              'reversing matched visits within patients. We also tested '
+              'whether highly attributed tokens influenced predictions '
+              'more than randomly selected salient tokens, and whether '
+              'IG-based rankings were consistent with KernelSHAP.')
+    para(doc, 'Masking was applied to the reported patterns and '
+              'additional high-ranked patterns with positive or negative '
+              'attribution, selected by absolute ΣIG. For each pattern, '
+              'the corresponding token positions were replaced with '
+              '[PAD], and the change in predicted readmission probability'
+              ' was calculated as Δŷ = ŷ_original − ŷ_masked.')
+    para(doc, 'We examined the role of temporal order in two ways. First,'
+              ' we compared carrier-averaged ΣIG between patients whose '
+              'records contained a pattern in its original order and '
+              'those whose records contained the reversed pattern. '
+              'Because these were different patients, this comparison '
+              'assessed the association between event order and '
+              'attribution. Second, we tested the effect of reversing '
+              'visit order within patients. For a subset of carriers of '
+              'each reported cross-visit pattern, we reversed the order '
+              'of the matched visits, recomputed IG, and rescored the '
+              'pattern.')
+    para(doc, 'We assessed token-level attribution faithfulness by '
+              'examining how model predictions changed when highly '
+              'attributed tokens were progressively removed or retained '
+              '[27]. The analysis included 500 randomly sampled test '
+              'patients with at least three salient tokens.')
+    para(doc, 'Comprehensiveness was measured as the absolute change in '
+              'predicted readmission probability after masking the top k '
+              'salient tokens ranked by |IG|. Sufficiency was measured as'
+              ' the absolute change after retaining those k tokens and '
+              'masking the remaining salient tokens. We varied k, the '
+              'number of selected tokens, from 1 to 10. Non-salient and '
+              'special tokens were left unchanged in both analyses. For '
+              'each k, only patients with at least k salient tokens were '
+              'included.')
+    para(doc, 'We compared both measures with a random baseline that '
+              'selected the same number of salient tokens. Confidence '
+              'intervals were estimated by bootstrapping patients. '
+              'Comprehensiveness at k = 5 was compared between IG and '
+              'random selection using a one-sided Wilcoxon signed-rank '
+              'test.')
+    para(doc, 'To assess whether the attribution findings depended on IG,'
+              ' we repeated the analysis using KernelSHAP in the analytic'
+              ' test cohort. We compared the rankings produced by both '
+              'methods for population-weighted and carrier-conditional '
+              'token attribution, as well as for all-pattern and '
+              'cross-visit pattern attribution. The same aggregation '
+              'procedures were applied to both methods.')
 
-    heading(doc, "Attribution direction and observed outcome", level=2)
-    para(doc, "To compare attribution direction with observed readmission "
-              "association, we restricted the test cohort to patients "
-              "with at least two admissions and, for each reported cross-"
-              "visit pattern, fit a logistic regression of readmission on "
-              "pattern carriage and the log-transformed number of visits. "
-              "We report the adjusted odds ratio for pattern carriage "
-              "with its 95% Wald confidence interval. These analyses were "
-              "descriptive and were not used as tests of attribution "
-              "faithfulness.")
-
-    # ── Results ──────────────────────────────────────────────────────
+    # ── Results ──
     heading(doc, "Results", level=1)
 
     heading(doc, "Predictive performance", level=2)
@@ -706,6 +714,12 @@ def build() -> None:
     para(doc, 'Phenotype families are presentational groupings defined by'
               ' keyword rules (Supplementary Methods) and do not affect '
               'mining, attribution, or ranking.')
+    para(doc, 'Attribution direction agreed with the direction of the '
+              'visit-adjusted association with observed readmission for '
+              '25 of the 30 reported cross-visit patterns (Table S3; '
+              'Supplementary Methods and Results). These associations '
+              'were descriptive and did not establish attribution '
+              'faithfulness.')
 
     # ── Table 3 ─────
     df3 = _read_csv("Table3_full_pool_clusters.csv")
@@ -762,7 +776,7 @@ def build() -> None:
             "patients, whose baseline readmission rate (27.8%) differs "
             "sharply from the whole-cohort rate (12.7%), so an "
             "unadjusted relative risk is confounded by visit count. "
-            "Visit-matched adjusted odds ratios are in Table S3. "
+            "Visit-adjusted odds ratios are in Table S3. "
             "Pattern-label glossary (applies to Tables 3 and 4 and "
             "Figures 4 and 5): NOS = not otherwise specified; "
             "SI = suicidal ideation; OD = overdose; MDD = major "
@@ -838,27 +852,16 @@ def build() -> None:
 
     # Figure 5. separate file (see Figure Legends at end of manuscript).
 
-    heading(doc, "Attribution direction vs observed outcome", level=2)
-    para(doc, 'Cross-visit patterns can only occur in patients with at '
-              'least two admissions, who are readmitted more often than '
-              'the cohort overall (27.8% vs 12.7%), so unadjusted '
-              'comparisons make nearly every cross-visit pattern look '
-              'risk-increasing. After restriction and adjustment for '
-              'visit count, attribution direction and outcome direction '
-              'agreed for 25 of the 30 displayed cross-visit patterns, '
-              'and repeat cesarean delivery inverted from an unadjusted '
-              'relative risk above 1 to an adjusted odds ratio of 0.83, '
-              'consistent with its protective attribution (Table S3; '
-              'Supplementary Results).')
-
     heading(doc, "Faithfulness of the attribution ranking", level=2)
     para(doc, 'Masking the five tokens with the largest |IG| changed '
               'predicted risk more than masking matched random salient '
-              'tokens (mean |Δŷ| 0.079 vs 0.042; Wilcoxon signed-rank p <'
-              ' 0.001), and comprehensiveness and sufficiency exceeded '
-              'the random baseline at every k (Figure S9; Supplementary '
-              'Results). These results indicate faithfulness to the '
-              'model, not clinical correctness.')
+              'tokens (mean |Δŷ| 0.079 vs 0.056; Wilcoxon signed-rank p <'
+              ' 0.001). Across k = 1 to 10, comprehensiveness was higher '
+              'and sufficiency lower for IG-ranked tokens than for the '
+              'random baseline, with non-overlapping 95% bootstrap '
+              'intervals at every k; only k = 5 was formally tested '
+              '(Figure S9; Supplementary Results). These results indicate'
+              ' faithfulness to the model, not clinical correctness.')
 
     heading(doc, "Temporal-order analysis", level=2)
     para(doc, 'Of the 30 cross-visit patterns in Table 4, 3 are '

@@ -292,6 +292,50 @@ def build() -> None:
     # Three validation analyses relocated here from the main Results to
     # meet the JAMIA 4,000-word body limit. The main text retains a
     # condensed statement of each headline number and points here.
+    heading(doc, "Validation settings", level=2)
+    para(doc, 'Masking validation covered the patterns displayed in '
+              'Tables 3 and 4 and additional high-ranked risk-supporting '
+              'and protective patterns selected by absolute ΣIG across '
+              "the pipeline's validation runs, 266 unique patterns in "
+              'total; each pattern was masked in up to 200 test-cohort '
+              'carriers, taken in cohort order. The within-patient '
+              'reversal analysis used up to 80 carriers per displayed '
+              'cross-visit pattern, again the first in cohort order. The '
+              'token-level faithfulness analysis drew its random baseline'
+              ' five times per patient and reported the mean absolute '
+              'change over the draws, the same statistic as the IG '
+              'curves; 95% confidence intervals were obtained by '
+              'bootstrapping patients with 1,000 resamples (random seed '
+              '42). Because each k requires at least k salient tokens, '
+              'the number of contributing patients falls from 500 at k ≤ '
+              '3 to 463, 423, 395, 369, 338, 298 and 277 at k = 4 to 10. '
+              'KernelSHAP used approximately 50 coalition samples per '
+              'patient over the full analytic test cohort (43,602 '
+              'patients); the per-patient comparison in Figure S11 used '
+              '200.')
+    para(doc, 'The two global rankings use different minimum carrier '
+              'counts, set independently when each pool was implemented: '
+              'the all-patterns pool was scored with a minimum of 5 '
+              'test-cohort carriers, and the cross-visit dictionary was '
+              'built with a minimum of 3. Neither value was optimized or '
+              'tested for sensitivity. The minimum displayed carrier '
+              'count was five in the all-patterns ranking and four in the'
+              ' cross-visit ranking.')
+
+    heading(doc, "Attribution direction and observed readmission", level=2)
+    para(doc, 'To examine whether model-attributed cross-visit patterns '
+              'were associated with observed readmission, we conducted a '
+              'separate descriptive analysis. We restricted the test '
+              'cohort to patients with at least two admissions, since '
+              'cross-visit patterns require multiple visits. For each '
+              'displayed cross-visit pattern, we fitted a logistic '
+              'regression with readmission as the outcome and pattern '
+              'carriage and the log-transformed number of visits as '
+              'predictors, and report the visit-adjusted odds ratio for '
+              'carriage with its 95% Wald confidence interval (Table S3).'
+              ' No matching was performed. These associations were not '
+              'used to evaluate attribution faithfulness.')
+
     heading(doc, "Supplementary Results", level=1)
 
     heading(doc, "Attribution direction vs observed outcome", level=2)
@@ -331,8 +375,8 @@ def build() -> None:
               "matched-random baseline (Figure S9). Removing AToP's "
               "top-5 tokens changed the predicted readmission probability "
               "by a mean |\u0394\u0177| of 0.079, "
-              "versus 0.042 for removing the same number of randomly "
-              "chosen salient tokens (1.9x larger; Wilcoxon signed-rank "
+              "versus 0.056 for removing the same number of randomly "
+              "chosen salient tokens (1.4 times larger; Wilcoxon signed-rank "
               "p < 0.001), with AToP's comprehensiveness curve above "
               "random at every k. Keeping only AToP's top-k tokens "
               "recovered the original prediction more completely than "
@@ -601,12 +645,14 @@ def build() -> None:
         "progressive masking on a random sample of 500 test patients "
         "(≥3 salient tokens each), contrasted against a matched-random "
         "baseline (same number of tokens, drawn at random from the "
-        "patient's salient set, averaged over 5 draws). |Δŷ| is the "
+        "patient's salient set; mean absolute change over 5 draws). Each k "
+        "includes only patients with at least k salient tokens (500 at "
+        "k ≤ 3, falling to 277 at k = 10). |Δŷ| is the "
         "absolute change in predicted readmission probability vs the "
         "unmasked sequence; shaded bands are 95% bootstrap CIs over "
         "patients. (A) Comprehensiveness: removing the top-k tokens by "
         "|IG|. Removing AToP's top-5 tokens moves the prediction by a "
-        "mean |Δŷ| = 0.079 versus 0.042 for random removal (1.9× larger; "
+        "mean |Δŷ| = 0.079 versus 0.056 for random removal (1.4× larger; "
         "Wilcoxon p < 0.001), and AToP's curve lies above random with "
         "non-overlapping CIs at every k. (B) Sufficiency: keeping only "
         "the top-k tokens and masking the patient's remaining salient tokens. AToP's curve lies below "
@@ -810,11 +856,11 @@ def build() -> None:
     )
 
     page_break(doc)
-    # ── Table S3: visit-matched adjusted odds ratios ────────────────
+    # ── Table S3: visit-adjusted odds ratios ────────────────
     page_break(doc)
     df_s6 = _read_csv("TableS6_adjusted_or.csv")
     table_title(doc, "Table S3",
-                 "Visit-matched, within-cohort adjusted odds ratios for the "
+                 "Visit-adjusted odds ratios for the "
                  "cross-visit patterns displayed in main-paper Table 4.")
     s6_rows = []
     _last = None
@@ -835,7 +881,7 @@ def build() -> None:
     make_table(doc,
                 header_row=["Phenotype", "Pattern (representative)", "ΣIG",
                              "Direction", "n", "Carrier readmit %",
-                             "Matched baseline %", "Adj. OR", "95% CI"],
+                             "Non-carrier readmit %", "Adj. OR", "95% CI"],
                 data_rows=s6_rows,
                 col_widths_in=[0.95, 1.95, 0.45, 0.62, 0.35, 0.62, 0.68, 0.5, 0.78],
                 font_size_pt=7)
@@ -844,9 +890,9 @@ def build() -> None:
             "ΣIG = carrier-averaged signed sum of constituent-token IG "
             "values (logit space); Direction = sign of ΣIG (risk = "
             "ΣIG > 0, protective = ΣIG < 0); n = pattern carriers within "
-            "the visit-matched population; Carrier readmit % = observed "
-            "30-day readmission rate among those carriers; Matched "
-            "baseline % = readmission rate among non-carriers in the same "
+            "the multi-visit population; Carrier readmit % = observed "
+            "30-day readmission rate among those carriers; Non-carrier "
+            "readmit % = readmission rate among non-carriers in the same "
             "population; Adj. OR = adjusted odds ratio for carriage; "
             "CI = confidence interval."
         ),
@@ -862,7 +908,7 @@ def build() -> None:
             "population is restricted to patients with two or more visits "
             "and we fit logit P(readmission) = b0 + b1(carrier) + "
             "b2 log(n visits) by maximum likelihood, reporting exp(b1) "
-            "with a 95% Wald interval. Under this visit-matched "
+            "with a 95% Wald interval. Under this visit-adjusted "
             "adjustment the attribution direction and the epidemiologic "
             "direction agree for 25 of 30 displayed patterns (15 of 19 "
             "risk-supporting patterns have OR > 1; 10 of 11 protective "
