@@ -149,7 +149,7 @@ def build() -> None:
     # Word-count statement (JAMIA title-page requirement). JAMIA Research
     # and Applications caps the body at 4,000 words and the structured
     # abstract at 250.
-    para(doc, "**Word count:** Abstract 250; Body 3,933.")
+    para(doc, "**Word count:** Abstract 250; Body 3,939.")
     hrule(doc)
 
     # ── Abstract ─────────────────────────────────────────────────────
@@ -326,11 +326,11 @@ def build() -> None:
               'yielding 27,508 unplanned 30-day readmissions.')
 
     heading(doc, "Single-stream Transformer", level=2)
-    para(doc, "A single-stream Transformer encoder [24] with a 24,005-"
-              "token vocabulary, 3.5 million parameters, four attention "
-              "heads, two encoder layers, and 128-dimensional embeddings "
-              "was trained using binary cross-entropy loss with early "
-              "stopping based on validation AUROC.")
+    para(doc, 'A Transformer encoder [24] with a 24,005-token vocabulary,'
+              ' 3.5 million parameters, four attention heads, two encoder'
+              ' layers, and 128-dimensional embeddings was trained using '
+              'binary cross-entropy loss with early stopping based on '
+              'validation AUROC.')
     para(doc, "Diagnoses, procedures, medications, and the [VISIT], "
               "[CLS], and [PAD] special tokens were represented in a "
               "shared embedding space, allowing the model to learn "
@@ -347,8 +347,8 @@ def build() -> None:
 
     heading(doc, "Baselines and performance evaluation", level=2)
     para(doc, 'We compared the Transformer with two baselines trained on '
-              'seven structured predictors derived from the LACE index '
-              '[25]: the four LACE components (length of stay, emergent '
+              'seven structured predictors: the four components of the '
+              'LACE readmission index [25] (length of stay, emergent '
               'admission, Charlson comorbidity index, and emergency '
               'department visits in the preceding six months), entered as'
               ' raw values rather than LACE points, plus age, sex, and '
@@ -359,29 +359,28 @@ def build() -> None:
               'Both baselines were trained on the training cohort and '
               'evaluated on the test cohort, with fixed rather than tuned'
               ' hyperparameters.')
-    para(doc, "Discrimination was summarized by the area under the "
-              "receiver operating characteristic curve (AUROC) and the "
-              "area under the precision-recall curve (PR-AUC). "
-              "Differences between models were estimated with a paired "
-              "bootstrap of test-cohort patients (1,000 resamples), "
-              "reporting percentile 95% confidence intervals and two-"
-              "sided p values computed as the proportion of resamples in "
-              "which the difference crossed zero.")
+    para(doc, 'Discrimination was summarized by the area under the '
+              'receiver operating characteristic curve (AUROC) and the '
+              'area under the precision-recall curve (PR-AUC). '
+              'Differences between models were estimated with a paired '
+              'bootstrap of test-cohort patients (1,000 resamples), '
+              'reporting percentile 95% confidence intervals and '
+              'two-sided p values.')
 
     heading(doc, "AToP explanation framework", level=2)
-    para(doc, "AToP is a post-hoc explanation framework that operates on "
-              "the trained model in five steps (Figure 1): (1) compute "
-              "token-level attribution using Integrated Gradients; "
-              "(2) retain salient tokens contributing 80% of the absolute "
-              "attribution mass per patient, capped at 50 tokens; "
-              "(3) apply frequent-episode mining to salient tokens from "
-              "the training cohort to identify single-token events, "
-              "within-visit co-occurrences, and cross-visit sequences; "
-              "(4) summarize attribution at the token and pattern levels "
-              "using carrier-conditional aggregation; and (5) apply "
-              "Jaccard-based deduplication to test-cohort patient sets to "
-              "collapse near-redundant patterns into representative "
-              "patterns.")
+    para(doc, 'AToP is a post-hoc explanation framework that operates on '
+              'the trained model in five steps (Figure 1): (1) compute '
+              'token-level attribution using Integrated Gradients; (2) '
+              'select salient tokens based on their cumulative share of '
+              'each patient’s absolute attribution mass; (3) apply '
+              'frequent-episode mining to salient tokens from the '
+              'training cohort to identify single-token events, '
+              'within-visit co-occurrences, and cross-visit sequences; '
+              '(4) summarize attribution at the token and pattern levels '
+              'using carrier-conditional aggregation; and (5) apply '
+              'Jaccard-based deduplication using patient overlap to '
+              'collapse near-redundant patterns into representative '
+              'patterns.')
     para(doc, "Integrated Gradients was calculated using the model output "
               "before conversion to a readmission probability. The "
               "resulting attribution values are therefore on the logit "
@@ -391,13 +390,13 @@ def build() -> None:
               "all-[PAD] reference sequence [8,26]. Details of the "
               "reference sequence and approximation error are provided in "
               "the Supplementary Methods.")
-    para(doc, "For each patient, a token’s attribution score was its "
-              "signed IG value, and a multi-token pattern’s "
-              "attribution score was the sum of the signed IG values of "
-              "its constituent tokens. Both token and pattern rankings "
-              "were based on absolute attribution magnitude, with the "
-              "sign retained to indicate whether the token or pattern "
-              "increased or decreased predicted risk.")
+    para(doc, 'For each patient, a token’s attribution score was its '
+              'signed IG value, and a multi-token pattern’s attribution '
+              'score was the sum of the signed IG values of its '
+              'constituent tokens. Both token and pattern rankings were '
+              'based on absolute attribution magnitude, with the sign '
+              'retained to indicate whether the token or pattern '
+              'increased or decreased predicted risk.')
     para(doc, 'We define a carrier as a patient whose record contains the'
               ' token or pattern being evaluated. At the token level, '
               'carrier-conditional attribution was calculated as the mean'
@@ -464,13 +463,16 @@ def build() -> None:
               'outcomes. The exception was the 0.25 maximum '
               'drug-prevalence threshold, which was selected by '
               'inspecting patterns mined from the training cohort, '
-              'without using outcome labels or test data. The 0.80 '
-              'saliency-mass threshold is a tractability heuristic, and '
-              'sensitivity was assessed across thresholds from 0.60 to '
-              '0.95; the 50-token cap was a safeguard that was rarely '
-              'binding. Integrated Gradients used 30 integration steps, '
-              'with completeness error characterized in the Supplementary'
-              ' Methods. All parameter values are listed in Table S1.')
+              'without using outcome labels or test data. Salient tokens '
+              'were those that, ranked by absolute IG, together accounted'
+              ' for 80% of a patient’s absolute attribution mass, up to '
+              '50 tokens; the 0.80 threshold is a tractability heuristic,'
+              ' and sensitivity was assessed across thresholds from 0.60 '
+              'to 0.95, while the 50-token cap was a safeguard that was '
+              'rarely binding. Integrated Gradients used 30 integration '
+              'steps, with completeness error characterized in the '
+              'Supplementary Methods. All parameter values are listed in '
+              'Table S1.')
 
     heading(doc, "Validation analyses", level=2)
     para(doc, "We evaluated AToP using token masking, reversed-order "
