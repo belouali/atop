@@ -20,7 +20,7 @@ import numpy as np
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import roc_auc_score
+from sklearn.metrics import roc_auc_score, average_precision_score
 from xgboost import XGBClassifier
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
@@ -175,6 +175,10 @@ n = len(y)
 
 d_atop_xgb, d_atop_lr, d_xgb_lr = [], [], []
 auroc_atop, auroc_xgb, auroc_lr = [], [], []
+# PR-AUC (average precision) on the same paired resamples, so Table 2's
+# PR-AUC intervals come from the same run as the AUROC intervals.
+prauc_atop, prauc_xgb, prauc_lr = [], [], []
+dpr_atop_xgb, dpr_atop_lr = [], []
 for _ in range(N_BOOT):
     idx = rng.randint(0, n, size=n)
     yb = y[idx]
@@ -189,6 +193,14 @@ for _ in range(N_BOOT):
     d_atop_xgb.append(a_a - a_x)
     d_atop_lr.append(a_a - a_l)
     d_xgb_lr.append(a_x - a_l)
+    ap_a = average_precision_score(yb, p_atop[idx])
+    ap_x = average_precision_score(yb, p_xgb[idx])
+    ap_l = average_precision_score(yb, p_lr[idx])
+    prauc_atop.append(ap_a)
+    prauc_xgb.append(ap_x)
+    prauc_lr.append(ap_l)
+    dpr_atop_xgb.append(ap_a - ap_x)
+    dpr_atop_lr.append(ap_a - ap_l)
 
 
 def summary(vals, name):
@@ -216,7 +228,17 @@ rows = [
     summary(d_atop_xgb, "d_ΔAUROC: AToP − LACE XGBoost"),
     summary(d_atop_lr, "d_ΔAUROC: AToP − LACE LR"),
     summary(d_xgb_lr, "d_ΔAUROC: LACE XGBoost − LACE LR"),
+    summary(prauc_atop, "PR-AUC: AToP Transformer"),
+    summary(prauc_xgb, "PR-AUC: LACE XGBoost"),
+    summary(prauc_lr, "PR-AUC: LACE logistic regression"),
+    summary(dpr_atop_xgb, "d_ΔPR-AUC: AToP − LACE XGBoost"),
+    summary(dpr_atop_lr, "d_ΔPR-AUC: AToP − LACE LR"),
 ]
+# Full-sample point estimates (what Table 2 reports as the estimate; the
+# bootstrap mean is kept in the CSV for reference).
+print("\nFull-sample point estimates:")
+for nm, pp in (("AToP Transformer", p_atop), ("LACE XGBoost", p_xgb), ("LACE LR", p_lr)):
+    print(f"  {nm}: AUROC {roc_auc_score(y, pp):.4f}  PR-AUC {average_precision_score(y, pp):.4f}")
 df_rows = pd.DataFrame(rows)
 df_rows.to_csv(OUT_CSV, index=False)
 print(f"\n[8] Saved CSV → {OUT_CSV}")
@@ -256,6 +278,19 @@ lines = [
     fmt_row(rows[3]),
     fmt_row(rows[4]),
     fmt_row(rows[5]),
+    "",
+    "## PR-AUC (average precision), same resamples",
+    "",
+    "| Model | PR-AUC | 95% CI |",
+    "|---|---|---|",
+    fmt_row(rows[6]).replace("PR-AUC: ", "").replace(" |,", "").rstrip("|").rstrip() + " |",
+    fmt_row(rows[7]).replace("PR-AUC: ", "").replace(" |,", "").rstrip("|").rstrip() + " |",
+    fmt_row(rows[8]).replace("PR-AUC: ", "").replace(" |,", "").rstrip("|").rstrip() + " |",
+    "",
+    "| Comparison | ΔPR-AUC | 95% CI | p (two-sided) |",
+    "|---|---|---|---|",
+    fmt_row(rows[9]).replace("d_ΔPR-AUC: ", ""),
+    fmt_row(rows[10]).replace("d_ΔPR-AUC: ", ""),
 ]
 md = "\n".join(lines)
 with open(OUT_MD, "w") as f:
