@@ -534,17 +534,23 @@ def parse_main_docx(path: str) -> Tuple[List[Block], Dict[str, Any]]:
                 continue
 
             # ── Subsection / body paragraph dispatch ─────────────
-            # Subsection heuristic: short heading-like line (clean noun
-            # phrase, no full-sentence punctuation other than a trailing
-            # period or "(Figure X)" suffix). We accept slightly longer
+            # Subsection heuristic: short heading-like line set entirely
+            # in bold (clean noun phrase, optional trailing period or
+            # "(Figure X)" suffix). We accept slightly longer
             # headings up to 200 chars so multi-clause Results subsection
             # titles are recognized; the heading test then strips any
             # trailing "(Figure X, Panels Y)" reference for a paper-clean
             # rendering.
             stripped = _strip_fig_ref(t)
+            # Subsection titles are set as one bold run by the DOCX
+            # builder's heading(); body paragraphs mix bold lead-ins with
+            # regular text. The trailing period is no longer required
+            # (JAMIA style: no full stop after a subheading).
+            _runs = [r for r in p.runs if r.text.strip()]
+            all_bold = bool(_runs) and all(r.bold for r in _runs)
             heading_like = (
                 len(stripped) <= 140
-                and t.endswith(".")
+                and all_bold
                 and t[0].isupper()
                 and not t.startswith(("Figure ", "Table ", "Alt text"))
                 and "  " not in t

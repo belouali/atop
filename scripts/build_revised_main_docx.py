@@ -149,7 +149,7 @@ def build() -> None:
     # Word-count statement (JAMIA title-page requirement). JAMIA Research
     # and Applications caps the body at 4,000 words and the structured
     # abstract at 250.
-    para(doc, "**Word count:** Abstract 250; Body 3,996.")
+    para(doc, "**Word count:** Abstract 250; Body 3,933.")
     hrule(doc)
 
     # ── Abstract ─────────────────────────────────────────────────────
@@ -213,8 +213,8 @@ def build() -> None:
               "diverse clinical prediction tasks [5,6]. However, the same "
               "capability to model dependencies across heterogeneous "
               "clinical events creates an interpretability gap: how those "
-              "events combine over time to produce a prediction can "
-              "remain difficult to discern.")
+              "events combine over time to produce a prediction remains "
+              "difficult to discern.")
     para(doc, "As predictive models move toward clinical use, "
               "clinicians, regulators, and institutional review processes "
               "increasingly emphasize explanations that are locally "
@@ -230,9 +230,8 @@ def build() -> None:
               "structure. Attention-based models such as RETAIN [13] "
               "offer a partial alternative by reflecting temporal order "
               "through visit- and feature-level importance. However, "
-              "attention weights are not necessarily faithful indicators "
-              "of model behavior [14], although the strength of this "
-              "critique remains contested [15].")
+              "the faithfulness of attention weights as explanations "
+              "remains debated [14,15].")
     para(doc, "The lack of temporal and combinatorial structure is "
               "especially consequential in longitudinal clinical data, "
               "where the same events may carry different meaning "
@@ -274,59 +273,59 @@ def build() -> None:
     # figures (Figure 1, the framework schematic, is the exception).
     heading(doc, "Materials and Methods", level=1)
 
-    heading(doc, "Data and prediction task.", level=2)
-    para(doc, "The study cohort included 218,196 patients from MIMIC-IV "
-              "v3.1 [22], with an unplanned 30-day hospital readmission "
-              "rate of 12.6%. The prediction target was unplanned 30-day "
-              "readmission after the index admission, defined as the "
-              "patient’s penultimate hospitalization; all earlier "
-              "admissions were used as longitudinal history. For patients "
-              "with a single admission, that admission served as the "
-              "index.")
-    para(doc, "Each patient’s longitudinal record through the index "
-              "admission was represented as a single chronological token "
-              "sequence containing ICD-9 and ICD-10 diagnoses and "
-              "procedures, and prescription drugs. ICD-9 codes were "
-              "mapped to ICD-10 using the CMS General Equivalence "
-              "Mappings [23], retaining only unambiguous 1:1 forward "
-              "mappings (no_map = 0, combination = 0); codes without a "
-              "1:1 mapping were kept in their original ICD-9 form. Visit "
-              "boundaries were marked with explicit [VISIT] tokens.")
-    para(doc, "Chronic conditions such as endocrine, circulatory, "
-              "respiratory, renal, gastrointestinal, psychiatric, "
-              "musculoskeletal, hepatic, and neurological conditions were "
-              "retained only at first appearance or when recorded as the "
-              "primary diagnosis. A chronic code therefore re-enters the "
-              "sequence only when it is the reason for a later admission, "
-              "so discoverable trajectories reflect clinically active "
-              "disease rather than carried-forward problem lists. Drugs "
-              "were retained only at first prescription, encoding "
-              "treatment-initiation events rather than ongoing medication "
-              "lists. Drugs administered in more than 25% of admissions "
-              "were excluded using a label-agnostic prevalence filter "
-              "intended to remove agents given near-universally during "
-              "inpatient care.")
+    heading(doc, "Data and prediction task", level=2)
+    para(doc, 'The study cohort included 218,196 patients from MIMIC-IV '
+              'v3.1 [22], with an unplanned 30-day hospital readmission '
+              'rate of 12.6%. The prediction target was unplanned 30-day '
+              'readmission after the index admission, defined as the '
+              'patient’s penultimate hospitalization. All earlier '
+              'admissions were used as longitudinal history. For patients'
+              ' with a single admission, that admission served as the '
+              'index.')
+    para(doc, 'Each patient’s longitudinal record through the index '
+              'admission was represented as a single chronological token '
+              'sequence containing ICD-9 and ICD-10 diagnoses and '
+              'procedures, and prescription drugs. ICD-9 codes were '
+              'mapped to ICD-10 using the CMS General Equivalence '
+              'Mappings [23], retaining only unambiguous one-to-one '
+              'mappings; codes without such a mapping were kept in their '
+              'original ICD-9 form. Visit boundaries were marked with '
+              'explicit [VISIT] tokens.')
+    para(doc, 'Chronic conditions such as endocrine, circulatory, '
+              'respiratory, renal, gastrointestinal, psychiatric, '
+              'musculoskeletal, hepatic, and neurological conditions were'
+              ' retained only at first appearance or when recorded as the'
+              ' primary diagnosis. A chronic code therefore re-enters the'
+              ' sequence only when it is the reason for a later '
+              'admission, so that discoverable trajectories reflect '
+              'clinically active disease rather than carried-forward '
+              'problem lists. Drugs were retained only at first '
+              'prescription, encoding treatment-initiation events rather '
+              'than ongoing medication lists. Drugs administered in more '
+              'than 25% of admissions were excluded to prevent routine '
+              'treatments and solutions given in inpatient care from '
+              'dominating the mined patterns.')
     para(doc, 'Prescription drugs were mapped to RxNorm ingredient '
-              'concepts using a two-stage National Drug Code '
-              '(NDC)-then-name pipeline through the RxNav API. Tokens '
-              'occurring fewer than twice in the training set were '
-              'excluded. The final vocabulary contained 24,005 tokens '
-              'spanning diagnoses, procedures, RxNorm ingredient-level '
-              'medications, and [VISIT], [CLS], and [PAD] tokens. Mapping'
-              ' and vocabulary details are given in the Supplementary '
-              'Methods.')
-    para(doc, "In-hospital deaths (11,801 admissions, 2.2%) were excluded "
-              "before labeling, since those patients cannot be "
-              "readmitted; as a consequence, an index admission followed "
-              "within 30 days only by an admission that ended in death "
-              "was labeled as not readmitted (709 of 218,196 index "
-              "admissions, 0.32%). A readmission was excluded from the positive "
-              "outcome when the subsequent admission was coded as "
-              "elective or surgical same-day admission. Emergency, "
-              "urgent, and observation admissions remained eligible, "
-              "yielding 27,508 unplanned 30-day readmissions.")
+              'concepts using the RxNav API, first by National Drug Code '
+              '(NDC) and then by drug name when an NDC match was '
+              'unavailable. Tokens occurring fewer than twice in the '
+              'training set were excluded. The final vocabulary contained'
+              ' 24,005 tokens spanning diagnoses, procedures, RxNorm '
+              'ingredient-level medications, and [VISIT], [CLS], and '
+              '[PAD] tokens. Mapping and vocabulary details are given in '
+              'the Supplementary Methods.')
+    para(doc, 'Admissions with an in-hospital death (11,801, 2.2%) were '
+              'excluded before labeling because patients cannot be '
+              'readmitted after death; consequently, an index admission '
+              'followed within 30 days only by a readmission ending in '
+              'death was labeled as not readmitted (709 of 218,196 index '
+              'admissions, 0.32%). A readmission was excluded from the '
+              'positive outcome when the subsequent admission was coded '
+              'as elective or surgical same-day admission. Emergency, '
+              'urgent, and observation admissions remained eligible, '
+              'yielding 27,508 unplanned 30-day readmissions.')
 
-    heading(doc, "Single-stream Transformer.", level=2)
+    heading(doc, "Single-stream Transformer", level=2)
     para(doc, "A single-stream Transformer encoder [24] with a 24,005-"
               "token vocabulary, 3.5 million parameters, four attention "
               "heads, two encoder layers, and 128-dimensional embeddings "
@@ -346,7 +345,7 @@ def build() -> None:
               "downstream AToP analyses; 38 were excluded because "
               "attribution yielded no salient-token set.")
 
-    heading(doc, "Baselines and performance evaluation.", level=2)
+    heading(doc, "Baselines and performance evaluation", level=2)
     para(doc, 'We compared the Transformer with two baselines trained on '
               'seven structured predictors derived from the LACE index '
               '[25]: the four LACE components (length of stay, emergent '
@@ -369,7 +368,7 @@ def build() -> None:
               "sided p values computed as the proportion of resamples in "
               "which the difference crossed zero.")
 
-    heading(doc, "AToP explanation framework.", level=2)
+    heading(doc, "AToP explanation framework", level=2)
     para(doc, "AToP is a post-hoc explanation framework that operates on "
               "the trained model in five steps (Figure 1): (1) compute "
               "token-level attribution using Integrated Gradients; "
@@ -459,7 +458,7 @@ def build() -> None:
               'influence training, mining thresholds, or attribution '
               'scores.')
 
-    heading(doc, "Parameter choices and sensitivity analyses.", level=2)
+    heading(doc, "Parameter choices and sensitivity analyses", level=2)
     para(doc, 'AToP parameters were specified as design or tractability '
               'constraints rather than selected by optimizing test-set '
               'outcomes. The exception was the 0.25 maximum '
@@ -473,7 +472,7 @@ def build() -> None:
               'with completeness error characterized in the Supplementary'
               ' Methods. All parameter values are listed in Table S1.')
 
-    heading(doc, "Validation analyses.", level=2)
+    heading(doc, "Validation analyses", level=2)
     para(doc, "We evaluated AToP using token masking, reversed-order "
               "analysis between and within patients, "
               "token-level faithfulness analysis, and cross-method "
@@ -519,7 +518,7 @@ def build() -> None:
               "conventions were then applied to compare the resulting "
               "global rankings with those obtained using IG.")
 
-    heading(doc, "Attribution direction and observed outcome.", level=2)
+    heading(doc, "Attribution direction and observed outcome", level=2)
     para(doc, "To compare attribution direction with observed readmission "
               "association, we restricted the test cohort to patients "
               "with at least two admissions and, for each reported cross-"
@@ -533,7 +532,7 @@ def build() -> None:
     # ── Results ──────────────────────────────────────────────────────
     heading(doc, "Results", level=1)
 
-    heading(doc, "Predictive performance.", level=2)
+    heading(doc, "Predictive performance", level=2)
     para(doc, 'Cohort derivation is shown in Figure S1, and cohort '
               'characteristics are given in Table 1. The Transformer '
               'achieved an AUROC of 0.766 (95% CI, 0.759–0.773) and a '
@@ -628,7 +627,7 @@ def build() -> None:
         ),
     )
 
-    heading(doc, "Single-patient explanation.", level=2)
+    heading(doc, "Single-patient explanation", level=2)
     para(doc, 'To illustrate the per-patient output, Figure 2 shows one '
               'test patient with a multi-visit oncologic trajectory: five'
               ' admissions over 911 days, readmitted 2 days after the '
@@ -654,7 +653,7 @@ def build() -> None:
     # References). The body text already cites Figure 2 by number above.
 
     heading(doc, "Token-level global attribution: carrier-conditioning "
-                  "surfaces rare-but-decisive features.",
+                  "surfaces rare-but-decisive features",
             level=2)
     para(doc, 'Figure 3 compares the two atomic-token aggregation '
               'conventions on the test set. Panel A shows the '
@@ -694,7 +693,7 @@ def build() -> None:
               '(Figure S7).')
     # Figure 4. separate file (see Figure Legends at end of manuscript).
 
-    heading(doc, "Phenotype clusters and masking effects.",
+    heading(doc, "Phenotype clusters and masking effects",
              level=2)
     para(doc, 'Table 3 groups the all-patterns representatives by '
               'phenotype family (top 5 per family by |ΣIG|), and Table 4 '
@@ -837,7 +836,7 @@ def build() -> None:
 
     # Figure 5. separate file (see Figure Legends at end of manuscript).
 
-    heading(doc, "Attribution direction vs observed outcome.", level=2)
+    heading(doc, "Attribution direction vs observed outcome", level=2)
     para(doc, 'Cross-visit patterns can only occur in patients with at '
               'least two admissions, who are readmitted more often than '
               'the cohort overall (27.8% vs 12.7%), so unadjusted '
@@ -850,7 +849,7 @@ def build() -> None:
               'consistent with its protective attribution (Table S3; '
               'Supplementary Results).')
 
-    heading(doc, "Faithfulness of the attribution ranking.", level=2)
+    heading(doc, "Faithfulness of the attribution ranking", level=2)
     para(doc, 'Masking the five tokens with the largest |IG| changed '
               'predicted risk more than masking matched random salient '
               'tokens (mean |Δŷ| 0.079 vs 0.042; Wilcoxon signed-rank p <'
@@ -859,7 +858,7 @@ def build() -> None:
               'Results). These results indicate faithfulness to the '
               'model, not clinical correctness.')
 
-    heading(doc, "Temporal-order analysis.", level=2)
+    heading(doc, "Temporal-order analysis", level=2)
     para(doc, 'Of the 30 cross-visit patterns in Table 4, 3 are '
               'palindromic. Among the remaining 27, carriers of the '
               'reversed order had lower carrier-averaged |ΣIG| than '
@@ -886,7 +885,7 @@ def build() -> None:
               'because whole visits are moved, the analysis does not '
               "isolate the order of the pattern's own events.")
 
-    heading(doc, "Cross-method comparison.", level=2)
+    heading(doc, "Cross-method comparison", level=2)
     para(doc, 'With KernelSHAP in place of IG on the full test cohort, '
               'per-patient agreement is shown in Figure S11, and '
               'carrier-conditional token top-30 rankings agreed on 25 of '
@@ -942,7 +941,7 @@ def build() -> None:
               "an interaction between the two. AToP's outputs should be "
               "treated as model-behavior summaries to be validated against "
               "domain knowledge, not as discovered causal mechanisms.")
-    heading(doc, "Limitations.", level=2)
+    heading(doc, "Limitations", level=2)
     para(doc, "AToP is post-hoc: it explains a model that remains a "
               "black box, and for high-stakes decisions an "
               "interpretable-by-design model has been argued preferable "
@@ -1081,7 +1080,7 @@ def build() -> None:
         # [11]
         'Rong R, Gu Z, Lai H, et al. A deep learning model for clinical outcome prediction using longitudinal inpatient electronic health records. JAMIA Open. 2025;8(2):ooaf026.',
         # [12]
-        'Lauritsen SM, Kalor ME, Kongsgaard EL, et al. Early detection of sepsis utilizing deep learning on electronic health record event sequences. Artificial Intelligence in Medicine. 2020;104:101820.',
+        'Placido D, Yuan B, Hjaltelin JX, et al. A deep learning algorithm to predict risk of pancreatic cancer from disease trajectories. Nature Medicine. 2023;29(5):1113–1122.',
         # [13]
         'Choi E, Bahadori MT, Kulas JA, Schuetz A, Stewart WF, Sun J. RETAIN: an interpretable predictive model for healthcare using reverse time attention mechanism. Advances in Neural Information Processing Systems. 2016;29:3504–3512.',
         # [14]

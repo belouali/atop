@@ -250,7 +250,12 @@ def build() -> None:
               'released code.')
 
     heading(doc, "Preprocessing and vocabulary composition", level=2)
-    para(doc, "Prescription drugs were mapped to RxNorm ingredient "
+    para(doc, "ICD-9 diagnosis and procedure codes were mapped to ICD-10 "
+              "with the CMS forward General Equivalence Mappings, keeping "
+              "only entries flagged as unambiguous (no_map = 0, "
+              "combination = 0); codes without such an entry were kept "
+              "in ICD-9. "
+              "Prescription drugs were mapped to RxNorm ingredient "
               "concepts (TTY = IN) via a two-stage pipeline against the "
               "RxNav REST API: (1) NDC codes (zero-padded to 11 digits) "
               "were resolved to their RxCUI and then to the ingredient "
