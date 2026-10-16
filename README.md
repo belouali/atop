@@ -126,7 +126,7 @@ Figure 1 is a hand-drawn schematic, not generated from data.
 **6. Supplementary figures**
 
 ```bash
-python scripts/make_fig_s1.py  --run_dir runs/mimiciv_readmission_30d   # reversal attenuation
+python scripts/make_fig_s10_reversal_scatter.py --run_dir runs/mimiciv_readmission_30d   # forward vs reversed order
 python scripts/make_fig_s7_jaccard_sensitivity.py  --run_dir runs/mimiciv_readmission_30d
 python scripts/make_fig_s8_full_pool_sensitivity.py --run_dir runs/mimiciv_readmission_30d
 python scripts/make_fig_s11_shap_fig3.py --run_dir runs/mimiciv_readmission_30d

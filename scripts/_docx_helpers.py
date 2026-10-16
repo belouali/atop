@@ -25,6 +25,15 @@ HEADING2_SIZE   = 12
 HEADING3_SIZE   = 11
 TITLE_SIZE      = 16
 LINE_SPACING    = 2.0   # JAMIA requires double-spaced manuscripts
+TEXT_WIDTH_IN   = 6.5   # letter paper, 1-inch margins
+HEADER_FILL     = "F2F2F2"
+
+
+def set_body_line_spacing(value: float) -> None:
+    """Set the body line spacing used by new_document() and para()
+    (2.0 for the main manuscript, 1.5 for the supplement)."""
+    global LINE_SPACING
+    LINE_SPACING = value
 
 
 # ── Document setup ────────────────────────────────────────────────────
@@ -298,13 +307,15 @@ def _add_runs_with_inline_bold(paragraph, text: str, *,
 def table_title(doc, label: str, short_title: str) -> None:
     """Render the table title paragraph ABOVE the table.
 
-    Format: ``**{label}. {short_title}**`` (whole line bold, body size)
+    Format: ``**{label}.** {short_title}`` (label bold, title regular; house table style)
     """
     p = doc.add_paragraph()
-    p.paragraph_format.space_before = Pt(12)
-    p.paragraph_format.space_after = Pt(0)
-    r = p.add_run(f"{label}. {short_title}")
+    p.paragraph_format.space_before = Pt(10)
+    p.paragraph_format.space_after = Pt(4)
+    p.paragraph_format.keep_with_next = True
+    r = p.add_run(f"{label}. ")
     r.bold = True
+    _add_runs_with_inline_bold(p, short_title, italic=False)
 
 
 def table_legend(doc, abbreviations: str | None = None,
@@ -331,11 +342,10 @@ def table_legend(doc, abbreviations: str | None = None,
     def _add_segment(label_txt: str, body_txt: str) -> None:
         rl = p.add_run(label_txt)
         rl.bold = True
-        rl.italic = True
         rl.font.size = Pt(legend_size_pt)
         # body: parse inline **bold** markers
         _add_runs_with_inline_bold(p, " " + body_txt,
-                                     italic=True,
+                                     italic=False,
                                      font_size_pt=legend_size_pt)
 
     if abbreviations:
@@ -359,8 +369,12 @@ def table_caption_with_legend(doc, label: str, short_title: str,
                   legend_size_pt=legend_size_pt)
 
 
+SUBROW_INDENT_IN = 0.17   # indent for sub-rows written with leading spaces
+
+
 def _tighten_cell(cell, *, bold: bool, text: str,
-                    font_size_pt: int = BODY_SIZE - 1) -> None:
+                    font_size_pt: int = BODY_SIZE - 1,
+                    align: str = "left", line_spacing: float = 1.15) -> None:
     """Render `text` inside `cell` with single line spacing and zero
     paragraph margins so the table renders compact (Word's default
     inherits the document's line_spacing = 1.5, which makes tables
@@ -368,17 +382,24 @@ def _tighten_cell(cell, *, bold: bool, text: str,
     doesn't crowd the borders."""
     p = cell.paragraphs[0]
     pf = p.paragraph_format
-    pf.line_spacing = 1.0          # single-spaced inside cells
+    pf.line_spacing = line_spacing
     pf.space_before = Pt(0)
     pf.space_after  = Pt(0)
+    p.alignment = (WD_ALIGN_PARAGRAPH.CENTER if align == "center"
+                   else WD_ALIGN_PARAGRAPH.LEFT)
+    if text.startswith("  "):
+        n_sp = len(text) - len(text.lstrip(" "))
+        level = max(1, n_sp // 4)
+        text = text.lstrip(" ")
+        pf.left_indent = Inches(SUBROW_INDENT_IN * level)
     run = p.add_run(text)
     run.font.size = Pt(font_size_pt)
     if bold:
         run.bold = True
 
 
-def _set_cell_margins(table, top_pt: int = 2, bottom_pt: int = 2,
-                       left_pt: int = 4, right_pt: int = 4) -> None:
+def _set_cell_margins(table, top_pt: float = 1.5, bottom_pt: float = 1.5,
+                       left_pt: float = 3, right_pt: float = 3) -> None:
     """Apply tight inner cell margins on the whole table (in twentieths
     of a point: 1 pt = 20 units)."""
     tbl = table._tbl
@@ -387,79 +408,215 @@ def _set_cell_margins(table, top_pt: int = 2, bottom_pt: int = 2,
     for side, val in (("top", top_pt), ("bottom", bottom_pt),
                        ("left", left_pt), ("right", right_pt)):
         m = OxmlElement(f"w:{side}")
-        m.set(qn("w:w"), str(val * 20))
+        m.set(qn("w:w"), str(int(round(val * 20))))
         m.set(qn("w:type"), "dxa")
         margins.append(m)
     tbl_pr.append(margins)
 
 
+def _auto_col_widths(header_row, data_rows, centered, font_size_pt,
+                     total_in: float = TEXT_WIDTH_IN) -> list[float]:
+    """Column widths (inches) that fill the text width: numeric columns
+    take just what their longest cell needs; text columns share the
+    rest, each capped at its natural width when there is room, with any
+    surplus going to the widest text column (the pattern labels)."""
+    cw = 0.0068 * font_size_pt          # average character width, inches
+    pad = 0.13                          # cell margins + slack
+    n = len(header_row)
+    nat, kind = [], []
+    for c in range(n):
+        cells = [str(r[c]) for r in data_rows if c < len(r) and str(r[c]).strip()]
+        hdr_word = max((len(w) for w in str(header_row[c]).split()), default=0)
+        if centered[c]:
+            L = max([len(x) for x in cells] + [hdr_word])
+            nat.append(L * cw + pad); kind.append("fixed")
+        else:
+            L = max([len(x.strip()) for x in cells] + [len(str(header_row[c]))])
+            nat.append(L * cw + pad); kind.append("flex")
+    # Short label columns (anything but the widest text column) wrap at
+    # word boundaries, so they only need their longest word; the room
+    # saved goes to the pattern labels.
+    flex_all = [i for i, k in enumerate(kind) if k == "flex"]
+    if len(flex_all) > 1:
+        widest0 = max(flex_all, key=lambda i: nat[i])
+        for c in flex_all:
+            if c == widest0:
+                continue
+            cells = [str(r[c]) for r in data_rows if c < len(r) and str(r[c]).strip()]
+            words = [w for x in cells for w in x.split()] + str(header_row[c]).split()
+            Lw = max((len(w) for w in words), default=1)
+            nat[c] = min(nat[c], max(Lw * cw + pad, 0.6))
+    widths = list(nat)
+    fixed_total = sum(w for w, k in zip(nat, kind) if k == "fixed")
+    flex_idx = [i for i, k in enumerate(kind) if k == "flex"]
+    remaining = total_in - fixed_total
+    if flex_idx and remaining > 0:
+        flex_nat = sum(nat[i] for i in flex_idx)
+        widest = max(flex_idx, key=lambda i: nat[i])
+        others = sum(nat[i] for i in flex_idx if i != widest)
+        if flex_nat <= remaining:
+            widths[widest] += remaining - flex_nat
+        else:
+            # Short text columns (group labels, "Direction") keep their
+            # natural width; the wide ones (pattern labels) share the
+            # shortfall. Fall back to scaling everything if even that
+            # leaves the wide columns too narrow.
+            short = [i for i in flex_idx if nat[i] <= 1.1]
+            wide = [i for i in flex_idx if i not in short]
+            left = remaining - sum(nat[i] for i in short)
+            if wide and left >= 0.3 * total_in:
+                for i in short:
+                    widths[i] = nat[i]
+                wide_nat = sum(nat[i] for i in wide)
+                for i in wide:
+                    widths[i] = nat[i] * left / wide_nat
+            else:
+                scale = remaining / flex_nat
+                for i in flex_idx:
+                    widths[i] = nat[i] * scale
+    total = sum(widths)
+    return [w * total_in / total for w in widths]
+
+
 def make_table(doc, header_row: list[str], data_rows: list[list[str]],
                  col_widths_in: list[float] | None = None,
-                 font_size_pt: int = BODY_SIZE - 1) -> None:
-    """Build a table with bold header row, thin borders, fixed column
-    widths, and a tight row design (single-spaced cells + small
-    cell margins). `font_size_pt` sets the in-cell font size; the
-    default (BODY_SIZE - 1 = 10pt) matches Tables 2-4; Table 1 uses
-    9pt to fit the wider 5-column layout."""
+                 font_size_pt: int = BODY_SIZE - 1,
+                 bold_first_col: bool | None = None) -> None:
+    """Build a table in the house style (as in the DepAnx and BioData
+    Mining papers): rules above and below the table and under the shaded
+    header row, no vertical lines; first column left-aligned, numeric
+    columns centered, text columns left; sub-rows written with leading
+    spaces rendered indented; group labels in bold. The table fills the
+    text width, with column widths derived from the content so numeric
+    columns stay narrow and label columns get the room (``col_widths_in``
+    is kept for API compatibility and ignored)."""
+    centered = _numeric_columns(header_row, data_rows)
+    if bold_first_col is None:
+        bold_first_col = str(header_row[0]).strip().lower() == "clinical group"
+    widths_in = _auto_col_widths(header_row, data_rows, centered, font_size_pt)
+
     table = doc.add_table(rows=1 + len(data_rows), cols=len(header_row))
     table.alignment = WD_TABLE_ALIGNMENT.CENTER
     _add_table_borders(table)
     _set_cell_margins(table)
 
     hdr = table.rows[0]
+    _mark_header_row(hdr)
     for i, cell_text in enumerate(header_row):
         cell = hdr.cells[i]
         cell.vertical_alignment = WD_ALIGN_VERTICAL.CENTER
         _tighten_cell(cell, bold=True, text=cell_text,
-                       font_size_pt=font_size_pt)
+                       font_size_pt=font_size_pt,
+                       align="center" if centered[i] else "left",
+                       line_spacing=1.0)
+        _shade_cell(cell, HEADER_FILL)
+        _cell_bottom_rule(cell)
 
     for r_idx, row_data in enumerate(data_rows, start=1):
         row = table.rows[r_idx]
+        others_empty = all(not str(v).strip() for v in row_data[1:])
         for c_idx, val in enumerate(row_data):
             cell = row.cells[c_idx]
             cell.vertical_alignment = WD_ALIGN_VERTICAL.CENTER
-            _tighten_cell(cell, bold=False, text=str(val),
-                           font_size_pt=font_size_pt)
+            text = str(val)
+            bold = (c_idx == 0 and bool(text.strip())
+                    and (bold_first_col or others_empty)
+                    and not text.startswith("  "))
+            _tighten_cell(cell, bold=bold, text=text,
+                           font_size_pt=font_size_pt,
+                           align="center" if centered[c_idx] else "left")
 
-    if col_widths_in:
-        # Disable autofit, switch to fixed layout, and update BOTH the
-        # per-cell tcW values AND the tblGrid column-width definitions.
-        # In Word's fixed-layout mode, tblGrid wins over autofit, but
-        # tblGrid is created with default widths when the table is
-        # added — must overwrite to match the requested col widths.
-        table.autofit = False
-        table.allow_autofit = False
-        tbl = table._tbl
-        tblPr = tbl.tblPr
-        tblLayout = OxmlElement("w:tblLayout")
-        tblLayout.set(qn("w:type"), "fixed")
-        tblPr.append(tblLayout)
-        # Update tblGrid columns (in dxa = twentieths of a point;
-        # 1 inch = 1440 dxa)
-        tblGrid = tbl.find(qn("w:tblGrid"))
-        if tblGrid is not None:
-            gridCols = tblGrid.findall(qn("w:gridCol"))
-            for gi, gridCol in enumerate(gridCols):
-                if gi < len(col_widths_in):
-                    dxa = int(round(col_widths_in[gi] * 1440))
-                    gridCol.set(qn("w:w"), str(dxa))
-        # Also update per-cell widths (belt-and-suspenders).
-        for col_idx, width_in in enumerate(col_widths_in):
-            for row in table.rows:
-                row.cells[col_idx].width = Inches(width_in)
+    # Fill the text width: table width 100%, per-column widths as a
+    # percentage of it (tcW in fiftieths of a percent) plus a matching
+    # grid, so Word's autofit keeps the proportions.
+    tbl = table._tbl
+    tblPr = tbl.tblPr
+    tblW = tblPr.find(qn("w:tblW"))
+    if tblW is None:
+        tblW = OxmlElement("w:tblW"); tblPr.append(tblW)
+    tblW.set(qn("w:type"), "pct"); tblW.set(qn("w:w"), "5000")
+    total = sum(widths_in)
+    tblGrid = tbl.find(qn("w:tblGrid"))
+    if tblGrid is not None:
+        for gi, gridCol in enumerate(tblGrid.findall(qn("w:gridCol"))):
+            if gi < len(widths_in):
+                gridCol.set(qn("w:w"), str(int(round(widths_in[gi] * 1440))))
+    for col_idx, w in enumerate(widths_in):
+        pct = int(round(5000 * w / total))
+        for row in table.rows:
+            tcPr = row.cells[col_idx]._tc.get_or_add_tcPr()
+            tcW = tcPr.find(qn("w:tcW"))
+            if tcW is None:
+                tcW = OxmlElement("w:tcW"); tcPr.insert(0, tcW)
+            tcW.set(qn("w:type"), "pct"); tcW.set(qn("w:w"), str(pct))
 
 
 def _add_table_borders(table) -> None:
+    """Rules above and below the table only (no vertical or inner lines)."""
     tbl = table._tbl
     tbl_pr = tbl.tblPr
     tbl_borders = OxmlElement("w:tblBorders")
     for border in ("top", "left", "bottom", "right", "insideH", "insideV"):
         b = OxmlElement(f"w:{border}")
-        b.set(qn("w:val"), "single")
-        b.set(qn("w:sz"), "4")
-        b.set(qn("w:color"), "888888")
+        if border in ("top", "bottom"):
+            b.set(qn("w:val"), "single")
+            b.set(qn("w:sz"), "4")
+            b.set(qn("w:color"), "000000")
+        else:
+            b.set(qn("w:val"), "none")
+            b.set(qn("w:sz"), "0")
+            b.set(qn("w:color"), "auto")
         tbl_borders.append(b)
     tbl_pr.append(tbl_borders)
+
+
+_WORDY = re.compile(r"[A-Za-z]{5,}")
+
+
+def numeric_like(text: str) -> bool:
+    """True for cells that read as numbers or short symbols ('7 (5–9)',
+    '<0.001', 'ref.', 'n/a', '+0.83'), i.e. no run of 5+ letters."""
+    return not _WORDY.search(text or "")
+
+
+def _numeric_columns(header_row, data_rows) -> list[bool]:
+    """Center a column when every non-empty data cell is numeric-like and
+    at least one cell contains a digit; the first column is never
+    centered (it carries the row labels)."""
+    out = []
+    for c in range(len(header_row)):
+        cells = [str(r[c]) for r in data_rows if c < len(r) and str(r[c]).strip()]
+        ok = (c > 0 and cells and all(numeric_like(x) for x in cells)
+              and any(re.search(r"\d", x) for x in cells))
+        out.append(bool(ok))
+    return out
+
+
+def _mark_header_row(row) -> None:
+    """Repeat the header row when a table breaks across pages."""
+    trPr = row._tr.get_or_add_trPr()
+    el = OxmlElement("w:tblHeader")
+    trPr.append(el)
+
+
+def _shade_cell(cell, fill_hex: str) -> None:
+    tcPr = cell._tc.get_or_add_tcPr()
+    shd = OxmlElement("w:shd")
+    shd.set(qn("w:val"), "clear")
+    shd.set(qn("w:color"), "auto")
+    shd.set(qn("w:fill"), fill_hex)
+    tcPr.append(shd)
+
+
+def _cell_bottom_rule(cell) -> None:
+    tcPr = cell._tc.get_or_add_tcPr()
+    borders = OxmlElement("w:tcBorders")
+    b = OxmlElement("w:bottom")
+    b.set(qn("w:val"), "single")
+    b.set(qn("w:sz"), "4")
+    b.set(qn("w:color"), "000000")
+    borders.append(b)
+    tcPr.append(borders)
 
 
 def page_break(doc) -> None:

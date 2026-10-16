@@ -313,7 +313,14 @@ def _append_figures_section(doc: Document):
     Legend text is read from the main DOCX rather than duplicated here, so
     the merged document always matches the submission document."""
     _page_break(doc)
-    h = doc.add_heading("Figures", level=1)
+    # Same look as the manuscript's level-1 headings (Times New Roman,
+    # bold, 14 pt, black), not Word's built-in Heading 1 theme style.
+    h = doc.add_paragraph()
+    _hr = h.add_run("Figures")
+    _hr.bold = True
+    _hr.font.size = Pt(H1_PT)
+    h.paragraph_format.space_before = Pt(12)
+    h.paragraph_format.space_after = Pt(6)
     h.alignment = WD_ALIGN_PARAGRAPH.LEFT
 
     # Single source of truth: use the legend text from the main DOCX's

@@ -27,7 +27,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 from _docx_helpers import (
     new_document, title, heading, para, figure_placeholder, figure_landscape,
     table_caption, table_title, table_legend, make_table,
-    page_break, hrule,
+    page_break, hrule, set_body_line_spacing,
 )
 
 
@@ -57,21 +57,20 @@ OUT_PATH       = os.path.join(SUBMISSION_DIR, "AToP_JAMIA_supplement.docx")
 SUPPLEMENTS_DIR = os.path.join(SUBMISSION_DIR, "figures", "supplements")
 
 IMAGE_PATHS = {
-    "Figure S10":  os.path.join(SUPPLEMENTS_DIR, "FigureS1_reversed_order.png"),
-    "Figure S11":  os.path.join(SUPPLEMENTS_DIR, "FigureS3_shap_vs_ig.png"),  # may not exist; placeholder fallback
+    "Figure S9":  os.path.join(SUPPLEMENTS_DIR, "FigureS10_reversal_scatter.png"),
+    "Figure S10":  os.path.join(SUPPLEMENTS_DIR, "FigureS3_shap_vs_ig.png"),  # may not exist; placeholder fallback
     "Figure S2A": os.path.join(SUPPLEMENTS_DIR, "FigureS4A_alt_tp.png"),
     "Figure S2B": os.path.join(SUPPLEMENTS_DIR, "FigureS4B_confident_tn.png"),
     "Figure S2C": os.path.join(SUPPLEMENTS_DIR, "FigureS4C_disagreement.png"),
-    "Figure S7":  os.path.join(SUPPLEMENTS_DIR, "FigureS5_prevalence_vs_impact.png"),
-    "Figure S8": os.path.join(SUPPLEMENTS_DIR, "FigureS10_masking_distribution.png"),
-    "Figure S4":  os.path.join(SUPPLEMENTS_DIR, "FigureS7_jaccard_sensitivity.png"),
-    "Figure S5":  os.path.join(SUPPLEMENTS_DIR, "FigureS8_full_pool_jaccard_sensitivity.png"),
-    "Figure S3":  os.path.join(SUPPLEMENTS_DIR, "FigureS9_aggregation_comparison.png"),
-    "Figure S6": os.path.join(SUPPLEMENTS_DIR, "FigureS10_pattern_aggregation_comparison.png"),
-    "Figure S12": os.path.join(SUPPLEMENTS_DIR, "FigureS12_shap_tokens.png"),
-    "Figure S13": os.path.join(SUPPLEMENTS_DIR, "FigureS13_shap_patterns.png"),
-    "Figure S14": os.path.join(SUPPLEMENTS_DIR, "FigureS14_ig_mass_sensitivity.png"),
-    "Figure S9": os.path.join(SUPPLEMENTS_DIR, "FigureS13_faithfulness.png"),
+    "Figure S6":  os.path.join(SUPPLEMENTS_DIR, "FigureS5_prevalence_vs_impact.png"),
+    "Figure S7": os.path.join(SUPPLEMENTS_DIR, "FigureS10_masking_distribution.png"),
+    "Figure S3":  os.path.join(SUPPLEMENTS_DIR, "FigureS7_jaccard_sensitivity.png"),
+    "Figure S4":  os.path.join(SUPPLEMENTS_DIR, "FigureS8_full_pool_jaccard_sensitivity.png"),
+    "Figure S5": os.path.join(SUPPLEMENTS_DIR, "FigureS10_pattern_aggregation_comparison.png"),
+    "Figure S11": os.path.join(SUPPLEMENTS_DIR, "FigureS12_shap_tokens.png"),
+    "Figure S12": os.path.join(SUPPLEMENTS_DIR, "FigureS13_shap_patterns.png"),
+    "Figure S13": os.path.join(SUPPLEMENTS_DIR, "FigureS14_ig_mass_sensitivity.png"),
+    "Figure S8": os.path.join(SUPPLEMENTS_DIR, "FigureS13_faithfulness.png"),
     "Figure S1": os.path.join(SUPPLEMENTS_DIR, "FigureS14_consort.png"),
 }
 
@@ -97,7 +96,7 @@ def _pheno_label_with_count(pheno: str, totals_path: str) -> str:
 # actually contains, then moved to the front. It used to be a second
 # hand-maintained list beside a separate "Contents" section, and the two
 # drifted: they disagreed on wording for most items, and on the number of
-# patterns in Table S5 (the table's own title said 11, the contents said
+# patterns in Table S4 (the table's own title said 11, the contents said
 # 30, the CSV has 30). One generated list cannot disagree with itself.
 H1_PT, H2_PT = 14.0, 12.0
 
@@ -157,7 +156,51 @@ def _prepend_front_page(doc) -> None:
     print(f"  front page: {len(items)} items generated from document headings")
 
 
+def add_table_s2(doc) -> None:
+    """Table S2 (mining pipeline summary) with title and legend. Shared with build_tables_only_docx.py."""
+    # ── New Table S2: AToP pattern mining pipeline summary ──
+    # (Moved from main-paper Table 2 in this revision; current main-paper
+    # Table 2 is the model-performance comparison instead. The bootstrap-
+    # AUROC CIs that used to be Table S2 are now subsumed into the
+    # main-paper Table 2.)
+    df_s1 = _read_csv("Table2_mining_summary.csv")
+    table_title(doc, "Table S2", "AToP pattern mining pipeline summary.")
+    _rows = []
+    _last = None
+    for _, r in df_s1.iterrows():
+        if r["section"] != _last:
+            _rows.append([_fmt_str(r["section"]), ""])
+            _last = r["section"]
+        _rows.append([f"    {_fmt_str(r['metric'])}", _fmt_str(r["value"])])
+    make_table(doc,
+                header_row=["Statistic", "Value"],
+                data_rows=_rows,
+                col_widths_in=[4.5, 1.8],
+                font_size_pt=9)
+    table_legend(doc,
+        abbreviations=(
+            "IG = Integrated Gradients; ΣIG = sum of token IG "
+            "attributions; SD = standard deviation."
+        ),
+        note=(
+            "Episodes were mined separately in readmitted and "
+            "non-readmitted training patients (support 0.001 of each "
+            "class, 20 and 134 patients) and pooled. The per-patient "
+            "explanation dictionary is the subset also reaching "
+            "support 0.001 of the whole training cohort (153 "
+            "patients); the pool is larger because rare episodes "
+            "enriched in readmitted patients clear the per-class "
+            "threshold but not the whole-cohort one. Global rankings "
+            "used the full pooled set. Token compression ratio is the "
+            "mean full sequence length divided by the mean salient "
+            "subsequence length per patient. Counts represent "
+            "different stages of the pipeline rather than a running "
+            "total."
+        ),
+    )
+
 def build() -> None:
+    set_body_line_spacing(1.5)   # supplement: 1.5 spacing (main stays 2.0)
     doc = new_document()
 
     # ── Extended Methods (relocated from main text for word budget) ──
@@ -177,13 +220,7 @@ def build() -> None:
               'residual, z(x) − z(x_baseline) − ΣIG, had a median '
               'absolute value of 0.012 logits (90th percentile 0.032), or'
               ' 1.8% of |z(x) − z(x_baseline)| (90th percentile 7.3%); '
-              '100 steps would reduce the median to 0.5%. AToP reporting '
-              'uses relative ΣIG rankings and within-model masking '
-              'contrasts, so the conclusions do not depend on the '
-              'absolute reference level. Masking effects Δŷ are '
-              'differences of predicted probabilities, so recalibration '
-              'of the model would change their magnitude but not their '
-              'sign.')
+              '100 steps would reduce the median to 0.5%.')
 
     heading(doc, "Pattern scoring and position allocation", level=2)
     para(doc, 'Carrier-averaged ΣIG, used for all pattern rankings and '
@@ -242,12 +279,16 @@ def build() -> None:
               'Upper- and lower-case variants are included for several '
               'keywords. The order places malignancy above hepatobiliary '
               'disease and psychiatric diagnoses above substance use when'
-              ' both occur in one pattern. Families are presentational '
-              'groupings only and do not affect mining, attribution, or '
-              'ranking; Table 3 shows the first four families listed '
-              'above, and Table 4 additionally shows Hepatobiliary and '
-              'Other. The lists are defined in make_table3.py in the '
-              'released code.')
+              ' both occur in one pattern. The keyword rules were '
+              'developed from recurring clinical themes observed among '
+              'the discovered patterns and were applied consistently to '
+              'organize patterns for presentation. Clinical group '
+              'assignments did not influence pattern discovery, '
+              'attribution, or ranking. Table 3 displays psychiatric, '
+              'oncologic, obstetric, and chest-pain groups. Table 4 '
+              'additionally includes hepatobiliary and other patterns. '
+              'The lists are defined in make_table3.py in the released '
+              'code.')
 
     heading(doc, "Preprocessing and vocabulary composition", level=2)
     para(doc, "ICD-9 diagnosis and procedure codes were mapped to ICD-10 "
@@ -272,26 +313,15 @@ def build() -> None:
               "shared in a single embedding space across all streams.")
 
     heading(doc, "Test-set use in deduplication", level=2)
-    para(doc, "Patterns are mined exclusively on the training cohort. "
-              "Jaccard deduplication and representative selection use "
-              "test-cohort carrier sets because the main figures and "
-              "tables report the test-cohort attribution landscape, and "
-              "two patterns are redundant for that report precisely when "
-              "they are carried by the same test patients. No model "
-              "parameter, threshold, or pattern score is tuned on test "
-              "outcomes; the test set is used only to summarize which "
-              "mined patterns co-occur in the same patients. Deduplicating "
-              "instead on training or validation carrier sets yields the "
-              "same representative families, since the carrier-overlap "
-              "structure is a property of clinical co-occurrence rather "
-              "than of a particular split.")
+    para(doc, 'Patterns were mined exclusively from the training '
+              'cohort. Test-cohort carrier sets were used for '
+              'Jaccard deduplication, and test-cohort attributions '
+              'were used to select representatives for the reported '
+              'rankings. Neither procedure used test outcomes or '
+              'altered the trained model.')
 
     page_break(doc)
 
-    # ── Supplementary Results ───────────────────────────────────────
-    # Three validation analyses relocated here from the main Results to
-    # meet the JAMIA 4,000-word body limit. The main text retains a
-    # condensed statement of each headline number and points here.
     heading(doc, "Validation settings", level=2)
     para(doc, 'Masking validation covered the patterns displayed in '
               'Tables 3 and 4 and additional high-ranked risk-supporting '
@@ -306,27 +336,47 @@ def build() -> None:
               'change over the draws, the same statistic as the IG '
               'curves; 95% confidence intervals were obtained by '
               'bootstrapping patients with 1,000 resamples (random seed '
-              '42). Because each k requires at least k salient tokens, '
-              'the number of contributing patients falls from 500 at k ≤ '
-              '3 to 463, 423, 395, 369, 338, 298 and 277 at k = 4 to 10. '
-              'KernelSHAP used approximately 50 coalition samples per '
-              'patient over the full analytic test cohort (43,602 '
-              'patients); the per-patient comparison in Figure S11 used '
-              '200.')
-    para(doc, 'The two global rankings use different minimum carrier '
-              'counts, set independently when each pool was implemented: '
-              'the all-patterns pool was scored with a minimum of 5 '
-              'test-cohort carriers, and the cross-visit dictionary was '
-              'built with a minimum of 3. Neither value was optimized or '
-              'tested for sensitivity.')
+              '42). KernelSHAP treated each patient\u2019s non-special tokens as '
+              'features, replaced dropped tokens with [PAD], and used as '
+              'background ten random masks of the patient\u2019s own tokens, '
+              'each token retained with probability 0.5; approximately 50 '
+              'coalition samples were drawn per patient over the full '
+              'analytic test cohort (43,602 patients), and the per-patient '
+              'comparison in Figure S10 used 200. KernelSHAP explained the '
+              'predicted probability, whereas IG explained the logit, so '
+              'the two methods differ in reference distribution and output '
+              'scale. Tokens absent from a record are not features; in the '
+              'population-weighted aggregation they were assigned zero, so '
+              'Equation 2 of the main text applies to the reported SHAP '
+              'summaries as it does to IG. The shap library\u2019s default l1 '
+              'regularization, which retains 10 features per explanation, '
+              'capped each patient at 10 non-zero token values: 71% of the '
+              '1,327,660 (patient, token) values in the cohort run were '
+              'exactly zero, concentrated in records with more than 10 '
+              'tokens (36% at 11 to 20 tokens, 66% at 21 to 40, and 83% or '
+              'more above 40). Pattern scores under SHAP summed the values '
+              'of a pattern\u2019s unique constituent tokens for each carrier, '
+              'whereas IG scored tokens at the matched visit positions.')
+    para(doc, 'The reversed-order comparison scored 3,447 candidate '
+              'cross-visit patterns: those of Table 4 and Figure 4B, '
+              'plus every multi-visit pattern of the full pool with '
+              'at least 100 test-cohort carriers, drawn from the '
+              '40,327 multi-visit patterns of that pool. Of these, '
+              '3,429 had valid matches in both orderings and 1,714 '
+              'had at least 20 patients matching each ordering; the '
+              'pool statistics in the Results and Figure S9 refer '
+              'to these 1,714. The 40,327 multi-visit patterns '
+              'include 718 sequences of a single repeated token; the '
+              '39,611 cross-visit candidates in Table S2 '
+              'additionally require two distinct tokens and admit 3 '
+              'or more carriers, which adds 2 patterns.')
 
     heading(doc, "Attribution direction and observed readmission", level=2)
     para(doc, 'To examine whether model-attributed cross-visit '
               'patterns were associated with observed readmission, '
               'we conducted a separate descriptive analysis. We '
               'restricted the test cohort to patients with at least '
-              'two admissions, since cross-visit patterns require '
-              'multiple visits. For each reported cross-visit '
+              'two admissions, since cross-visit patterns require multiple visits and such patients are readmitted far more often than the cohort overall (27.8% vs 12.7%). For each reported cross-visit '
               'pattern, we fitted a logistic regression with '
               'readmission as the outcome and pattern presence and '
               'the log-transformed number of admissions as '
@@ -336,94 +386,6 @@ def build() -> None:
               'associations were not used to evaluate attribution '
               'faithfulness.')
 
-    heading(doc, "Supplementary Results", level=1)
-
-    heading(doc, "Attribution direction vs observed outcome", level=2)
-    para(doc, 'Attribution direction is a statement about the model, '
-              'whereas the association with observed readmission '
-              'describes the study cohort. These need not agree. '
-              'Cross-visit patterns can only be observed among '
-              'patients with at least two admissions, whose '
-              'readmission rate is substantially higher than that of '
-              'the overall cohort (27.8% vs 12.7%). Comparisons '
-              'against the whole-cohort baseline can therefore be '
-              'misleading.')
-    para(doc, 'Restricting the analysis to patients with at least '
-              'two admissions and adjusting for the number of '
-              'admissions, attribution direction and outcome '
-              'association agreed for 25 of the 30 reported '
-              'cross-visit patterns: 15 of 19 risk-supporting '
-              'patterns had adjusted odds ratios above 1, and 10 of '
-              '11 protective patterns had adjusted odds ratios below '
-              '1 (Table S3). For example, repeat cesarean delivery '
-              'had an adjusted odds ratio of 0.83, consistent with '
-              'its negative model attribution. These associations '
-              'are descriptive and do not establish either causal '
-              'effects or attribution faithfulness.')
-
-    heading(doc, "Faithfulness of the attribution ranking", level=2)
-    para(doc, "To test whether AToP's IG ranking surfaces the tokens the "
-              "model actually relies on, we applied an ERASER-style "
-              "progressive-masking protocol on a random sample of 500 "
-              "test patients, contrasting AToP's top-k tokens against a "
-              "matched-random baseline (Figure S9). Removing AToP's "
-              "top-5 tokens changed the predicted readmission probability "
-              "by a mean |\u0394\u0177| of 0.079, "
-              "versus 0.056 for removing the same number of randomly "
-              "chosen salient tokens (1.4 times larger; Wilcoxon signed-rank "
-              "p < 0.001), with AToP's comprehensiveness curve above "
-              "random at every k. Keeping only AToP's top-k tokens "
-              "recovered the original prediction more completely than "
-              "keeping random tokens (sufficiency; Figure S9B). These "
-              "results indicate faithfulness to the model: the IG ranking "
-              "identifies tokens that drive the prediction. They do not test "
-              "whether those tokens are clinically correct, which we "
-              "address qualitatively through the exemplars and leave to "
-              "prospective clinician review.")
-
-    heading(doc, "Cross-method comparison with KernelSHAP", level=2)
-    para(doc, "To assess whether AToP's findings are properties of the "
-              "aggregation convention rather than the choice of "
-              "attribution method, we recomputed the rankings of Figures 3 "
-              "and 4 with KernelSHAP in place of Integrated Gradients on the "
-              "full test cohort (N = 43,602 patients with valid "
-              "sequences, ~50 KernelSHAP coalitions per patient). "
-              "The cohort-level cross-method comparison is "
-              "reported in Figure S12 (token level) and Figure S13 "
-              "(pattern level).")
-    para(doc, "At the token level (Figure 3B equivalent), IG and "
-              "SHAP carrier-conditional top-30 rankings agree on 25 of "
-              "30 features (tokens with at least 10 sampled carriers). "
-              "All fifteen tokens in SHAP's top-15 also appear in IG's "
-              "top-30, twelve of them in IG's top-15 (Figure S12). The "
-              "two methods identify essentially the same set of "
-              "high-impact carrier-conditional features, with "
-              "rank-shuffling between adjacent positions.")
-    para(doc, "At the pattern level, agreement is 21 of 30 for the "
-              "all-patterns ranking and 7 of 30 for the cross-visit-only "
-              "ranking (Figure S13). The two methods therefore agree substantially on "
-              "the all-patterns ranking but diverge on the cross-visit "
-              "ranking. Disagreement between explanation methods applied "
-              "to the same model is a well-documented and largely "
-              "unresolved problem, so we treat the divergence as "
-              "informative about the methods rather than decisive about "
-              "the patterns; it reflects how the methods "
-              "score multi-token patterns. A likely contributor is that "
-              "KernelSHAP's interaction-aware "
-              "coalition sampling dampens high-K sums via Shapley "
-              "redistribution; IG's path-integral semantics sum per-token "
-              "contributions additively, so K-token \u03a3 IG scales roughly "
-              "linearly with K. Consistent with this, IG's cross-visit "
-              "top-30 is weighted toward longer patterns than SHAP's "
-              "(both span 2\u20134 tokens; mean K = 3.2 for IG vs 2.5 for "
-              "SHAP). The token-level 25/30 agreement indicates that both "
-              "methods identify largely the same high-impact features; "
-              "the pattern-level differences reflect how the methods "
-              "score sums over composite features.")
-
-    page_break(doc)
-
-    # ── Supplement Figures ──────────────────────────────────────────
     heading(doc, "Supplementary Figures", level=1)
 
     heading(doc, "Figure S1. Cohort and analysis flow", level=2)
@@ -454,11 +416,10 @@ def build() -> None:
         image_path=IMAGE_PATHS.get("Figure S1"))
 
     page_break(doc)
-    heading(doc, "Figure S2A. Alternate exemplar: psychiatric phenotype "
-                  "(true positive)", level=2)
+    heading(doc, "Figure S2A. Alternate exemplar: psychiatric clinical presentation (true positive)", level=2)
     figure_placeholder(doc, "Figure S2A",
         "Two-panel AToP narrative for a true-positive test patient with "
-        "a psychiatric phenotype (recurrent psychosis NOS across "
+        "a psychiatric clinical presentation (recurrent psychosis NOS across "
         "consecutive admissions). Same format as main-paper Figure 2: "
         "(A) admission timeline showing the salient tokens each "
         "admission contributed to the Panel B patterns, marked by sign, "
@@ -467,8 +428,8 @@ def build() -> None:
         "(B) allocated "
         "signed \u03a3 IG decomposition under the non-overlapping "
         "position-level allocation rule. Bars labeled V\u2099\u2192V\u2098 "
-        "are cross-visit pattern matches; V\u2098: are single-visit. "
-        "Examples in S4a and S4b were chosen to span clinical groups "
+        "are cross-visit pattern matches; V\u2098: are within-visit. "
+        "Figures S2A and S2B were chosen to span clinical groups "
         "rather than to validate predictive accuracy.",
         image_path=IMAGE_PATHS.get("Figure S2A"))
 
@@ -477,8 +438,8 @@ def build() -> None:
              level=2)
     figure_placeholder(doc, "Figure S2B",
         "Two-panel AToP narrative for a true-negative test patient with "
-        "an obstetric phenotype (uncomplicated delivery with current "
-        "obstetric laceration repair). Same format as Figure 2 and S2a. "
+        "an obstetric clinical presentation (uncomplicated delivery with current "
+        "obstetric laceration repair). Same format as Figures 2 and S2A. "
         "The salient subsequence comprises obstetric procedure tokens; "
         "AToP surfaces the corresponding protective obstetric trajectory "
         "in the allocated \u03a3 IG panel and the model assigns a low "
@@ -496,8 +457,7 @@ def build() -> None:
         "(bone metastases at V1 and V3; cancer pain and cancer anemia at "
         "V4; chemotherapy-supportive medications). The prediction was "
         "driven primarily by the cross-visit Bone metastases → Bone "
-        "metastases pattern (+0.240 allocated ΣIG) and a long tail of "
-        "single-visit oncology tokens (+0.969 combined). Same two-panel "
+        "metastases pattern (+0.240 allocated ΣIG) and a long tail of within-visit oncology tokens (+0.969 combined). Same two-panel "
         "format as Figure 2, S2A, and S2B. The explanation shows which "
         "patterns drove the high-confidence prediction: the elevated risk "
         "is attributed to cancer history rather than to tokens of acute "
@@ -505,98 +465,65 @@ def build() -> None:
         image_path=IMAGE_PATHS.get("Figure S2C"))
 
     page_break(doc)
-    heading(doc, "Figure S3. Token-level aggregation comparison", level=2)
-    figure_placeholder(doc, "Figure S3",
-        "Side-by-side comparison of the two atomic-token aggregation "
-        "conventions on the test cohort. (A) Top-30 tokens by carrier-"
-        "conditional E[IG | present] (AToP refinement). (B) Top-30 by "
-        "population-weighted E[IG] = E[IG | present] × prevalence, the "
-        "mean signed IG over all patients with non-carriers contributing "
-        "zero. Each row is annotated with its rank "
-        "under the alternative aggregation; bars with bold dark outlines "
-        "are absent from the other panel's top-30. Of 30 top tokens by "
-        "carrier-conditional aggregation, only 7 also appear in the "
-        "population-weighted top-30 (n = 6,605 tokens scored). The 23 "
-        "features that fall out are clinically interpretable markers "
-        "buried deep in the population-weighted ranking: Acetaminophen overdose "
-        "self-harm (population #356, carrier #2), Severe MDD (#271 vs "
-        "#5), Bipolar manic episode (#166 vs #6), Recurrent severe MDD "
-        "(#68 vs #7), and SSRI overdose self-harm (#799 vs #11), among "
-        "others.",
-        image_path=IMAGE_PATHS.get("Figure S3"))
-
-    page_break(doc)
-    heading(doc, "Figure S4. Sensitivity to Jaccard threshold, "
+    heading(doc, "Figure S3. Sensitivity to Jaccard threshold, "
                   "cross-visit pool", level=2)
-    figure_placeholder(doc, "Figure S4",
-        "Cross-visit pattern pool (≥2 visits, ≥2 tokens) at four Jaccard "
-        "deduplication thresholds. Panel A: no dedup (39,611 "
-        "representatives). Panel C: j ≥ 0.6 (33,605). Panel E: j ≥ 0.2 "
-        "(9,213, locked). Panel F: j ≥ 0.1 (2,075). Thresholds j ≥ 0.8 "
+    figure_placeholder(doc, "Figure S3",
+        "Cross-visit pattern pool (≥2 visits, ≥2 distinct tokens) at four Jaccard deduplication thresholds. Panel A: no dedup (39,611 representatives). Panel B: j ≥ 0.6 (33,605). Panel C: j ≥ 0.2 (9,213, used in the main analyses). Panel D: j ≥ 0.1 (2,075). Thresholds j ≥ 0.8 "
         "(38,074) and j ≥ 0.4 (24,606) are omitted; their top-30 sets are "
         "near-identical to j ≥ 0.6. Each panel shows the top-30 "
         "cross-visit patterns by |ΣIG| within the deduplicated set. "
-        "Unlike Figure S5, the panels differ substantially from one "
-        "another (A and E share only 8 of 30 patterns), which is itself "
+        "Unlike Figure S4, the panels differ substantially from one "
+        "another (A and C share only 8 of 30 patterns), which is itself "
         "the result: on the cross-visit pool the threshold materially "
         "changes what reaches the top. Loose thresholds leave the top-30 "
         "dominated by near-duplicate MDD/SI and obstetric variants; all "
         "six clinical groups surface independently by j ≥ 0.2. At "
         "j ≥ 0.1 that coverage survives in a much smaller pool (2,075), "
         "at the cost of more near-duplicate variants in the top-30.",
-        image_path=IMAGE_PATHS.get("Figure S4"))
+        image_path=IMAGE_PATHS.get("Figure S3"))
 
     page_break(doc)
-    heading(doc, "Figure S5. Sensitivity to Jaccard threshold, all "
+    heading(doc, "Figure S4. Sensitivity to Jaccard threshold, all "
                   "patterns combined", level=2)
-    figure_placeholder(doc, "Figure S5",
+    figure_placeholder(doc, "Figure S4",
         "Jaccard-threshold sweep on the all-patterns combined pool "
-        "(single-token, single-visit co-occurrence, and cross-visit "
+        "(single-token, within-visit co-occurrence, and cross-visit "
         "patterns together). Representative counts: 70,275 (no dedup), "
         "61,059 (j ≥ 0.8), 53,623 (j ≥ 0.6), 40,869 (j ≥ 0.4), "
-        "17,891 (j ≥ 0.2, locked), and 5,501 (j ≥ 0.1). Four are "
-        "displayed (no dedup, 0.6, the locked 0.2, and 0.1); j ≥ 0.8 and "
+        "17,891 (j ≥ 0.2, used in the main analyses), and 5,501 (j ≥ 0.1). Four are displayed (A: no dedup, B: 0.6, C: 0.2, D: 0.1); j ≥ 0.8 and "
         "j ≥ 0.4 are omitted, their top-30 sets being identical to "
         "j ≥ 0.6. Each column shows the top-30 patterns by |ΣIG| "
         "within that deduplicated representative set, drawn against a "
         "single shared label column so rows align across thresholds; a "
         "grey diamond marks a pattern absent from that threshold's "
         "top-30. Across every threshold, "
-        "the top-30 is invariably dominated by single-visit co-"
-        "occurrence patterns; single-token and cross-visit patterns "
-        "never reach the top. This is the empirical justification for "
-        "AToP's cross-visit and multi-token constraints (min_steps = 2, "
-        "min_tokens = 2): without them AToP would recover only "
-        "single-admission comorbidity rather than the multi-visit "
-        "phenotype trajectories that motivate the framework.",
-        image_path=IMAGE_PATHS.get("Figure S5"))
+        "the top-30 is dominated by within-visit co-occurrence patterns; single-token and cross-visit patterns do not reach the top. Without the cross-visit restriction, the unrestricted ranking is therefore dominated by within-visit co-occurrences, which obscures the cross-visit patterns that motivate the framework.",
+        image_path=IMAGE_PATHS.get("Figure S4"))
 
     page_break(doc)
-    heading(doc, "Figure S6. Pattern-level aggregation comparison", level=2)
-    figure_placeholder(doc, "Figure S6",
-        "Pattern-level aggregation comparison across all patterns (single-"
-        "token, single-visit co-occurrence, and cross-visit combined), "
+    heading(doc, "Figure S5. Pattern-level aggregation comparison", level=2)
+    figure_placeholder(doc, "Figure S5",
+        "Pattern-level aggregation comparison across all patterns (single-token, within-visit co-occurrence, and cross-visit combined), "
         "Jaccard j = 0.2 (17,891 representatives). (A) Top-30 by carrier-"
         "averaged ΣIG. (B) Top-30 by population-weighted ΣIG "
         "(= carrier-averaged ΣIG × prevalence). Only 6 of 30 patterns "
         "overlap between the two rankings (vs 7 / 30 at the token "
-        "level in Figure S3). Multi-token patterns are penalized "
-        "harder by prevalence weighting because a pattern's prevalence "
-        "is the intersection of its tokens' prevalences. The "
+        "level in Figure 3). Multi-token patterns are penalized "
+        "harder by prevalence weighting because a pattern's carriers are a "
+        "subset of the patients carrying all of its constituent tokens, "
+        "and the visit and ordering requirements reduce that set further. The "
         "population-weighted top-30 is dominated by single-token "
         "features (MDD single ep. NOS, Chest pain NOS, Alcohol abuse, "
         "Ibuprofen, Thiamine, Psychosis NOS, etc.); AToP's multi-token "
         "compositional patterns sit at population ranks #3–#2058, so "
         "the aggregation penalty compounds at the pattern level.",
-        image_path=IMAGE_PATHS.get("Figure S6"))
+        image_path=IMAGE_PATHS.get("Figure S5"))
 
     page_break(doc)
-    heading(doc, "Figure S7. Pattern prevalence and relative risk vs "
-                  "attribution impact", level=2)
-    figure_placeholder(doc, "Figure S7",
-        "AToP's carrier-averaged |ΣIG| is partially independent of "
-        "classical effect-size measures, surfacing patterns that "
-        "prevalence-only or RR-only ranking would miss. n = 5,047 cross-"
+    heading(doc, "Figure S6. Pattern prevalence and relative risk vs "
+                  "attribution magnitude", level=2)
+    figure_placeholder(doc, "Figure S6",
+        "Patterns with similar prevalence or relative risk can have substantially different attribution magnitudes. n = 5,047 cross-"
         "visit patterns. Dots are red for risk (ΣIG > 0), blue for "
         "protective; dot area ∝ log(n test carriers). (A) Prevalence "
         "(% of test patients carrying the pattern, log scale) vs "
@@ -613,13 +540,12 @@ def build() -> None:
         "Dashed vertical "
         "line marks RR = 1 (baseline). Spearman ρ (|ΣIG| vs "
         "log RR) = −0.13: patterns with comparable RR span a wide range of "
-        "|ΣIG|, so effect size alone does not predict a pattern's "
-        "attribution impact.",
-        image_path=IMAGE_PATHS.get("Figure S7"))
+        "|ΣIG|, so effect size alone does not predict a pattern's attribution magnitude.",
+        image_path=IMAGE_PATHS.get("Figure S6"))
 
     page_break(doc)
-    heading(doc, "Figure S8. Per-pattern masking effects", level=2)
-    figure_placeholder(doc, "Figure S8",
+    heading(doc, "Figure S7. Per-pattern masking effects", level=2)
+    figure_placeholder(doc, "Figure S7",
         "Masking effect \u0394\u0177 = \u0177_original \u2212 \u0177_masked for each "
         "of the 266 perturbed patterns, averaged over the pattern's "
         "test-cohort carriers. Bars are colored by the pattern's attribution "
@@ -629,13 +555,13 @@ def build() -> None:
         "moved predictions in the direction of the pattern's attribution for "
         "all 266 patterns (168 risk-supporting, 98 protective). Masking creates out-of-distribution inputs, so it is a "
         "proxy test; the direct token-level faithfulness test is the "
-        "comprehensiveness and sufficiency analysis in Figure S9.",
-        image_path=IMAGE_PATHS.get("Figure S8"))
+        "comprehensiveness and sufficiency analysis in Figure S8.",
+        image_path=IMAGE_PATHS.get("Figure S7"))
 
     page_break(doc)
-    heading(doc, "Figure S9. Quantitative faithfulness of AToP-ranked "
+    heading(doc, "Figure S8. Quantitative faithfulness of AToP-ranked "
                   "tokens", level=2)
-    figure_placeholder(doc, "Figure S9",
+    figure_placeholder(doc, "Figure S8",
         "Faithfulness of AToP's IG-based token ranking, measured by "
         "progressive masking on a random sample of 500 test patients "
         "(≥3 salient tokens each), contrasted against a matched-random "
@@ -657,37 +583,35 @@ def build() -> None:
         "tokens the model relies on (faithfulness to the model). This "
         "does not test clinical correctness of those tokens, which "
         "requires separate clinician review.",
+        image_path=IMAGE_PATHS.get("Figure S8"))
+
+    page_break(doc)
+    heading(doc, "Figure S9. Attribution under forward and reversed "
+                  "temporal order across the cross-visit pool", level=2)
+    figure_placeholder(doc, "Figure S9",
+        "Attribution under forward and reversed temporal order across "
+        "1,714 cross-visit patterns. Each point represents a pattern with "
+        "at least 20 test-cohort patients matching each ordering. The "
+        "horizontal and vertical axes show carrier-averaged signed \u03a3IG "
+        "among patients matching the forward and reversed orders, "
+        "respectively; the two carrier groups can overlap but are not "
+        "identical. Small points represent the full analysis pool, red "
+        "for risk-increasing patterns (forward \u03a3IG > 0) and blue for "
+        "protective patterns. Outlined points identify the 27 evaluable "
+        "patterns reported in Table 4; the remaining 3 read the same in "
+        "either direction and were excluded. The dashed line indicates "
+        "equal attribution under both orderings. Across the full pool, "
+        "54% of patterns showed reduced attribution magnitude under "
+        "reversal, and 95% preserved attribution direction.",
+        alt="Scatter plot of reversed-order against forward-order "
+            "attribution for 1,714 cross-visit patterns, clustered along "
+            "the diagonal, with the Table 4 patterns highlighted as "
+            "larger outlined points mostly below the diagonal.",
         image_path=IMAGE_PATHS.get("Figure S9"))
 
     page_break(doc)
-    heading(doc, "Figure S10. Top 30 cross-visit patterns by reversal "
-                  "attenuation", level=2)
+    heading(doc, "Figure S10. Per-patient SHAP vs IG agreement", level=2)
     figure_placeholder(doc, "Figure S10",
-        "Top 30 cross-visit patterns ranked by reversal attenuation. For "
-        "each pattern, the darker bar shows the carrier-averaged signed "
-        "ΣIG for test-cohort patients matching the forward token order; "
-        "the lighter bar shows the same statistic for the reversed token "
-        "order. The annotated percentage = 100 × (1 − |ΣIG_rev| / "
-        "|ΣIG_fwd|) is the attenuation. Red = risk-supporting (forward "
-        "ΣIG > 0), blue = protective. The 30 patterns shown were selected "
-        "from the 1,714-pattern floored pool (n forward ≥ 20 and "
-        "n reversed ≥ 20). Across this pool 95% of patterns preserve "
-        "sign; among the 30 highest-attenuation patterns shown here, "
-        "attenuation ranges 84%-99%, and 15 preserve sign while 11 flip "
-        "and 4 attenuate to exactly zero. This tail behaves differently "
-        "from the pool by construction: these are the patterns whose "
-        "reversed-order ΣIG has fallen closest to zero, so it is where "
-        "the residual can vanish or change sign. The strongest temporal "
-        "sensitivities include Prochlorperazine → Ibuprofen (99%), "
-        "Anxiety disorder NOS → Insulin Lispro (99%), and {AKI NOS; "
-        "Thiamine} → Polyethylene Glycol (98%). Per-pattern numerical "
-        "results are in Table S4, with a cross-walk organized by clinical group "
-        "to the main-paper Table 4 patterns in Table S5.",
-        image_path=IMAGE_PATHS.get("Figure S10"))
-
-    page_break(doc)
-    heading(doc, "Figure S11. Per-patient SHAP vs IG agreement", level=2)
-    figure_placeholder(doc, "Figure S11",
         "Per-patient agreement between Integrated Gradients (IG) and "
         "KernelSHAP attribution methods. (A) Exemplar patient (true "
         "positive, recurrent psychosis): per-token signed IG vs signed "
@@ -697,35 +621,31 @@ def build() -> None:
         "random test patients, z-scored on both axes so per-method scale "
         "differences do not obscure rank/sign agreement. n = 935 (patient, "
         "token) pairs. Pearson r = 0.67, Spearman ρ = 0.45. Per-patient "
-        "Jaccard@5 = 0.57 (mean), indicating substantial salient-token "
-        "rank agreement. Red = risk-supporting (IG > 0), blue = protective; "
+        "Jaccard@5 = 0.57 (mean), a top-five token-set overlap. Red = risk-supporting (IG > 0), blue = protective; "
         "dashed line = y = x. KernelSHAP here used 200 coalition samples "
-        "per patient on the top-K-by-IG token subset for high-precision "
-        "per-patient values; this differs from the cohort-level comparison "
-        "in Figures S12 and S13, which used ~50 coalitions per patient to keep the "
+        "per patient on the top-K-by-IG token subset, using a larger sampling budget; this differs from the cohort-level comparison "
+        "in Figures S11 and S12, which used ~50 coalitions per patient to keep the "
         "full 43,602-patient run tractable. Cohort-level cross-method "
-        "overlap statistics are reported in Figures S12 and S13.",
-        image_path=IMAGE_PATHS.get("Figure S11"))
+        "overlap statistics are reported in Figures S11 and S12.",
+        image_path=IMAGE_PATHS.get("Figure S10"))
 
     page_break(doc)
-    heading(doc, "Figure S12. Token-level attribution with KernelSHAP",
+    heading(doc, "Figure S11. Token-level attribution with KernelSHAP",
              level=2)
-    figure_placeholder(doc, "Figure S12",
+    figure_placeholder(doc, "Figure S11",
         "KernelSHAP counterpart of Figure 3 on the full test cohort "
         "(N = 43,602 patients with valid sequences): population-weighted "
         "(A) and carrier-conditional (B) mean SHAP per token, top 30 by "
         "absolute value, with the same aggregation conventions as the IG "
         "ranking; tokens with fewer than 10 sampled carriers were excluded "
-        "before ranking. The carrier-conditional top-30 shares 25 of 30 "
-        "tokens with the IG top-30, so the token-level findings are not "
-        "specific to IG.",
-        image_path=IMAGE_PATHS.get("Figure S12"))
+        "before ranking. The carrier-conditional top-30 shares 25 of 30 tokens with the IG top-30.",
+        image_path=IMAGE_PATHS.get("Figure S11"))
 
-    # Figure S13 is drawn at landscape print size: figure_landscape opens a
+    # Figure S12 is drawn at landscape print size: figure_landscape opens a
     # landscape section (heading, image, caption on one page) and returns to
-    # portrait on a new page, so Figure S14 needs no page break.
-    figure_landscape(doc, "Figure S13",
-        "Figure S13. Pattern-level attribution with KernelSHAP",
+    # portrait on a new page, so Figure S13 needs no page break.
+    figure_landscape(doc, "Figure S12",
+        "Figure S12. Pattern-level attribution with KernelSHAP",
         "KernelSHAP counterpart of Figure 4 on the full test cohort: "
         "carrier-averaged \u03a3SHAP for all patterns (A) and for cross-visit "
         "patterns (B), top 30 by absolute value after Jaccard \u2265 0.2 "
@@ -738,11 +658,11 @@ def build() -> None:
         "interaction credit, whereas IG sums per-token contributions "
         "additively, so multi-token sums scale with K. The divergence is "
         "concentrated in the ordering of cross-visit patterns.",
-        image_path=IMAGE_PATHS.get("Figure S13"))
+        image_path=IMAGE_PATHS.get("Figure S12"))
 
-    heading(doc, "Figure S14. Sensitivity to the IG saliency-mass threshold",
+    heading(doc, "Figure S13. Sensitivity to the IG saliency-mass threshold",
              level=2)
-    figure_placeholder(doc, "Figure S14",
+    figure_placeholder(doc, "Figure S13",
         "Four-panel 2×2 sensitivity analysis of the AToP downstream pipeline "
         "to the IG saliency-mass threshold τ. The default τ = 0.80 (per-"
         "patient cumulative |IG| mass cap) is varied across τ ∈ {0.60, "
@@ -759,7 +679,7 @@ def build() -> None:
         "ranking. Top risk patterns and their ΣIG ranking are robust to the "
         "choice of saliency-mass threshold τ; the protective side is more "
         "sensitive, consistent with panel D.",
-        image_path=IMAGE_PATHS.get("Figure S14"))
+        image_path=IMAGE_PATHS.get("Figure S13"))
 
     page_break(doc)
 
@@ -794,57 +714,7 @@ def build() -> None:
     )
 
     page_break(doc)
-    # ── New Table S2: AToP pattern mining pipeline summary ──
-    # (Moved from main-paper Table 2 in this revision; current main-paper
-    # Table 2 is the model-performance comparison instead. The bootstrap-
-    # AUROC CIs that used to be Table S2 are now subsumed into the
-    # main-paper Table 2.)
-    df_s1 = _read_csv("Table2_mining_summary.csv")
-    table_title(doc, "Table S2", "AToP pattern mining pipeline summary.")
-    _rows = []
-    _last = None
-    for _, r in df_s1.iterrows():
-        if r["section"] != _last:
-            _rows.append([_fmt_str(r["section"]), ""])
-            _last = r["section"]
-        _rows.append([f"    {_fmt_str(r['metric'])}", _fmt_str(r["value"])])
-    make_table(doc,
-                header_row=["Statistic", "Count"],
-                data_rows=_rows,
-                col_widths_in=[4.5, 1.8],
-                font_size_pt=9)
-    table_legend(doc,
-        abbreviations=(
-            "IG = integrated gradients; ΣIG = sum of token IG values "
-            "for a pattern; SD = standard deviation."
-        ),
-        note=(
-            "Token compression ratio = (mean full sequence length) / "
-            "(mean salient subsequence length after the 80% IG-mass "
-            "cutoff), per patient. The count blocks are distinct stages, "
-            "not a running total. Episodes are mined separately in "
-            "readmitted and non-readmitted training patients at support "
-            "0.001 of each class (20 and 134 patients) and pooled; the "
-            "pooled set is the candidate pool scored on the test cohort "
-            "for the global rankings (at least 5 test carriers for the "
-            "all-patterns view, at least 3 for the cross-visit view). The "
-            "24,490 pooled episodes that also reach support 0.001 of the "
-            "whole training cohort (153 patients) when re-matched across "
-            "both classes form the dictionary used for per-patient "
-            "explanations; the pool is larger because rare episodes "
-            "enriched in readmitted patients clear the per-class "
-            "threshold but not the whole-cohort one. Representatives are "
-            "the two pools after Jaccard deduplication at j ≥ 0.2 on "
-            "test carrier sets. The 9,213-pattern cross-visit "
-            "representative set is the locked dictionary used for all "
-            "cross-visit reporting (Figures 4-5, Table 4); Figures S4 and "
-            "S5 sweep the Jaccard threshold for the cross-visit and "
-            "full pools respectively. Risk patterns: ΣIG > 0 (push "
-            "prediction toward readmission); protective: ΣIG < 0. Model "
-            "performance (AUROC, PR-AUC, ΔAUROC vs baselines) is reported "
-            "in the main-paper Table 2."
-        ),
-    )
+    add_table_s2(doc)
 
     page_break(doc)
     # ── Table S3: adjusted odds ratios (number of admissions) ──
@@ -861,7 +731,6 @@ def build() -> None:
             ph if ph != _last else "",
             _fmt_str(r["label"]),
             f"{r['ig_value']:+.2f}",
-            _fmt_str(r["direction"]),
             _fmt_int(r["n_carriers_multivisit"]),
             f"{r['carrier_readmit_pct']:.1f}%" if pd.notna(r["carrier_readmit_pct"]) else "n/a",
             f"{r['matched_baseline_pct']:.1f}%" if pd.notna(r["matched_baseline_pct"]) else "n/a",
@@ -871,16 +740,16 @@ def build() -> None:
         _last = ph
     make_table(doc,
                 header_row=["Clinical group", "Pattern (representative)", "ΣIG",
-                             "Direction", "n", "Carrier readmit %",
+                             "n", "Carrier readmit %",
                              "Non-carrier readmit %", "Adj. OR", "95% CI"],
                 data_rows=s6_rows,
-                col_widths_in=[0.95, 1.95, 0.45, 0.62, 0.35, 0.62, 0.68, 0.5, 0.78],
+                col_widths_in=[0.95, 2.55, 0.45, 0.35, 0.62, 0.68, 0.5, 0.78],
                 font_size_pt=7)
     table_legend(doc,
         abbreviations=(
             "ΣIG = carrier-averaged signed sum of constituent-token IG "
-            "values (logit space); Direction = sign of ΣIG (risk = "
-            "ΣIG > 0, protective = ΣIG < 0); n = pattern carriers within "
+            "values (logit space; positive = risk-increasing, negative = "
+            "protective); n = pattern carriers within "
             "the multi-visit population; Carrier readmit % = observed "
             "30-day readmission rate among those carriers; Non-carrier "
             "readmit % = readmission rate among non-carriers in the same "
@@ -901,90 +770,18 @@ def build() -> None:
     )
 
     page_break(doc)
-    # ── Table S4: top 30 by reversal attenuation (full mined pool) ──
-    page_break(doc)
-    df_s2 = _read_csv("TableS2_reversed_order_top30.csv")
-    table_title(doc, "Table S4",
-                 "Top 30 cross-visit patterns ranked by reversal attenuation, "
-                 "selected from the 1,714-pattern floored pool "
-                 "(n forward-matched ≥ 20 and n reverse-matched ≥ 20), the "
-                 "same pool Figure S10 displays.")
-    s2_rows = []
-    for _, r in df_s2.iterrows():
-        s2_rows.append([
-            _fmt_str(r["readable_label"]),
-            _fmt_int(r["n_blocks"]),
-            _fmt_str(r["phenotype"], default="(unclassified)"),
-            _fmt_str(r["source"], default="Topup pool"),
-            _fmt_int(r["n_forward"]),
-            _fmt_int(r["n_reversed"]),
-            f"{r['ig_mean_forward']:+.3f}" if pd.notna(r["ig_mean_forward"]) else "n/a",
-            f"{r['ig_mean_reversed']:+.3f}" if pd.notna(r["ig_mean_reversed"]) else "n/a",
-            f"{r['attenuation_pct']:.1f}%" if pd.notna(r["attenuation_pct"]) else "n/a",
-        ])
-    make_table(doc,
-                header_row=["Pattern (representative)", "#blk", "Clinical group",
-                             "Source", "n fwd", "n rev",
-                             "ΣIG fwd", "ΣIG rev", "Attn"],
-                data_rows=s2_rows,
-                col_widths_in=[2.20, 0.40, 0.95, 0.85, 0.45, 0.45, 0.55, 0.55, 0.50],
-                font_size_pt=8)
-    table_legend(doc,
-        abbreviations=(
-            "#blk = number of visit blocks in the pattern (≥2 by "
-            "construction; the reversed-order test contrasts forward vs "
-            "full reversal. For ≥3-block patterns, intermediate "
-            "permutations are not exhaustively tested). "
-            "Clinical group = main-paper group if the pattern appeared "
-            "in Table 4 or Figure 4B; otherwise blank (the topup pool "
-            "was not constrained to the manuscript keyword lists). "
-            "Source = Table 4 (main-paper displayed table); "
-            "Fig 4B (main-paper figure); Topup pool (added for this "
-            "supplement-only top-N analysis). "
-            "n fwd / n rev = test-cohort patients matching the forward / "
-            "reverse token order. "
-            "ΣIG fwd / rev = carrier-averaged signed ΣIG for each match "
-            "group. "
-            "Attn (attenuation) = 100 × (1 − |ΣIG rev| / |ΣIG fwd|); "
-            "positive values indicate reversal weakens the model's "
-            "attribution. "
-            "Rows sorted by descending attenuation."
-        ),
-        note=(
-            "Selection: the reversed-order analysis evaluated 3,447 "
-            "candidate cross-visit patterns (cross-visit representatives "
-            "with test-cohort prevalence n ≥ 100, drawn from the "
-            "40,327 scored cross-visit patterns), of which 3,429 had "
-            "valid forward and reversed matches. The ranking and display "
-            "pool (this table and Figure S10) comprises the 1,714 patterns "
-            "with both n_forward ≥ 20 and n_reversed ≥ 20, so the "
-            "attenuation ratio (|ΣIG rev| / |ΣIG fwd|) reflects model "
-            "behavior on sufficiently supported orderings rather than "
-            "match-count sparsity. Without these floors the top of the "
-            "ranking is dominated by patterns whose forward or reverse "
-            "ordering rarely occurs (e.g., match count 1-3, ΣIG ≈ 0). "
-            "Displayed patterns are assigned to clinical groups with the "
-            "same keyword lists used for main-paper Tables 3-4. "
-            "Table S5 lists the 30 displayed Table-4 cross-visit patterns "
-            "specifically (cross-walk to "
-            "the main paper). Full per-pattern "
-            "data for all 3,447 tested patterns is provided in the "
-            "supplementary data release."
-        ),
-    )
-
-    page_break(doc)
-    # ── Table S5: Table-4 cross-walk (11 cross-visit patterns) ─────
+    # ── Table S4: Table-4 cross-walk (11 cross-visit patterns) ─────
     page_break(doc)
     df_s3 = _read_csv("TableS3_reversed_order_table4.csv")
-    table_title(doc, "Table S5",
-                 "Per-pattern reversed temporal order results for the 30 "
-                 "cross-visit patterns from main-paper Table 4 "
-                 "(direct cross-walk).")
+    table_title(doc, "Table S4",
+                 "Forward- and reversed-order attribution for the 30 "
+                 "cross-visit patterns in Table 4.")
     s3_rows = []
+    _last_ph = None
     for _, r in df_s3.iterrows():
+        _ph = _fmt_str(r["phenotype"])
         s3_rows.append([
-            _fmt_str(r["phenotype"]),
+            _ph if _ph != _last_ph else "",
             _fmt_int(r["n_blocks"]),
             _fmt_str(r["readable_label"]),
             _fmt_int(r["n_forward"]),
@@ -994,6 +791,7 @@ def build() -> None:
             f"{r['ig_mean_reversed']:+.3f}" if pd.notna(r["ig_mean_reversed"]) else "n/a",
             f"{r['attenuation_pct']:.1f}%" if pd.notna(r["attenuation_pct"]) else "n/a",
         ])
+        _last_ph = _ph
     make_table(doc,
                 header_row=["Clinical group", "#blk", "Pattern (representative)",
                              "n fwd", "n rev", "n both", "ΣIG fwd", "ΣIG rev",
@@ -1003,9 +801,11 @@ def build() -> None:
                 font_size_pt=8)
     table_legend(doc,
         abbreviations=(
-            "Same column definitions as Table S4 (Pattern, #blk, n fwd, "
-            "n rev, ΣIG fwd / rev, Attn); n both = carriers whose records "
-            "match both orderings, counted in both n fwd and n rev. "
+            "#blk = number of visit blocks; n fwd and n rev = numbers of "
+            "patients matching the forward and reversed orders, "
+            "respectively; n both = patients matching both orders; "
+            "ΣIG fwd and ΣIG rev = carrier-averaged signed attribution "
+            "for each ordering; Attn = 100 × (1 − |ΣIG rev| / |ΣIG fwd|). "
             "Patterns sorted by clinical group in the main-paper Table 4 "
             "ordering, and within each group by descending |ΣIG fwd|."
         ),
@@ -1025,23 +825,22 @@ def build() -> None:
             "patients counted under n both contribute to both means. "
             "Several patterns "
             "have small reverse-order support (n reversed as low as 2), so "
-            "their individual attenuation is descriptive; the population "
-            "temporal-order statistic is taken from the floored sweep "
-            "(Figure S10, Table S4), not these curated rows."
+            "their individual attenuation is descriptive. Broader "
+            "pattern-level reversal results are presented in Figure S9."
         ),
     )
 
-    # ── Table S6: within-patient reversal of the Table 4 patterns ──────
+    # ── Table S5: within-patient reversal of the Table 4 patterns ──────
     page_break(doc)
     df_s6w = _read_csv("TableS6_within_patient_reversal.csv")
-    table_title(doc, "Table S6",
-                "Within-patient reversal of the 30 cross-visit patterns in "
-                "main-paper Table 4.")
+    table_title(doc, "Table S5",
+                "Within-patient temporal-order reversal for the 30 "
+                "cross-visit patterns in Table 4.")
     make_table(doc,
                header_row=["Clinical group", "Pattern", "n", "\u03a3IG obs.",
                            "\u03a3IG rev.", "Atten. %", "Fell %",
                            "Sign %", "p"],
-               data_rows=[[_fmt_str(r["Phenotype"]), _fmt_str(r["Pattern"]),
+               data_rows=[[(_fmt_str(r["Phenotype"]) if _fmt_str(r["Phenotype"]) != _prev else ""), _fmt_str(r["Pattern"]),
                            _fmt_int(r["n carriers"]),
                            _fmt_num(r["Mean \u03a3IG, observed order"], "+.3f"),
                            _fmt_num(r["Mean \u03a3IG, visits reversed"], "+.3f"),
@@ -1049,7 +848,7 @@ def build() -> None:
                            _fmt_num(r["Carriers with reduced |\u03a3IG| (%)"], ".1f"),
                            _fmt_num(r["Sign preserved (%)"], ".0f"),
                            _fmt_str(r["Wilcoxon p"])]
-                          for _, r in df_s6w.iterrows()],
+                          for _prev, (_, r) in zip([None] + [_fmt_str(x) for x in df_s6w["Phenotype"].tolist()[:-1]], df_s6w.iterrows())],
                col_widths_in=[0.8, 2.3, 0.35, 0.55, 0.55, 0.5, 0.5, 0.45, 0.5],
                font_size_pt=8)
     table_legend(doc,
@@ -1063,7 +862,7 @@ def build() -> None:
                        "whose score kept its sign; p = one-sided Wilcoxon "
                        "signed-rank test of |\u03a3IG observed| > |\u03a3IG reversed| "
                        "over carriers."),
-        note=('Unlike Table S5, which compares the carriers matching '
+        note=('Unlike Table S4, which compares the carriers matching '
               'the forward order with those matching the reversed order '
               '(groups that can share patients), this analysis '
               "reorders the matched visits inside each carrier's own "
@@ -1075,14 +874,15 @@ def build() -> None:
               "pattern's own events. For the three palindromic patterns "
               'the pattern reads the same in either direction and any '
               'change reflects the other visit contents, so they are '
-              'excluded from the summary counts. Pooled over the 27 '
-              'non-palindromic patterns (925 carrier-pattern pairs from '
-              '722 distinct patients, 166 of whom carry more than one '
-              'pattern), |ΣIG| fell for 60% of pairs and sign was '
-              "preserved for 97%; a patient-level test on each patient's "
-              'mean over their patterns gives one-sided Wilcoxon p < '
-              '0.001 (n = 722). Per-pattern p values are nominal; 4 of 27'
-              ' remain below 0.05 after Holm correction.'))
+              'excluded from the summary counts. Across 925 '
+              'patient-pattern pairs from 722 distinct patients (166 of '
+              'whom carry more than one pattern), attribution magnitude '
+              'decreased in 60% of pairs, and 97% preserved attribution '
+              'direction. At the patient level, 59% showed a reduction in '
+              "their mean |ΣIG| over their patterns; the patient-level "
+              'one-sided Wilcoxon test on those means was significant '
+              '(p < 0.001, n = 722). Per-pattern p values are nominal; 4 '
+              'of 27 remain below 0.05 after Holm correction.'))
 
     # ── Save ─────────────────────────────────────────────────────────
     os.makedirs(os.path.dirname(OUT_PATH), exist_ok=True)

@@ -953,24 +953,50 @@ def _render_table(blk: Block, S: Dict[str, ParagraphStyle]):
     cell_style = ParagraphStyle("cell", parent=S["body"],
                                   fontSize=8.5, leading=10.5,
                                   alignment=TA_LEFT, spaceAfter=0)
+    cell_center = ParagraphStyle("cellc", parent=cell_style,
+                                   alignment=TA_CENTER)
+    cell_indent = ParagraphStyle("celli", parent=cell_style, leftIndent=10)
     head_style = ParagraphStyle("head", parent=cell_style,
                                   fontName=_font("bold", bold=True))
+    head_center = ParagraphStyle("headc", parent=head_style,
+                                   alignment=TA_CENTER)
+
+    import re as _re
+    _wordy = _re.compile(r"[A-Za-z]{5,}")
+    n_cols_all = max(len(r) for r in ([blk.header_row] if blk.header_row else []) + blk.rows)
+    centered = []
+    for ci in range(n_cols_all):
+        cells = [str(r[ci]) for r in blk.rows if ci < len(r) and str(r[ci]).strip()]
+        centered.append(bool(ci > 0 and cells and all(not _wordy.search(x) for x in cells)
+                             and any(_re.search(r"\d", x) for x in cells)))
+
+    def _cell(c, i, head=False):
+        c = c or ""
+        if head:
+            return Paragraph(c, head_center if centered[i] else head_style)
+        if c.startswith("  "):
+            n_sp = len(c) - len(c.lstrip(" "))
+            lvl = max(1, n_sp // 4)
+            st = ParagraphStyle(f"celli{lvl}", parent=cell_style, leftIndent=10 * lvl)
+            return Paragraph(c.lstrip(" "), st)
+        return Paragraph(c, cell_center if centered[i] else cell_style)
+
     data = []
     if blk.header_row:
-        data.append([Paragraph(c or "", head_style) for c in blk.header_row])
+        data.append([_cell(c, i, True) for i, c in enumerate(blk.header_row)])
     for row in blk.rows:
-        data.append([Paragraph(c or "", cell_style) for c in row])
+        data.append([_cell(c, i) for i, c in enumerate(row)])
     n_cols = max(len(r) for r in data)
     usable = letter[0] - 2 * 1.05 * inch  # ≈ 6.4 inches
     col_w = _column_widths(blk.header_row, n_cols, usable)
     t = Table(data, colWidths=col_w, repeatRows=1 if blk.header_row else 0)
     style = TableStyle([
         ("FONT", (0, 0), (-1, -1), _font("normal"), 8.5),
-        ("VALIGN", (0, 0), (-1, -1), "TOP"),
-        ("LINEBELOW", (0, 0), (-1, 0),
-         0.6, colors.HexColor("#555555")),
-        ("LINEBELOW", (0, -1), (-1, -1),
-         0.6, colors.HexColor("#555555")),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("LINEABOVE", (0, 0), (-1, 0), 0.6, colors.black),
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#F2F2F2")),
+        ("LINEBELOW", (0, 0), (-1, 0), 0.6, colors.black),
+        ("LINEBELOW", (0, -1), (-1, -1), 0.6, colors.black),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
         ("TOPPADDING", (0, 0), (-1, -1), 3),
         ("LEFTPADDING", (0, 0), (-1, -1), 4),

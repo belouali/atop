@@ -6,7 +6,7 @@ Comprehensive rebuild of the main manuscript reflecting the post-redesign state:
   * 2-panel Fig 4 (cross-visit + all patterns dumbbells)
   * Carrier-conditional vs population-weighted aggregation as the
     headline methodological framing (D0)
-  * Cross-method validation via cohort SHAP (Figures S12 and S13, 25/30 token agreement)
+  * Cross-method validation via cohort SHAP (Figures S11 and S12, 25/30 token agreement)
   * Updated Tables 2 (baselines) and 3 (cross-visit phenotype clusters)
   * R1\u2013R7 quantitative findings + D0\u2013D4 discussion entries from
     MANUSCRIPT_OBSERVATIONS.md
@@ -120,6 +120,200 @@ def _pheno_label_with_count(pheno: str, totals_path: str) -> str:
     return pheno
 
 
+PHENO_ORDER = ["Psychiatric", "Oncologic", "Obstetric", "Chest pain workup"]
+
+
+def add_table_1(doc) -> None:
+    """Table 1 (cohort characteristics) with title and legend. Shared with build_tables_only_docx.py."""
+    # ── Table 1 ──────
+    df1 = _read_csv("Table1_cohort.csv")
+    df1_meta = _read_csv("Table1_cohort_meta.csv").iloc[0]
+    n_tot = int(df1_meta["n_total"])
+    n_r = int(df1_meta["n_readmitted"])
+    n_nr = int(df1_meta["n_not_readmitted"])
+    pct_r = float(df1_meta["pct_readmitted"])
+    pct_nr = float(df1_meta["pct_not_readmitted"])
+    table_title(doc, "Table 1", "Cohort characteristics by unplanned 30-day readmission status.")
+    make_table(doc,
+                header_row=[
+                    "Variable",
+                    f"Overall (N={n_tot:,})",
+                    f"Readmitted (N={n_r:,}, {pct_r:.1f}%)",
+                    f"Not readmitted (N={n_nr:,}, {pct_nr:.1f}%)",
+                    "SMD",
+                ],
+                data_rows=[[_fmt_str(r["variable"]),
+                             _fmt_str(r["overall"]),
+                             _fmt_str(r["readmitted"]),
+                             _fmt_str(r["not_readmitted"]),
+                             _fmt_str(r.get("smd", ""))]
+                            for _, r in df1.iterrows()],
+                col_widths_in=[2.12, 1.31, 1.31, 1.37, 0.50],
+                font_size_pt=9)
+    table_legend(doc,
+        abbreviations=(
+            "CCI = Charlson Comorbidity Index; ED = emergency "
+            "department; IQR = interquartile range; LACE = Length of "
+            "stay, Acuity of admission, Charlson Comorbidity Index, "
+            "and Emergency department visits; SMD = standardized mean "
+            "difference."
+        ),
+        note=(
+            "Longitudinal measures (CCI, prior ED visits, and number "
+            "of admissions) were calculated using patient history "
+            "through the index admission."
+        ),
+    )
+
+
+def add_table_2(doc) -> None:
+    """Table 2 (model performance) with title and legend. Shared with build_tables_only_docx.py."""
+    # ── Table 2 (Model performance vs baselines) ──────────
+    df2 = _read_csv("Table2_model_performance.csv")
+    table_title(doc, "Table 2",
+                  "Predictive performance of the Transformer and baseline models.")
+    _t2_headers = {"\u0394AUROC vs Transformer (95% CI)":
+                   "\u0394AUROC (baseline \u2212 Transformer), 95% CI",
+                   "p": "P value"}
+    make_table(doc,
+                header_row=[_t2_headers.get(c, c) for c in df2.columns],
+                data_rows=[[_fmt_str(v) for v in row]
+                            for row in df2.itertuples(index=False)],
+                col_widths_in=[1.85, 1.40, 1.40, 1.40, 0.55],
+                font_size_pt=9)
+    table_legend(doc,
+        abbreviations=(
+            "AUROC = area under the receiver operating characteristic "
+            "curve; PR-AUC = area under the precision-recall curve; CI "
+            "= confidence interval; LACE = Length of stay, Acuity of "
+            "admission, Charlson Comorbidity Index, and Emergency "
+            "department visits."
+        ),
+        note=(
+            "Both baseline models used the four LACE components plus "
+            "age, sex, and prior admissions. Performance was evaluated "
+            "in the test cohort (N = 43,640). Confidence intervals and "
+            "P values were calculated using 1,000 patient-level "
+            "bootstrap resamples."
+        ),
+    )
+
+
+def add_table_3(doc) -> None:
+    """Table 3 (all-pattern clinical groups) with title and legend. Shared with build_tables_only_docx.py."""
+    # ── Table 3 ─────
+    df3 = _read_csv("Table3_full_pool_clusters.csv")
+    # Phenotype-organized: keep top 5 patterns per phenotype family
+    # by |\u03a3 IG|. Order families by total cohort prevalence
+    # (psychiatric first, then oncologic, then obstetric, then chest-
+    # pain workup).
+    # PHENO_ORDER is defined at module level (shared with Table 4).
+    # Restrict to the four named phenotype families; drop
+    # Hepatobiliary, Substance use, and Other so the table presents
+    # as a clean phenotype-oriented summary of the four headline
+    # categories (each with top 5 by |Σ IG|).
+    df3 = df3[df3["phenotype"].isin(PHENO_ORDER)].copy()
+    # Apply Other-split logic: "Other" becomes two sub-rows
+    # ("Other (risk-supporting)" and "Other (protective)"), each
+    # showing top-5 by |IG|. All other families: standard top-5 by |IG|.
+    df3 = _split_other(df3, top_n=5, phen_order=PHENO_ORDER)
+    table_title(doc, "Table 3",
+                  "Top attribution patterns by clinical group.")
+    _t3_totals = os.path.join(TABLES_DIR, "Table3_full_pool_clusters_family_totals.csv")
+    _rows_t3 = []
+    _last_pheno = None
+    for _, r in df3.iterrows():
+        pheno = _fmt_str(r["render_phenotype"])
+        pheno_show = (_pheno_label_with_count(pheno, _t3_totals)
+                      if pheno != _last_pheno else "")
+        _last_pheno = pheno
+        _rows_t3.append([
+            pheno_show,
+            _fmt_str(r["label"]),
+            _fmt_num(r["ig_value"], "+.3f"),
+            _fmt_int(r["n_present"]),
+            _fmt_num(r["delta"], "+.3f"),
+        ])
+    make_table(doc,
+                header_row=["Clinical group", "Pattern", "ΣIG", "n", "Δŷ"],
+                data_rows=_rows_t3,
+                col_widths_in=[1.5, 2.85, 0.6, 0.45, 0.6],
+                font_size_pt=9)
+    table_legend(doc,
+        abbreviations=(
+            "IG = Integrated Gradients; ΣIG = carrier-averaged sum of "
+            "token attributions (logit scale); n = number of "
+            "test-cohort patients containing the pattern; Δŷ = mean "
+            "decrease in predicted readmission probability when the "
+            "pattern is masked (ŷ_original − ŷ_masked); MDD = major "
+            "depressive disorder; SI = suicidal ideation; NOS = not "
+            "otherwise specified; Hx = history of; uncomp. = "
+            "uncomplicated; intox = intoxication; ep. = episode; Resp "
+            "= respiratory; C-section = cesarean delivery."
+        ),
+        note=(
+            "The five patterns with the largest absolute ΣIG are shown "
+            "for each clinical group. Positive attribution indicates a "
+            "contribution toward higher predicted readmission "
+            "probability, and negative attribution indicates a "
+            "contribution toward lower predicted probability. Braces { "
+            "} indicate co-occurring events within a visit, while "
+            "arrows (→) indicate event order across visits. Clinical "
+            "groups are presentational groupings assigned by keyword "
+            "rules (Supplementary Methods) and do not affect mining, "
+            "attribution, or ranking."
+        ),
+    )
+
+
+def add_table_4(doc) -> None:
+    """Table 4 (cross-visit clinical groups) with title and legend. Shared with build_tables_only_docx.py."""
+    # \u2500\u2500 Table 4 (all patterns, phenotype-organized) \u2500\u2500
+    df4 = _read_csv("Table4_cross_visit_clusters.csv")
+    # Table 4 keeps six families (the four of Table 3 plus Hepatobiliary and
+    # Other, Other not split by sign): these 30 patterns are the set analysed
+    # in the reversal and adjusted-odds-ratio tables (Tables S3 and S5).
+    PHENO_ORDER_T4 = PHENO_ORDER + ["Hepatobiliary", "Other"]
+    df4 = df4[df4["phenotype"].isin(PHENO_ORDER_T4)].copy()
+    df4 = _split_other(df4, top_n=5, phen_order=PHENO_ORDER_T4, split_other=False)
+    table_title(doc, "Table 4",
+                  "Top cross-visit attribution patterns by clinical group.")
+    _t4_totals = os.path.join(TABLES_DIR,
+                                "Table4_cross_visit_clusters_family_totals.csv")
+    _rows_t4 = []
+    _last_pheno = None
+    for _, r in df4.iterrows():
+        pheno = _fmt_str(r["render_phenotype"])
+        pheno_show = (_pheno_label_with_count(pheno, _t4_totals)
+                      if pheno != _last_pheno else "")
+        _last_pheno = pheno
+        _rows_t4.append([
+            pheno_show,
+            _fmt_str(r["label"]),
+            _fmt_num(r["ig_value"], "+.3f"),
+            _fmt_int(r["n_present"]),
+            _fmt_num(r["delta"], "+.3f"),
+        ])
+    make_table(doc,
+                header_row=["Clinical group", "Pattern", "ΣIG", "n", "Δŷ"],
+                data_rows=_rows_t4,
+                col_widths_in=[1.5, 2.85, 0.6, 0.45, 0.6],
+                font_size_pt=9)
+    table_legend(doc,
+        abbreviations=(
+            "ΣIG, n, Δŷ, and other abbreviations are as defined in "
+            "Table 3; CVC = central venous catheter; ERCP = endoscopic "
+            "retrograde cholangiopancreatography; GERD = "
+            "gastroesophageal reflux disease; NEC = not elsewhere "
+            "classified; Ag = antigen."
+        ),
+        note=(
+            "The five patterns with the largest absolute ΣIG are shown "
+            "for each clinical group. All patterns span at least two "
+            "visits."
+        ),
+    )
+
 def build() -> None:
     doc = new_document()
 
@@ -149,7 +343,7 @@ def build() -> None:
     # Word-count statement (JAMIA title-page requirement). JAMIA Research
     # and Applications caps the body at 4,000 words and the structured
     # abstract at 250.
-    para(doc, "**Word count:** Abstract 237; Body 3,969.")
+    para(doc, "**Word count:** Abstract 237; Body 3,985.")
     hrule(doc)
 
     # ── Abstract ─────────────────────────────────────────────────────
@@ -417,7 +611,9 @@ def build() -> None:
     para(doc, 'Equation (2) shows that population-weighted attribution '
               'reflects both how often a token occurs and how strongly it'
               ' is attributed when present. Carrier-conditional '
-              'attribution isolates the latter quantity.')
+              'aggregation removes explicit prevalence weighting, '
+              'allowing tokens to be ranked by their mean attribution '
+              'among carriers.')
     para(doc, "At the pattern level, each carrier's score was obtained by"
               " matching the pattern to the patient's record step by "
               'step: each step was assigned the earliest visit containing'
@@ -470,7 +666,7 @@ def build() -> None:
               'all-patterns ranking required at least five test-cohort '
               'carriers, while the cross-visit ranking required at least '
               'three carriers and patterns spanning at least two visits '
-              'and two tokens. Minimum carrier counts excluded patterns '
+              'and two distinct tokens. Minimum carrier counts excluded patterns '
               'represented by very few patients, while the cross-visit '
               'requirements restricted the analysis to longitudinal '
               'sequences. Per-patient explanations used the subset of '
@@ -540,8 +736,10 @@ def build() -> None:
               ' test cohort. We compared the rankings produced by both '
               'methods for population-weighted and carrier-conditional '
               'token attribution, as well as for all-pattern and '
-              'cross-visit pattern attribution. The same aggregation '
-              'procedures were applied to both methods.')
+              'cross-visit pattern attribution. Both methods used '
+              'carrier-conditional averaging but differed in their '
+              'reference distributions, output scales, and '
+              'pattern-scoring procedures (Supplementary Methods).')
 
     # ── Results ──
     heading(doc, "Results", level=1)
@@ -559,75 +757,9 @@ def build() -> None:
               'Because the models used different inputs, these '
               'comparisons do not isolate the effect of architecture.')
 
-    # ── Table 1 ──────
-    df1 = _read_csv("Table1_cohort.csv")
-    df1_meta = _read_csv("Table1_cohort_meta.csv").iloc[0]
-    n_tot = int(df1_meta["n_total"])
-    n_r = int(df1_meta["n_readmitted"])
-    n_nr = int(df1_meta["n_not_readmitted"])
-    pct_r = float(df1_meta["pct_readmitted"])
-    pct_nr = float(df1_meta["pct_not_readmitted"])
-    table_title(doc, "Table 1", "Cohort characteristics by unplanned 30-day readmission status.")
-    make_table(doc,
-                header_row=[
-                    "Variable",
-                    f"Overall (N={n_tot:,})",
-                    f"Readmitted (N={n_r:,}, {pct_r:.1f}%)",
-                    f"Not readmitted (N={n_nr:,}, {pct_nr:.1f}%)",
-                    "SMD",
-                ],
-                data_rows=[[_fmt_str(r["variable"]),
-                             _fmt_str(r["overall"]),
-                             _fmt_str(r["readmitted"]),
-                             _fmt_str(r["not_readmitted"]),
-                             _fmt_str(r.get("smd", ""))]
-                            for _, r in df1.iterrows()],
-                col_widths_in=[2.12, 1.31, 1.31, 1.37, 0.50],
-                font_size_pt=9)
-    table_legend(doc,
-        abbreviations=(
-            "CCI = Charlson Comorbidity Index; ED = emergency "
-            "department; IQR = interquartile range; LACE = Length of "
-            "stay, Acuity of admission, Charlson Comorbidity Index, "
-            "and Emergency department visits; SMD = standardized mean "
-            "difference."
-        ),
-        note=(
-            "Longitudinal measures (CCI, prior ED visits, and number "
-            "of admissions) were calculated using patient history "
-            "through the index admission."
-        ),
-    )
+    add_table_1(doc)
 
-    # ── Table 2 (Model performance vs baselines) ──────────
-    df2 = _read_csv("Table2_model_performance.csv")
-    table_title(doc, "Table 2",
-                  "Predictive performance of the Transformer and baseline models.")
-    _t2_headers = {"\u0394AUROC vs Transformer (95% CI)":
-                   "\u0394AUROC (baseline \u2212 Transformer), 95% CI",
-                   "p": "P value"}
-    make_table(doc,
-                header_row=[_t2_headers.get(c, c) for c in df2.columns],
-                data_rows=[[_fmt_str(v) for v in row]
-                            for row in df2.itertuples(index=False)],
-                col_widths_in=[1.85, 1.40, 1.40, 1.40, 0.55],
-                font_size_pt=9)
-    table_legend(doc,
-        abbreviations=(
-            "AUROC = area under the receiver operating characteristic "
-            "curve; PR-AUC = area under the precision-recall curve; CI "
-            "= confidence interval; LACE = Length of stay, Acuity of "
-            "admission, Charlson Comorbidity Index, and Emergency "
-            "department visits."
-        ),
-        note=(
-            "Both baseline models used the four LACE components plus "
-            "age, sex, and prior admissions. Performance was evaluated "
-            "in the test cohort (N = 43,640). Confidence intervals and "
-            "P values were calculated using 1,000 patient-level "
-            "bootstrap resamples."
-        ),
-    )
+    add_table_2(doc)
 
     heading(doc, "Single-patient explanation", level=2)
     para(doc, 'Figure 2 illustrates an AToP explanation for a test '
@@ -671,10 +803,7 @@ def build() -> None:
               'codes with high attribution among carriers, including '
               'psychosis NOS, acetaminophen overdose/self-harm, '
               'severe MDD, and bipolar manic episode.')
-    para(doc, 'Only 7 tokens appeared in both top-30 rankings. Of '
-              'the 23 tokens unique to the carrier-conditional '
-              'ranking, 21 ranked below 100 in the '
-              'population-weighted ranking (Figure S3).')
+    para(doc, 'Only 7 tokens appeared in both top-30 rankings.')
 
     heading(doc, 'Pattern-level global attribution: cross-visit '
                  'rankings highlight longitudinal patterns', level=2)
@@ -689,17 +818,17 @@ def build() -> None:
               '{Recurrent severe MDD; SI} (Tables 3–4).')
     para(doc, 'The two rankings showed almost no overlap, sharing '
               'only one pattern among their top 50; rankings at '
-              'other Jaccard thresholds are shown in Figures S4–S5. '
+              'other Jaccard thresholds are shown in Figures S3–S4. '
               'The top-30 all-pattern representatives had '
               'approximately 2.4-fold larger mean |ΣIG| than the '
               'top-30 cross-visit representatives (1.16 vs 0.48). '
               'When ranked by population-weighted rather than '
               'carrier-averaged ΣIG, only 6 of the top 30 patterns '
-              'overlapped (Figure S6).')
+              'overlapped (Figure S5).')
     para(doc, 'To assess whether pattern attribution simply '
               'reflected prevalence or observed readmission risk, we '
               'compared attribution magnitudes with pattern '
-              'prevalence and relative risk (Figure S7). '
+              'prevalence and relative risk (Figure S6). '
               'Patterns with similar prevalence or relative risk '
               'showed substantial differences in attribution '
               'magnitude.')
@@ -713,7 +842,7 @@ def build() -> None:
               'pattern changed predicted readmission probability in '
               'the direction indicated by its attribution (Figure '
               '5), as it did for all 266 perturbed patterns (Figure '
-              'S8).')
+              'S7).')
     para(doc, 'To examine whether pattern attributions aligned with '
               'observed readmission risk, we estimated odds ratios '
               'for the 30 reported cross-visit patterns, adjusting '
@@ -723,118 +852,9 @@ def build() -> None:
               'associations were descriptive and did not establish '
               'attribution faithfulness.')
 
-    # ── Table 3 ─────
-    df3 = _read_csv("Table3_full_pool_clusters.csv")
-    # Phenotype-organized: keep top 5 patterns per phenotype family
-    # by |\u03a3 IG|. Order families by total cohort prevalence
-    # (psychiatric first, then oncologic, then obstetric, then chest-
-    # pain workup).
-    PHENO_ORDER = ["Psychiatric", "Oncologic", "Obstetric",
-                    "Chest pain workup"]
-    # Restrict to the four named phenotype families; drop
-    # Hepatobiliary, Substance use, and Other so the table presents
-    # as a clean phenotype-oriented summary of the four headline
-    # categories (each with top 5 by |Σ IG|).
-    df3 = df3[df3["phenotype"].isin(PHENO_ORDER)].copy()
-    # Apply Other-split logic: "Other" becomes two sub-rows
-    # ("Other (risk-supporting)" and "Other (protective)"), each
-    # showing top-5 by |IG|. All other families: standard top-5 by |IG|.
-    df3 = _split_other(df3, top_n=5, phen_order=PHENO_ORDER)
-    table_title(doc, "Table 3",
-                  "Top attribution patterns by clinical group.")
-    _t3_totals = os.path.join(TABLES_DIR, "Table3_full_pool_clusters_family_totals.csv")
-    _rows_t3 = []
-    _last_pheno = None
-    for _, r in df3.iterrows():
-        pheno = _fmt_str(r["render_phenotype"])
-        pheno_show = (_pheno_label_with_count(pheno, _t3_totals)
-                      if pheno != _last_pheno else "")
-        _last_pheno = pheno
-        _rows_t3.append([
-            pheno_show,
-            _fmt_str(r["label"]),
-            _fmt_num(r["ig_value"], "+.3f"),
-            _fmt_int(r["n_present"]),
-            _fmt_num(r["delta"], "+.3f"),
-        ])
-    make_table(doc,
-                header_row=["Clinical group", "Pattern", "ΣIG", "n", "Δŷ"],
-                data_rows=_rows_t3,
-                col_widths_in=[1.5, 2.85, 0.6, 0.45, 0.6],
-                font_size_pt=9)
-    table_legend(doc,
-        abbreviations=(
-            "IG = Integrated Gradients; ΣIG = carrier-averaged sum of "
-            "token attributions (logit scale); n = number of "
-            "test-cohort patients containing the pattern; Δŷ = mean "
-            "decrease in predicted readmission probability when the "
-            "pattern is masked (ŷ_original − ŷ_masked); MDD = major "
-            "depressive disorder; SI = suicidal ideation; NOS = not "
-            "otherwise specified; Hx = history of; uncomp. = "
-            "uncomplicated; intox = intoxication; ep. = episode; Resp "
-            "= respiratory; C-section = cesarean delivery."
-        ),
-        note=(
-            "The five patterns with the largest absolute ΣIG are shown "
-            "for each clinical group. Positive attribution indicates a "
-            "contribution toward higher predicted readmission "
-            "probability, and negative attribution indicates a "
-            "contribution toward lower predicted probability. Braces { "
-            "} indicate co-occurring events within a visit, while "
-            "arrows (→) indicate event order across visits. Clinical "
-            "groups are presentational groupings assigned by keyword "
-            "rules (Supplementary Methods) and do not affect mining, "
-            "attribution, or ranking."
-        ),
-    )
+    add_table_3(doc)
 
-    # \u2500\u2500 Bridge paragraph + Table 4 (all patterns, phenotype-organized) \u2500
-
-    # \u2500\u2500 Table 4 (all patterns, phenotype-organized) \u2500\u2500
-    df4 = _read_csv("Table4_cross_visit_clusters.csv")
-    # Table 4 keeps six families (the four of Table 3 plus Hepatobiliary and
-    # Other, Other not split by sign): these 30 patterns are the set analysed
-    # in the reversal and adjusted-odds-ratio tables (Tables S3 and S5).
-    PHENO_ORDER_T4 = PHENO_ORDER + ["Hepatobiliary", "Other"]
-    df4 = df4[df4["phenotype"].isin(PHENO_ORDER_T4)].copy()
-    df4 = _split_other(df4, top_n=5, phen_order=PHENO_ORDER_T4, split_other=False)
-    table_title(doc, "Table 4",
-                  "Top cross-visit attribution patterns by clinical group.")
-    _t4_totals = os.path.join(TABLES_DIR,
-                                "Table4_cross_visit_clusters_family_totals.csv")
-    _rows_t4 = []
-    _last_pheno = None
-    for _, r in df4.iterrows():
-        pheno = _fmt_str(r["render_phenotype"])
-        pheno_show = (_pheno_label_with_count(pheno, _t4_totals)
-                      if pheno != _last_pheno else "")
-        _last_pheno = pheno
-        _rows_t4.append([
-            pheno_show,
-            _fmt_str(r["label"]),
-            _fmt_num(r["ig_value"], "+.3f"),
-            _fmt_int(r["n_present"]),
-            _fmt_num(r["delta"], "+.3f"),
-        ])
-    make_table(doc,
-                header_row=["Clinical group", "Pattern", "ΣIG", "n", "Δŷ"],
-                data_rows=_rows_t4,
-                col_widths_in=[1.5, 2.85, 0.6, 0.45, 0.6],
-                font_size_pt=9)
-    table_legend(doc,
-        abbreviations=(
-            "ΣIG, n, Δŷ, and other abbreviations are as defined in "
-            "Table 3; CVC = central venous catheter; ERCP = endoscopic "
-            "retrograde cholangiopancreatography; GERD = "
-            "gastroesophageal reflux disease; NEC = not elsewhere "
-            "classified; Ag = antigen."
-        ),
-        note=(
-            "The five patterns with the largest absolute ΣIG are shown "
-            "for each clinical group. All patterns span at least two "
-            "visits."
-        ),
-    )
+    add_table_4(doc)
 
     # Figure 5. separate file (see Figure Legends at end of manuscript).
 
@@ -853,7 +873,7 @@ def build() -> None:
               'tokens, and retaining them better preserved the '
               'original predictions, with non-overlapping 95% '
               'bootstrap intervals at every k; only k = 5 was '
-              'formally tested (Figure S9). These results indicate '
+              'formally tested (Figure S8). These results indicate '
               'faithfulness to the model, not clinical correctness.')
 
     heading(doc, "Temporal-order analysis", level=2)
@@ -861,10 +881,10 @@ def build() -> None:
               'had the same sequence in both directions and were '
               'excluded. Of the remaining 27, attribution magnitudes '
               'were lower for the reversed sequence in 26 (96%; mean '
-              'attenuation, 32%; Table S5). In the broader set of '
+              'attenuation, 32%; Table S4). In the broader set of '
               '1,714 patterns, however, attribution magnitudes '
               'decreased in only 54%, while attribution direction '
-              'remained unchanged in 95% (Figure S10; Table S4). '
+              'remained unchanged in 95% (Figure S9). '
               'Because these comparisons used naturally occurring '
               'sequences, differences could also reflect patient '
               'characteristics.')
@@ -873,17 +893,17 @@ def build() -> None:
               '21 of 27 patterns (mean attenuation, 14%). Among 722 '
               'patients, 59% showed a reduction, with a '
               'statistically significant overall difference (p < '
-              '0.001; Table S6).')
+              '0.001; Table S5).')
 
     heading(doc, "Cross-method comparison", level=2)
     para(doc, 'To assess whether the attribution findings were '
               'consistent across methods, we repeated the analysis '
               'using KernelSHAP instead of IG; per-patient agreement '
-              'is shown in Figure S11. The two methods shared 25 of '
-              'their top 30 carrier-conditional tokens (Figure S12). '
+              'is shown in Figure S10. The two methods shared 25 of '
+              'their top 30 carrier-conditional tokens (Figure S11). '
               'At the pattern level, they shared 21 of the top 30 '
               'patterns across all pattern types, but only 7 of the '
-              'top 30 cross-visit patterns (Figure S13). These '
+              'top 30 cross-visit patterns (Figure S12). These '
               'findings indicate substantial agreement at the token '
               'level but greater sensitivity to the attribution '
               'method for cross-visit pattern rankings, consistent '
@@ -897,14 +917,14 @@ def build() -> None:
               'patterns rather than only re-weighting population-averaged'
               ' token importance, the global summary commonly reported '
               'with SHAP [32]. Token-level findings were largely '
-              'consistent under KernelSHAP (25/30; Figure S12), whereas '
+              'consistent under KernelSHAP (25/30; Figure S11), whereas '
               'cross-visit pattern rankings remain attribution-method '
-              'dependent (7/30); we therefore report the IG '
-              'implementation as canonical.')
+              'dependent (7/30); IG was used as the primary attribution '
+              'method.')
     para(doc, 'The cross-visit restriction is a design choice: the '
               'all-pattern and cross-visit rankings answer different '
               'questions and their top-50 sets overlap in 1 of 50. '
-              'Single-visit patterns carry larger attribution magnitude '
+              'Within-visit patterns carry larger attribution magnitude '
               '(about 2.4-fold among the top-30 representatives), whereas cross-visit patterns provide the '
               'longitudinal structure that motivates the framework. '
               "Because a pattern's Σ IG is an order-invariant sum, "
@@ -956,10 +976,12 @@ def build() -> None:
               'predicted, not whether IG selected the most influential '
               'patterns; a ranking-independent sample of the pattern '
               'space is the natural next step. At the token level, the '
-              'comprehensiveness and sufficiency curves (Figure S9) '
+              'comprehensiveness and sufficiency curves (Figure S8) '
               'benchmark against random selection. (iii) Pattern-level '
               'rankings remain partly attribution-method dependent (7/30 '
-              'cross-visit agreement with SHAP). (iv) Patterns with small'
+              'cross-visit agreement with SHAP, whose estimates were '
+              'sparse and used a different pattern-scoring convention; '
+              'Supplementary Methods). (iv) Patterns with small'
               ' carrier counts (n < 20) are flagged discovery-only; n is '
               'shown for every pattern. (v) Deployment-utility measures '
               'and subgroup analysis are out of scope; several surfaced '
@@ -970,7 +992,7 @@ def build() -> None:
               'is a tractability heuristic; risk-pattern rankings are '
               'stable across τ ∈ [0.60, 0.95] (top-30 overlap ≥ 0.67), '
               'protective-pattern rankings less so (0.20 between the '
-              'extremes; Figure S14), and the threshold has no principled'
+              'extremes; Figure S13), and the threshold has no principled'
               ' rule. (vii) The Table 2 performance gap reflects feature '
               'richness and architecture jointly; feature-matched '
               'ablations are left to future work. (viii) In-hospital '
@@ -989,12 +1011,13 @@ def build() -> None:
               'carrier-conditional token aggregation surfaces '
               'rare-but-high-attribution features that prevalence '
               'weighting hides; pattern-level ΣIG aggregation surfaces '
-              'multi-visit phenotypes that single-feature attribution '
+              'multi-visit clinical patterns that single-feature attribution '
               'cannot represent. Comparison with KernelSHAP indicates '
               'that the token-level carrier-conditional findings (25/30 '
-              'agreement) are not specific to IG; pattern-level rankings '
-              'are attribution-method dependent, and the IG version is '
-              'canonical. AToP was evaluated on a single Transformer, '
+              'agreement) were largely consistent across methods; '
+              'pattern-level rankings are attribution-method dependent, '
+              'and IG was used as the primary attribution method. AToP '
+              'was evaluated on a single Transformer, '
               'task, and dataset; portability remains to be demonstrated.')
 
     # ── Required statements (between Conclusion and References) ─────
@@ -1157,7 +1180,7 @@ def build() -> None:
               'within-visit and cross-visit patterns, with remaining '
               'attribution shown as other salient and non-salient '
               'tokens. Row prefixes give the admissions each pattern '
-              'spans (V1→V2 cross-visit; V5 single-visit). Shared '
+              'spans (V1→V2 cross-visit; V5 within-visit). Shared '
               'token positions were assigned to a single pattern '
               'using a fixed priority rule (Supplementary Methods); '
               'the bars represent attribution allocations rather '
@@ -1212,7 +1235,7 @@ def build() -> None:
               'within-visit co-occurrences, and cross-visit '
               'sequences. (B) The 30 highest-ranked cross-visit '
               'patterns, restricted to sequences spanning at least '
-              'two visits and containing at least two tokens. '
+              'two visits and containing at least two distinct tokens. '
               'Rankings use absolute carrier-averaged ΣIG after '
               'Jaccard-based deduplication. Red bars indicate '
               'contributions toward higher predicted readmission '

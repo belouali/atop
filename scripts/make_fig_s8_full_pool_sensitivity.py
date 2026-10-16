@@ -206,9 +206,10 @@ def main() -> None:
     SHOW = ["A", "C", "E", "F"]
     # Narrow strips cannot hold the full threshold strings; keep them short
     # and put the full wording in the caption.
-    SHORT = {"A": "A. No dedup", "B": "B. J \u2265 0.8", "C": "C. J \u2265 0.6",
-             "D": "D. J \u2265 0.4", "E": "E. J \u2265 0.2 (locked)",
-             "F": "F. J \u2265 0.1"}
+    # Displayed panels are lettered consecutively (A-D); the internal
+    # letters of the six-way sweep are kept for the backing CSV.
+    SHORT = {"A": "A. No dedup", "C": "B. J \u2265 0.6",
+             "E": "C. J \u2265 0.2 (main)", "F": "D. J \u2265 0.1"}
     sel = [(l, lab, reps) for (l, lab, reps) in rep_sets if l in SHOW]
 
     per_panel = {}
@@ -266,12 +267,12 @@ def main() -> None:
                         ha="right", va="center", fontsize=args.fontsize - 2.2)
 
     fig.text(0.5, 0.982,
-             "Jaccard sensitivity \u2014 full pattern pool, no shape minimums",
+             "Jaccard sensitivity: all pattern types",
              ha="center", fontsize=args.fontsize + 2, fontweight="bold")
     fig.text(0.5, 0.951,
              "Rows are the union of the displayed top-30 sets (n = %d), ordered "
              "by peak |\u03a3IG|; a grey diamond marks a pattern absent at that "
-             "threshold. Panels B and D are omitted (identical to C)." % n_rows,
+             "threshold. Thresholds 0.8 and 0.4 give the same top-30 as 0.6 and are not shown." % n_rows,
              ha="center", fontsize=args.fontsize - 2.5, color="#444444")
     fig.text(0.5, 0.016,
              "E[\u03a3 IG | present]      \u2190 protective    risk \u2192",

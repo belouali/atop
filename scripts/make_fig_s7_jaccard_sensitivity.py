@@ -141,8 +141,8 @@ def main() -> None:
         ("B", "Jaccard \u2265 0.8 dedup (near-identity merges only)", 0.8),
         ("C", "Jaccard \u2265 0.6 dedup",                      0.6),
         ("D", "Jaccard \u2265 0.4 dedup",                      0.4),
-        ("E", "Jaccard \u2265 0.2 dedup (locked \u2014 main paper)", 0.2),
-        ("F", "Jaccard \u2265 0.1 dedup (tighter than locked)", 0.1),
+        ("E", "Jaccard \u2265 0.2 dedup (main analyses)", 0.2),
+        ("F", "Jaccard \u2265 0.1 dedup", 0.1),
     ]
     rep_sets = []
     for letter, label, thresh in threshold_specs:
@@ -169,6 +169,10 @@ def main() -> None:
     # All six thresholds remain in the backing CSV.
     SHOW = ["A", "C", "E", "F"]
     render_sets = [rs for rs in rep_sets if rs[0] in SHOW]
+    # Displayed panels are lettered consecutively (A-D) regardless of which
+    # thresholds of the six-way sweep are shown.
+    render_sets = [(chr(65 + i), label, reps)
+                   for i, (_, label, reps) in enumerate(render_sets)]
     print(f"\n[3] Rendering {len(render_sets)} panels (top-{args.n_show} each)\u2026")
     tmp_dir = tempfile.mkdtemp(prefix="fig_s7_")
     tmp_paths = []
@@ -219,14 +223,12 @@ def main() -> None:
     from PIL import ImageDraw, ImageFont
     header_h = 180
     title_text = (
-        "Jaccard sensitivity \u2014 cross-visit multi-token patterns only "
-        "(locked Panel C source)"
+        "Jaccard sensitivity: cross-visit patterns"
     )
     subtitle_text = (
-        "Patterns spanning \u22652 visits with \u22652 tokens "
-        "(min_steps=2, min_tokens=2). "
-        "Excludes single-visit-only and single-token patterns. "
-        "Each panel = top-30 by |\u03A3IG| within the Jaccard-deduplicated representative set."
+        "Patterns spanning \u22652 visits with \u22652 distinct tokens. "
+        "Each panel shows the top-30 patterns by |\u03A3IG| within the "
+        "Jaccard-deduplicated representative set."
     )
     composite = Image.new("RGB", (final_w, body_h + header_h), "white")
     composite.paste(row1, ((final_w - row1.width) // 2, header_h))
