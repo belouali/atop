@@ -1188,8 +1188,7 @@ ARXIV_PDF = os.path.join(HERE, "..", "..", "manuscript", "jamia_submission",
 # paper is accepted this line must say so instead, and the preprint may not be
 # updated further.
 PREPRINT_NOTE = ("Preprint: author's original version, not peer reviewed. "
-                 "Under review. Code: https://github.com/belouali/atop "
-                 "(release v1.0.2).")
+                 "Under review. Code: https://github.com/belouali/atop.")
 
 
 def build(preprint: bool = False):

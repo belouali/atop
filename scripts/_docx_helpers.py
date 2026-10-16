@@ -7,6 +7,7 @@ table placeholder paragraphs so both scripts produce visually consistent output.
 from __future__ import annotations
 
 import os
+import re
 
 from docx import Document
 from docx.enum.table import WD_ALIGN_VERTICAL, WD_TABLE_ALIGNMENT
@@ -90,8 +91,36 @@ def heading(doc, text: str, level: int = 1) -> None:
     p.paragraph_format.space_after  = Pt(6)
 
 
+# House style: every in-text reference to a figure or table ("Figure 2B",
+# "Figures S2A\u2013C", "Tables 3\u20134", "Tables S4 and S5") is set in bold.
+# Applied automatically to body paragraphs, figure captions and table
+# legends, so builders never need to mark these by hand.
+_EXHIBIT_RE = re.compile(
+    r"\b(?:Figures?|Tables?)[ \u00a0-]S?\d+[A-Za-z]?"
+    r"(?:\s*[\u2013-]\s*(?:S?\d+)?[A-Za-z]?)?"
+    r"(?:(?:,\s*|,?\s+and\s+|\s+or\s+)S?\d+[A-Za-z]?"
+    r"(?:\s*[\u2013-]\s*(?:S?\d+)?[A-Za-z]?)?)*"
+)
+
+
+def bold_exhibit_refs(text: str) -> str:
+    """Wrap figure/table references in ``**..**`` outside existing bold
+    spans; adjacent spans are merged so the ``**`` parity stays valid."""
+    if not text or not _EXHIBIT_RE.search(text):
+        return text
+    out = []
+    for part in re.split(r"(\*\*[^*]+\*\*)", text):
+        if part.startswith("**") and part.endswith("**") and len(part) > 4:
+            out.append(part)
+        else:
+            out.append(_EXHIBIT_RE.sub(lambda m: "**" + m.group(0) + "**", part))
+    return "".join(out).replace("****", "")
+
+
 def para(doc, text: str, *, italic: bool = False, bold: bool = False) -> None:
-    """A normal-style paragraph; supports inline ** ** for bold runs."""
+    """A normal-style paragraph; supports inline ** ** for bold runs.
+    Figure and table references are bolded automatically."""
+    text = bold_exhibit_refs(text)
     p = doc.add_paragraph()
     p.paragraph_format.line_spacing = LINE_SPACING
     if "**" not in text:
@@ -174,13 +203,13 @@ def figure_placeholder(doc, label: str, legend: str, *,
     p = doc.add_paragraph()
     r = p.add_run(f"{label}. ")
     r.bold = True
-    p.add_run(legend)
+    _add_runs_with_inline_bold(p, legend, italic=False)
 
     if alt:
         p = doc.add_paragraph()
         r = p.add_run("Alt text: ")
         r.italic = True
-        p.add_run(alt)
+        _add_runs_with_inline_bold(p, alt, italic=False)
 
 
 def figure_landscape(doc, label: str, heading_text: str, legend: str, *,
@@ -229,8 +258,7 @@ def figure_landscape(doc, label: str, heading_text: str, legend: str, *,
     r = p.add_run(f"{label}. ")
     r.bold = True
     r.font.size = Pt(9)
-    r = p.add_run(legend)
-    r.font.size = Pt(9)
+    _add_runs_with_inline_bold(p, legend, italic=False, font_size_pt=9)
 
     sec = doc.add_section(WD_SECTION.NEW_PAGE)
     for k, v in saved.items():
@@ -251,7 +279,7 @@ def _add_runs_with_inline_bold(paragraph, text: str, *,
     """Add `text` to `paragraph` as runs, parsing ``**bold**`` markers
     into separate bold runs. All runs inherit `italic` and `font_size_pt`.
     """
-    import re
+    text = bold_exhibit_refs(text)
     parts = re.split(r"(\*\*[^*]+\*\*)", text)
     for part in parts:
         if not part:

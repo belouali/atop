@@ -100,7 +100,7 @@ def write_table_s3(df: pd.DataFrame) -> None:
     t4 = t4.sort_values(["_pord", "abs_fwd"], ascending=[True, False])
 
     out_cols = ["phenotype", "n_blocks", "readable_label",
-                 "n_forward", "n_reversed",
+                 "n_forward", "n_reversed", "n_both",
                  "ig_mean_forward", "ig_mean_reversed", "attenuation_pct"]
     t4 = t4[out_cols].copy()
     for c in ("ig_mean_forward", "ig_mean_reversed"):

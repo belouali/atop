@@ -218,8 +218,8 @@ def build() -> None:
               ' IG mass between overlapping patterns, which is why the '
               'bars are described as allocations.')
 
-    heading(doc, "Phenotype family assignment", level=2)
-    para(doc, "Phenotype families are assigned from each pattern's "
+    heading(doc, "Clinical group assignment", level=2)
+    para(doc, "Clinical groups are assigned from each pattern's "
               'readable label by substring matching against keyword '
               'lists, applied in a fixed order in which the first '
               'matching family wins: Psychiatric (MDD, Depression NOS, '
@@ -318,54 +318,48 @@ def build() -> None:
               'the all-patterns pool was scored with a minimum of 5 '
               'test-cohort carriers, and the cross-visit dictionary was '
               'built with a minimum of 3. Neither value was optimized or '
-              'tested for sensitivity. The minimum displayed carrier '
-              'count was five in the all-patterns ranking and four in the'
-              ' cross-visit ranking.')
+              'tested for sensitivity.')
 
     heading(doc, "Attribution direction and observed readmission", level=2)
-    para(doc, 'To examine whether model-attributed cross-visit patterns '
-              'were associated with observed readmission, we conducted a '
-              'separate descriptive analysis. We restricted the test '
-              'cohort to patients with at least two admissions, since '
-              'cross-visit patterns require multiple visits. For each '
-              'displayed cross-visit pattern, we fitted a logistic '
-              'regression with readmission as the outcome and pattern '
-              'carriage and the log-transformed number of visits as '
-              'predictors, and report the visit-adjusted odds ratio for '
-              'carriage with its 95% Wald confidence interval (Table S3).'
-              ' No matching was performed. These associations were not '
-              'used to evaluate attribution faithfulness.')
+    para(doc, 'To examine whether model-attributed cross-visit '
+              'patterns were associated with observed readmission, '
+              'we conducted a separate descriptive analysis. We '
+              'restricted the test cohort to patients with at least '
+              'two admissions, since cross-visit patterns require '
+              'multiple visits. For each reported cross-visit '
+              'pattern, we fitted a logistic regression with '
+              'readmission as the outcome and pattern presence and '
+              'the log-transformed number of admissions as '
+              'predictors. We report the adjusted odds ratio for '
+              'pattern presence with its 95% Wald confidence '
+              'interval (Table S3). No matching was performed. These '
+              'associations were not used to evaluate attribution '
+              'faithfulness.')
 
     heading(doc, "Supplementary Results", level=1)
 
     heading(doc, "Attribution direction vs observed outcome", level=2)
-    para(doc, "Attribution direction is a statement about the model, and "
-              "epidemiologic association is a statement about the cohort; "
-              "the two need not agree, but a systematic disagreement would "
-              "be worth explaining. Comparing them requires care, because "
-              "cross-visit patterns can only be carried by patients with "
-              "at least two admissions, and those patients are readmitted "
-              "far more often than the cohort overall (27.8% vs 12.7%). "
-              "Against the whole-cohort baseline nearly every cross-visit "
-              "pattern therefore looks risk-increasing, including patterns "
-              "the model treats as protective; this is an artifact of "
-              "visit count, not a contradiction. Restricting to patients "
-              "with two or more visits and adjusting for the number of "
-              "visits, attribution direction and outcome direction agree "
-              "for 25 of the 30 displayed cross-visit patterns: 15 of 19 "
-              "risk-supporting patterns have an adjusted odds ratio above "
-              "1, and 10 of 11 protective patterns have an adjusted odds "
-              "ratio below 1 (Table S3). The obstetric case "
-              "illustrates the correction: repeat cesarean delivery "
-              "carries an unadjusted relative risk above 1 against the "
-              "whole cohort, but an adjusted odds ratio of 0.83 within the "
-              "multi-visit population, consistent with the protective "
-              "attribution the model assigns. We report these odds ratios "
-              "as descriptive context only. They are associational, "
-              "several intervals are wide, and agreement between "
-              "attribution and outcome is neither necessary for the "
-              "attribution to be faithful to the model nor sufficient to "
-              "establish that it is.")
+    para(doc, 'Attribution direction is a statement about the model, '
+              'whereas the association with observed readmission '
+              'describes the study cohort. These need not agree. '
+              'Cross-visit patterns can only be observed among '
+              'patients with at least two admissions, whose '
+              'readmission rate is substantially higher than that of '
+              'the overall cohort (27.8% vs 12.7%). Comparisons '
+              'against the whole-cohort baseline can therefore be '
+              'misleading.')
+    para(doc, 'Restricting the analysis to patients with at least '
+              'two admissions and adjusting for the number of '
+              'admissions, attribution direction and outcome '
+              'association agreed for 25 of the 30 reported '
+              'cross-visit patterns: 15 of 19 risk-supporting '
+              'patterns had adjusted odds ratios above 1, and 10 of '
+              '11 protective patterns had adjusted odds ratios below '
+              '1 (Table S3). For example, repeat cesarean delivery '
+              'had an adjusted odds ratio of 0.83, consistent with '
+              'its negative model attribution. These associations '
+              'are descriptive and do not establish either causal '
+              'effects or attribution faithfulness.')
 
     heading(doc, "Faithfulness of the attribution ranking", level=2)
     para(doc, "To test whether AToP's IG ranking surfaces the tokens the "
@@ -474,7 +468,7 @@ def build() -> None:
         "signed \u03a3 IG decomposition under the non-overlapping "
         "position-level allocation rule. Bars labeled V\u2099\u2192V\u2098 "
         "are cross-visit pattern matches; V\u2098: are single-visit. "
-        "Examples in S4a and S4b were chosen to span phenotype families "
+        "Examples in S4a and S4b were chosen to span clinical groups "
         "rather than to validate predictive accuracy.",
         image_path=IMAGE_PATHS.get("Figure S2A"))
 
@@ -547,7 +541,7 @@ def build() -> None:
         "the result: on the cross-visit pool the threshold materially "
         "changes what reaches the top. Loose thresholds leave the top-30 "
         "dominated by near-duplicate MDD/SI and obstetric variants; all "
-        "six phenotype families surface independently by j ≥ 0.2. At "
+        "six clinical groups surface independently by j ≥ 0.2. At "
         "j ≥ 0.1 that coverage survives in a much smaller pool (2,075), "
         "at the cost of more near-duplicate variants in the top-30.",
         image_path=IMAGE_PATHS.get("Figure S4"))
@@ -612,10 +606,11 @@ def build() -> None:
         "marked with empty rings and listed in the upper-left textbox. "
         "(B) log₁₀(Relative Risk vs cohort baseline) vs |ΣIG|. Here RR "
         "is computed on the training cohort (baseline 30-day readmission "
-        "rate 12.6%), the cohort the patterns were mined from. RR is "
-        "unadjusted and, for cross-visit patterns, confounded by visit "
-        "count; visit-adjusted odds ratios for the displayed cross-visit "
-        "patterns are given in Table S3. Dashed vertical "
+        "rate 12.6%), the cohort the patterns were mined from. For "
+        "cross-visit patterns, RR does not account for "
+        "differences in the number of admissions. Adjusted odds ratios "
+        "for the reported cross-visit patterns are provided in Table S3. "
+        "Dashed vertical "
         "line marks RR = 1 (baseline). Spearman ρ (|ΣIG| vs "
         "log RR) = −0.13: patterns with comparable RR span a wide range of "
         "|ΣIG|, so effect size alone does not predict a pattern's "
@@ -686,7 +681,7 @@ def build() -> None:
         "sensitivities include Prochlorperazine → Ibuprofen (99%), "
         "Anxiety disorder NOS → Insulin Lispro (99%), and {AKI NOS; "
         "Thiamine} → Polyethylene Glycol (98%). Per-pattern numerical "
-        "results are in Table S4, with a phenotype-organized cross-walk "
+        "results are in Table S4, with a cross-walk organized by clinical group "
         "to the main-paper Table 4 patterns in Table S5.",
         image_path=IMAGE_PATHS.get("Figure S10"))
 
@@ -774,31 +769,27 @@ def build() -> None:
     # ── Table S1: parameter / hyperparameter table ─────────────────
     page_break(doc)
     df_s4 = _read_csv("TableS4_parameters.csv")
-    table_title(doc, "Table S1",
-                 "AToP parameters and hyperparameters: values, prespecified-"
-                 "vs-tuned status, and rationale.")
+    table_title(doc, "Table S1", "AToP parameter and evaluation settings.")
     s4_rows = [[_fmt_str(r[c]) for c in df_s4.columns] for _, r in df_s4.iterrows()]
     make_table(doc,
                 header_row=list(df_s4.columns),
                 data_rows=s4_rows,
-                col_widths_in=[1.7, 1.0, 1.2, 3.0],
+                col_widths_in=[1.9, 1.3, 1.1, 2.6],
                 font_size_pt=8)
     table_legend(doc,
         abbreviations=(
-            "IG = integrated gradients; ΣIG = sum of token IG values "
-            "for a pattern; τ = IG saliency-mass threshold; j = Jaccard "
-            "carrier-set overlap threshold."
+            "IG = Integrated Gradients; τ = saliency-mass threshold; j "
+            "= Jaccard similarity threshold; CI = confidence interval."
         ),
         note=(
-            "Prespecified = fixed before the analysis from "
-            "tractability or design considerations; Design choice = a "
-            "deliberate methodological convention (not tuned on "
-            "results); Tuned by inspection = set by examining "
-            "training-cohort output, without reference to any outcome "
-            "label or to the test set. No parameter was selected by "
-            "optimizing a test-set outcome. Sensitivity sweeps for the saliency-mass "
-            "threshold and the Jaccard threshold are in Figures S14 and "
-            "S4\u2013S5, respectively."
+            "Prespecified settings were fixed before the corresponding "
+            "analyses. Design choice denotes a methodological "
+            "convention rather than a numerical setting. Selected by "
+            "inspection denotes a value chosen by examining "
+            "training-cohort output without outcome labels or test "
+            "data; the maximum drug-prevalence threshold was the only "
+            "such parameter. No parameter was selected by optimizing "
+            "test-set outcomes."
         ),
     )
 
@@ -856,12 +847,12 @@ def build() -> None:
     )
 
     page_break(doc)
-    # ── Table S3: visit-adjusted odds ratios ────────────────
+    # ── Table S3: adjusted odds ratios (number of admissions) ──
     page_break(doc)
     df_s6 = _read_csv("TableS6_adjusted_or.csv")
     table_title(doc, "Table S3",
-                 "Visit-adjusted odds ratios for the "
-                 "cross-visit patterns displayed in main-paper Table 4.")
+                 "Association of cross-visit patterns with readmission, "
+                 "adjusting for the number of admissions.")
     s6_rows = []
     _last = None
     for _, r in df_s6.iterrows():
@@ -879,7 +870,7 @@ def build() -> None:
         ])
         _last = ph
     make_table(doc,
-                header_row=["Phenotype", "Pattern (representative)", "ΣIG",
+                header_row=["Clinical group", "Pattern (representative)", "ΣIG",
                              "Direction", "n", "Carrier readmit %",
                              "Non-carrier readmit %", "Adj. OR", "95% CI"],
                 data_rows=s6_rows,
@@ -897,28 +888,15 @@ def build() -> None:
             "CI = confidence interval."
         ),
         note=(
-            "This table replaces the crude relative risk shown in earlier "
-            "drafts of Tables 3 and 4. Cross-visit patterns can only be "
-            "carried by patients with at least two admissions, and such "
-            "patients are readmitted far more often than the cohort as a "
-            "whole (27.8% vs 12.7%), so a relative risk computed against "
-            "the whole-cohort baseline is confounded by visit count and "
-            "systematically overstates risk, most visibly by making "
-            "protective patterns appear risk-increasing. Here the "
-            "population is restricted to patients with two or more visits "
-            "and we fit logit P(readmission) = b0 + b1(carrier) + "
-            "b2 log(n visits) by maximum likelihood, reporting exp(b1) "
-            "with a 95% Wald interval. Under this visit-adjusted "
-            "adjustment the attribution direction and the epidemiologic "
-            "direction agree for 25 of 30 displayed patterns (15 of 19 "
-            "risk-supporting patterns have OR > 1; 10 of 11 protective "
-            "patterns have OR < 1), compared with near-zero agreement for "
-            "protective patterns under the unadjusted cohort-baseline "
-            "relative risk. Intervals are wide for patterns with few "
-            "carriers and these rows are descriptive; no multiplicity "
-            "correction is applied, and the odds ratios are associational "
-            "summaries of the cohort, not causal effect estimates and not "
-            "a validation of the attribution method."
+            "Cross-visit patterns require at least two admissions, and "
+            "the analysis was restricted to patients meeting this "
+            "criterion. Adjusted odds ratios were estimated separately "
+            "for each pattern using logistic regression with readmission "
+            "as the outcome and pattern presence and the log-transformed "
+            "number of admissions as predictors. Confidence intervals are "
+            "95% Wald intervals. The odds ratios describe associations "
+            "rather than causal effects, and no multiplicity correction "
+            "was applied."
         ),
     )
 
@@ -945,7 +923,7 @@ def build() -> None:
             f"{r['attenuation_pct']:.1f}%" if pd.notna(r["attenuation_pct"]) else "n/a",
         ])
     make_table(doc,
-                header_row=["Pattern (representative)", "#blk", "Phenotype",
+                header_row=["Pattern (representative)", "#blk", "Clinical group",
                              "Source", "n fwd", "n rev",
                              "ΣIG fwd", "ΣIG rev", "Attn"],
                 data_rows=s2_rows,
@@ -957,10 +935,9 @@ def build() -> None:
             "construction; the reversed-order test contrasts forward vs "
             "full reversal. For ≥3-block patterns, intermediate "
             "permutations are not exhaustively tested). "
-            "Phenotype = main-paper classification family if the "
-            "pattern appeared in Table 4 or Figure 4B; otherwise "
-            "blank (the topup pool was not constrained to the seven "
-            "manuscript phenotype keywords). "
+            "Clinical group = main-paper group if the pattern appeared "
+            "in Table 4 or Figure 4B; otherwise blank (the topup pool "
+            "was not constrained to the manuscript keyword lists). "
             "Source = Table 4 (main-paper displayed table); "
             "Fig 4B (main-paper figure); Topup pool (added for this "
             "supplement-only top-N analysis). "
@@ -986,8 +963,8 @@ def build() -> None:
             "match-count sparsity. Without these floors the top of the "
             "ranking is dominated by patterns whose forward or reverse "
             "ordering rarely occurs (e.g., match count 1-3, ΣIG ≈ 0). "
-            "Displayed patterns are phenotype-classified with the same "
-            "keyword list used for main-paper Tables 3-4. "
+            "Displayed patterns are assigned to clinical groups with the "
+            "same keyword lists used for main-paper Tables 3-4. "
             "Table S5 lists the 30 displayed Table-4 cross-visit patterns "
             "specifically (cross-walk to "
             "the main paper). Full per-pattern "
@@ -1012,22 +989,25 @@ def build() -> None:
             _fmt_str(r["readable_label"]),
             _fmt_int(r["n_forward"]),
             _fmt_int(r["n_reversed"]),
+            _fmt_int(r["n_both"]),
             f"{r['ig_mean_forward']:+.3f}" if pd.notna(r["ig_mean_forward"]) else "n/a",
             f"{r['ig_mean_reversed']:+.3f}" if pd.notna(r["ig_mean_reversed"]) else "n/a",
             f"{r['attenuation_pct']:.1f}%" if pd.notna(r["attenuation_pct"]) else "n/a",
         ])
     make_table(doc,
-                header_row=["Phenotype", "#blk", "Pattern (representative)",
-                             "n fwd", "n rev", "ΣIG fwd", "ΣIG rev", "Attn"],
+                header_row=["Clinical group", "#blk", "Pattern (representative)",
+                             "n fwd", "n rev", "n both", "ΣIG fwd", "ΣIG rev",
+                             "Attn"],
                 data_rows=s3_rows,
-                col_widths_in=[1.05, 0.40, 2.40, 0.55, 0.55, 0.65, 0.65, 0.55],
+                col_widths_in=[1.05, 0.40, 1.95, 0.5, 0.5, 0.5, 0.65, 0.65, 0.55],
                 font_size_pt=8)
     table_legend(doc,
         abbreviations=(
             "Same column definitions as Table S4 (Pattern, #blk, n fwd, "
-            "n rev, ΣIG fwd / rev, Attn). Patterns sorted by phenotype "
-            "family in the main-paper Table 4 ordering, and within each "
-            "family by descending |ΣIG fwd|."
+            "n rev, ΣIG fwd / rev, Attn); n both = carriers whose records "
+            "match both orderings, counted in both n fwd and n rev. "
+            "Patterns sorted by clinical group in the main-paper Table 4 "
+            "ordering, and within each group by descending |ΣIG fwd|."
         ),
         note=(
             "Aggregate result for this displayed set: of the 30 patterns, "
@@ -1041,7 +1021,9 @@ def build() -> None:
             "increase under reversal. n forward and ΣIG forward are "
             "computed over the forward-order-matching carrier subset, so "
             "they differ from the all-carrier n and ΣIG in main-paper "
-            "Table 4. Several patterns "
+            "Table 4. The forward and reversed groups are not disjoint: "
+            "patients counted under n both contribute to both means. "
+            "Several patterns "
             "have small reverse-order support (n reversed as low as 2), so "
             "their individual attenuation is descriptive; the population "
             "temporal-order statistic is taken from the floored sweep "
@@ -1056,7 +1038,7 @@ def build() -> None:
                 "Within-patient reversal of the 30 cross-visit patterns in "
                 "main-paper Table 4.")
     make_table(doc,
-               header_row=["Family", "Pattern", "n", "\u03a3IG obs.",
+               header_row=["Clinical group", "Pattern", "n", "\u03a3IG obs.",
                            "\u03a3IG rev.", "Atten. %", "Fell %",
                            "Sign %", "p"],
                data_rows=[[_fmt_str(r["Phenotype"]), _fmt_str(r["Pattern"]),
@@ -1071,7 +1053,7 @@ def build() -> None:
                col_widths_in=[0.8, 2.3, 0.35, 0.55, 0.55, 0.5, 0.5, 0.45, 0.5],
                font_size_pt=8)
     table_legend(doc,
-        abbreviations=("Family = phenotype family; n = carriers tested (first 80 test-cohort carriers "
+        abbreviations=("Clinical group = as in main-paper Table 4; n = carriers tested (first 80 test-cohort carriers "
                        "in cohort order); \u03a3IG observed / reversed = carrier-"
                        "averaged pattern score (obs.) on the patient's record as "
                        "observed and after reversing the order of the "
@@ -1081,8 +1063,9 @@ def build() -> None:
                        "whose score kept its sign; p = one-sided Wilcoxon "
                        "signed-rank test of |\u03a3IG observed| > |\u03a3IG reversed| "
                        "over carriers."),
-        note=('Unlike Table S5, which compares different patients '
-              'carrying the forward and reversed orders, this analysis '
+        note=('Unlike Table S5, which compares the carriers matching '
+              'the forward order with those matching the reversed order '
+              '(groups that can share patients), this analysis '
               "reorders the matched visits inside each carrier's own "
               'record and recomputes IG; all other visits and the '
               'contents of every visit are unchanged. Because whole '
