@@ -324,39 +324,55 @@ def build() -> None:
 
     heading(doc, "Validation settings", level=2)
     para(doc, 'Masking validation covered the patterns displayed in '
-              'Tables 3 and 4 and additional high-ranked risk-supporting '
-              'and protective patterns selected by absolute ΣIG across '
-              "the pipeline's validation runs, 266 unique patterns in "
-              'total; each pattern was masked in up to 200 test-cohort '
-              'carriers, taken in cohort order. The within-patient '
-              'reversal analysis used up to 80 carriers per displayed '
-              'cross-visit pattern, again the first in cohort order. The '
-              'token-level faithfulness analysis drew its random baseline'
-              ' five times per patient and reported the mean absolute '
+              'Tables 3 and 4 and additional high-ranked '
+              'risk-supporting and protective patterns selected by '
+              "absolute ΣIG across the pipeline's validation runs, "
+              '266 unique patterns in total; each pattern was masked '
+              'in up to 200 test-cohort carriers, taken in cohort '
+              'order. The within-patient reversal analysis used up '
+              'to 80 carriers per displayed cross-visit pattern, '
+              'again the first in cohort order. The token-level '
+              'faithfulness analysis drew its random baseline five '
+              'times per patient and reported the mean absolute '
               'change over the draws, the same statistic as the IG '
               'curves; 95% confidence intervals were obtained by '
-              'bootstrapping patients with 1,000 resamples (random seed '
-              '42). KernelSHAP treated each patient\u2019s non-special tokens as '
-              'features, replaced dropped tokens with [PAD], and used as '
-              'background ten random masks of the patient\u2019s own tokens, '
-              'each token retained with probability 0.5; approximately 50 '
-              'coalition samples were drawn per patient over the full '
-              'analytic test cohort (43,602 patients), and the per-patient '
-              'comparison in Figure S10 used 200. KernelSHAP explained the '
-              'predicted probability, whereas IG explained the logit, so '
-              'the two methods differ in reference distribution and output '
-              'scale. Tokens absent from a record are not features; in the '
-              'population-weighted aggregation they were assigned zero, so '
-              'Equation 2 of the main text applies to the reported SHAP '
-              'summaries as it does to IG. The shap library\u2019s default l1 '
-              'regularization, which retains 10 features per explanation, '
-              'capped each patient at 10 non-zero token values: 71% of the '
-              '1,327,660 (patient, token) values in the cohort run were '
-              'exactly zero, concentrated in records with more than 10 '
-              'tokens (36% at 11 to 20 tokens, 66% at 21 to 40, and 83% or '
-              'more above 40). Pattern scores under SHAP summed the values '
-              'of a pattern\u2019s unique constituent tokens for each carrier, '
-              'whereas IG scored tokens at the matched visit positions.')
+              'bootstrapping patients with 1,000 resamples (random '
+              'seed 42). KernelSHAP treated each patient’s '
+              'non-special tokens as features, replaced dropped '
+              'tokens with [PAD], and used as background ten random '
+              'masks of the patient’s own tokens, each token '
+              'retained with probability 0.5; approximately 50 '
+              'coalition samples were drawn per patient over the '
+              'full analytic test cohort (43,602 patients), and the '
+              'per-patient comparison in Figure S10 used 200. '
+              'KernelSHAP explained the predicted probability, '
+              'whereas IG explained the logit, so the two methods '
+              'differ in reference distribution and output scale. '
+              'Tokens absent from a record are not features; in the '
+              'population-weighted aggregation they were assigned '
+              'zero, so Equation 2 of the main text applies to the '
+              'reported SHAP summaries as it does to IG. The shap '
+              'library’s default l1 regularization, which retains 10 '
+              'features per explanation, capped each patient at 10 '
+              'non-zero token values: 71% of the 1,327,660 (patient, '
+              'token) values in the cohort run were exactly zero, '
+              'concentrated in records with more than 10 tokens (36% '
+              'at 11 to 20 tokens, 66% at 21 to 40, and 83% or more '
+              'above 40). Pattern scores under SHAP summed the '
+              'values of a pattern’s unique constituent tokens for '
+              'each carrier, whereas IG scored tokens at the matched '
+              'visit positions. Pattern rankings under KernelSHAP '
+              'used the Jaccard representatives of the IG analysis: '
+              'clusters depend only on carrier sets, but the '
+              'representative of each cluster is its member with the '
+              'largest |ΣIG|, and representatives were not '
+              'reselected by SHAP magnitude. Fifty-eight token '
+              'values from 25 of the 43,602 patients exceeded 10 in '
+              'absolute value, a numerical failure of the kernel '
+              'regression; these values were excluded from the token '
+              'summaries, and carriers whose constituent tokens '
+              'included such a value were excluded from the affected '
+              'pattern sums. The analysis used shap version 0.49.1.')
     para(doc, 'The reversed-order comparison scored 3,447 candidate '
               'cross-visit patterns: those of Table 4 and Figure 4B, '
               'plus every multi-visit pattern of the full pool with '
@@ -457,11 +473,9 @@ def build() -> None:
         "(bone metastases at V1 and V3; cancer pain and cancer anemia at "
         "V4; chemotherapy-supportive medications). The prediction was "
         "driven primarily by the cross-visit Bone metastases → Bone "
-        "metastases pattern (+0.240 allocated ΣIG) and a long tail of within-visit oncology tokens (+0.969 combined). Same two-panel "
+        "metastases pattern (+0.240 allocated ΣIG) and a larger combined contribution from 13 other salient tokens (+0.969). Same two-panel "
         "format as Figure 2, S2A, and S2B. The explanation shows which "
-        "patterns drove the high-confidence prediction: the elevated risk "
-        "is attributed to cancer history rather than to tokens of acute "
-        "deterioration.",
+        "patterns drove the high-confidence prediction.",
         image_path=IMAGE_PATHS.get("Figure S2C"))
 
     page_break(doc)
@@ -478,8 +492,8 @@ def build() -> None:
         "changes what reaches the top. Loose thresholds leave the top-30 "
         "dominated by near-duplicate MDD/SI and obstetric variants; all "
         "six clinical groups surface independently by j ≥ 0.2. At "
-        "j ≥ 0.1 that coverage survives in a much smaller pool (2,075), "
-        "at the cost of more near-duplicate variants in the top-30.",
+                "j ≥ 0.1 that coverage survives in a much smaller pool "
+        "(2,075), with oncology sequences filling more of the top-30.",
         image_path=IMAGE_PATHS.get("Figure S3"))
 
     page_break(doc)
@@ -497,7 +511,7 @@ def build() -> None:
         "single shared label column so rows align across thresholds; a "
         "grey diamond marks a pattern absent from that threshold's "
         "top-30. Across every threshold, "
-        "the top-30 is dominated by within-visit co-occurrence patterns; single-token and cross-visit patterns do not reach the top. Without the cross-visit restriction, the unrestricted ranking is therefore dominated by within-visit co-occurrences, which obscures the cross-visit patterns that motivate the framework.",
+        "the top-30 is dominated by within-visit co-occurrence patterns; no cross-visit pattern enters any top-30, and single-token patterns appear at most twice per threshold. Without the cross-visit restriction, the unrestricted ranking therefore obscures the cross-visit patterns that motivate the framework.",
         image_path=IMAGE_PATHS.get("Figure S4"))
 
     page_break(doc)
@@ -589,20 +603,21 @@ def build() -> None:
     heading(doc, "Figure S9. Attribution under forward and reversed "
                   "temporal order across the cross-visit pool", level=2)
     figure_placeholder(doc, "Figure S9",
-        "Attribution under forward and reversed temporal order across "
-        "1,714 cross-visit patterns. Each point represents a pattern with "
-        "at least 20 test-cohort patients matching each ordering. The "
-        "horizontal and vertical axes show carrier-averaged signed \u03a3IG "
-        "among patients matching the forward and reversed orders, "
-        "respectively; the two carrier groups can overlap but are not "
-        "identical. Small points represent the full analysis pool, red "
-        "for risk-increasing patterns (forward \u03a3IG > 0) and blue for "
-        "protective patterns. Outlined points identify the 27 evaluable "
-        "patterns reported in Table 4; the remaining 3 read the same in "
-        "either direction and were excluded. The dashed line indicates "
-        "equal attribution under both orderings. Across the full pool, "
-        "54% of patterns showed reduced attribution magnitude under "
-        "reversal, and 95% preserved attribution direction.",
+                "Attribution under forward and reversed temporal order. Small "
+        "points represent 1,714 cross-visit patterns with at least 20 "
+        "test-cohort patients matching each ordering. Outlined points "
+        "additionally show the 27 evaluable patterns reported in Table "
+        "4, regardless of their forward- and reversed-order carrier "
+        "counts; the remaining 3 read the same in either direction and "
+        "were excluded. The horizontal and vertical axes show "
+        "carrier-averaged signed ΣIG among patients matching the "
+        "forward and reversed orders, respectively; the two carrier "
+        "groups may overlap and need not be identical. Red marks "
+        "risk-increasing patterns (forward ΣIG > 0) and blue "
+        "protective patterns. The dashed line indicates equal "
+        "attribution under both orderings. Across the 1,714-pattern "
+        "pool, 54% of patterns showed reduced attribution magnitude "
+        "under reversal, and 95% preserved attribution direction.",
         alt="Scatter plot of reversed-order against forward-order "
             "attribution for 1,714 cross-visit patterns, clustered along "
             "the diagonal, with the Table 4 patterns highlighted as "
@@ -651,13 +666,11 @@ def build() -> None:
         "patterns (B), top 30 by absolute value after Jaccard \u2265 0.2 "
         "deduplication; patterns with fewer than 10 sampled carriers were "
         "excluded before ranking. Agreement with the IG rankings is 21 of "
-        "30 for all patterns and 7 of 30 for cross-visit patterns. The "
-        "lower cross-visit agreement points to a difference in how the "
-        "methods score multi-token compositional patterns: a likely "
-        "contributor is that KernelSHAP's coalition sampling redistributes "
-        "interaction credit, whereas IG sums per-token contributions "
-        "additively, so multi-token sums scale with K. The divergence is "
-        "concentrated in the ordering of cross-visit patterns.",
+                "30 for all patterns and 7 of 30 for cross-visit patterns. The "
+        "methods differed in their reference distributions, output "
+        "scales, attribution sparsity, and pattern-scoring procedures "
+        "(Supplementary Methods), so the lower cross-visit agreement "
+        "cannot be attributed to the attribution method alone.",
         image_path=IMAGE_PATHS.get("Figure S12"))
 
     heading(doc, "Figure S13. Sensitivity to the IG saliency-mass threshold",
@@ -676,18 +689,17 @@ def build() -> None:
         "0.76 with τ = 0.90; extremes (0.60 vs 0.95) overlap at 0.67. "
         "(D) Top-30 protective-pattern overlap is lower (0.62-0.71 "
         "adjacent; 0.20 extremes), reflecting noisier protective-side "
-        "ranking. Top risk patterns and their ΣIG ranking are robust to the "
-        "choice of saliency-mass threshold τ; the protective side is more "
-        "sensitive, consistent with panel D.",
+                "ranking. Top-30 risk-pattern membership was relatively stable "
+        "across saliency-mass thresholds, whereas protective-pattern "
+        "membership was more sensitive.",
         image_path=IMAGE_PATHS.get("Figure S13"))
 
-    page_break(doc)
-
-    # ── Supplement tables ──────────────────────────────────────────
+    # ── Supplement tables (page-break-before on the heading avoids an
+    #    empty break paragraph that can leave a blank page) ───────────
     heading(doc, "Supplementary Tables", level=1)
+    doc.paragraphs[-1].paragraph_format.page_break_before = True
 
     # ── Table S1: parameter / hyperparameter table ─────────────────
-    page_break(doc)
     df_s4 = _read_csv("TableS4_parameters.csv")
     table_title(doc, "Table S1", "AToP parameter and evaluation settings.")
     s4_rows = [[_fmt_str(r[c]) for c in df_s4.columns] for _, r in df_s4.iterrows()]
@@ -718,7 +730,6 @@ def build() -> None:
 
     page_break(doc)
     # ── Table S3: adjusted odds ratios (number of admissions) ──
-    page_break(doc)
     df_s6 = _read_csv("TableS6_adjusted_or.csv")
     table_title(doc, "Table S3",
                  "Association of cross-visit patterns with readmission, "
@@ -771,7 +782,6 @@ def build() -> None:
 
     page_break(doc)
     # ── Table S4: Table-4 cross-walk (11 cross-visit patterns) ─────
-    page_break(doc)
     df_s3 = _read_csv("TableS3_reversed_order_table4.csv")
     table_title(doc, "Table S4",
                  "Forward- and reversed-order attribution for the 30 "
@@ -816,8 +826,10 @@ def build() -> None:
             "construction) and are excluded as non-informative. Among the "
             "remaining 27 asymmetric patterns, 26 (96%) "
             "show |ΣIG forward| > |ΣIG reversed|; all 30 preserve sign; "
-            "among those 26, mean attenuation is 32% and median 28% "
-            "(Wilcoxon signed-rank p < 0.001). One pattern shows a small "
+                        "across the 27, mean attenuation is 30% and median 27% "
+            "(one-sided Wilcoxon signed-rank test of |ΣIG forward| > "
+            "|ΣIG reversed| over the 27 patterns, p < 0.001). One "
+            "pattern shows a small "
             "increase under reversal. n forward and ΣIG forward are "
             "computed over the forward-order-matching carrier subset, so "
             "they differ from the all-carrier n and ΣIG in main-paper "

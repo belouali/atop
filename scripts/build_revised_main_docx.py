@@ -30,7 +30,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 from _docx_helpers import (
     new_document, title, heading, para, equation, figure_placeholder,
     table_caption, table_title, table_legend, make_table,
-    page_break, hrule,
+    page_break, hrule, set_body_line_spacing,
 )
 
 
@@ -343,7 +343,7 @@ def build() -> None:
     # Word-count statement (JAMIA title-page requirement). JAMIA Research
     # and Applications caps the body at 4,000 words and the structured
     # abstract at 250.
-    para(doc, "**Word count:** Abstract 237; Body 3,985.")
+    para(doc, "**Word count:** Abstract 239; Body 3,933.")
     hrule(doc)
 
     # ── Abstract ─────────────────────────────────────────────────────
@@ -382,8 +382,8 @@ def build() -> None:
               'reversal supported correspondence with model '
               'behavior, but pattern attributions do not represent '
               'unique effects or establish clinical validity. '
-              'Cross-visit rankings were sensitive to the '
-              'attribution method.')
+              'Cross-visit rankings agreed less between the IG and '
+              'KernelSHAP implementations.')
     para(doc, '**Conclusion:** AToP turns a Transformer’s '
               'attributions into clinically legible trajectories, '
               'showing which events, in which order, contribute to '
@@ -880,14 +880,14 @@ def build() -> None:
     para(doc, 'Among the 30 cross-visit patterns in Table 4, three '
               'had the same sequence in both directions and were '
               'excluded. Of the remaining 27, attribution magnitudes '
-              'were lower for the reversed sequence in 26 (96%; mean '
-              'attenuation, 32%; Table S4). In the broader set of '
-              '1,714 patterns, however, attribution magnitudes '
-              'decreased in only 54%, while attribution direction '
-              'remained unchanged in 95% (Figure S9). '
-              'Because these comparisons used naturally occurring '
-              'sequences, differences could also reflect patient '
-              'characteristics.')
+              'were lower for the reversed sequence in 26 (96%), '
+              'with a mean attenuation of 30% across the 27 (Table '
+              'S4). In the broader set of 1,714 patterns, however, '
+              'attribution magnitudes decreased in only 54%, while '
+              'attribution direction remained unchanged in 95% '
+              '(Figure S9). Because these comparisons used naturally '
+              'occurring sequences, differences could also reflect '
+              'patient characteristics.')
     para(doc, 'In the within-patient analysis, reversing the order '
               'of matched visits reduced attribution magnitude for '
               '21 of 27 patterns (mean attenuation, 14%). Among 722 '
@@ -904,121 +904,127 @@ def build() -> None:
               'At the pattern level, they shared 21 of the top 30 '
               'patterns across all pattern types, but only 7 of the '
               'top 30 cross-visit patterns (Figure S12). These '
-              'findings indicate substantial agreement at the token '
-              'level but greater sensitivity to the attribution '
-              'method for cross-visit pattern rankings, consistent '
-              'with the documented disagreement between explanation '
-              'methods applied to the same model [31].')
+              'findings indicate substantial token-level agreement '
+              'but lower cross-visit agreement between the two '
+              'implementations, consistent with documented '
+              'disagreement between explanation methods applied to '
+              'the same model [31].')
 
     heading(doc, "Discussion", level=1)
-    para(doc, '**What is new here.** AToP combines carrier-conditional '
-              'aggregation with attribution-guided temporal mining, '
-              'shifting explanation from isolated tokens to multi-visit '
-              'patterns rather than only re-weighting population-averaged'
-              ' token importance, the global summary commonly reported '
-              'with SHAP [32]. Token-level findings were largely '
-              'consistent under KernelSHAP (25/30; Figure S11), whereas '
-              'cross-visit pattern rankings remain attribution-method '
-              'dependent (7/30); IG was used as the primary attribution '
-              'method.')
+    para(doc, 'AToP produced patient-level narratives that allocated '
+              "a prediction's attribution to visit-anchored "
+              'patterns, surfaced high-attribution tokens that '
+              'population-weighted summaries hide, and ranked '
+              'cross-visit patterns across six clinical groups. '
+              'Masking top-ranked patterns shifted predictions in '
+              'the attributed direction, reversing visit order '
+              'attenuated attribution for most reported cross-visit '
+              'patterns, and token-level findings were largely '
+              'consistent under KernelSHAP, while cross-visit '
+              'rankings agreed less.')
+    para(doc, 'AToP extends conventional token-level explanations, '
+              'such as the global SHAP summaries commonly reported '
+              '[32], by identifying which combinations and sequences '
+              "of clinical events matter to a model's predictions, "
+              'rather than leaving clinicians to interpret lists of '
+              'individual codes. Approaches differ in how temporal '
+              'patterns are identified. Attention-based models such '
+              'as RETAIN [13] expose visit-level weights, but '
+              'attention is a contested basis for faithfulness '
+              '[14,15]; AToP instead starts from gradient '
+              'attribution and tests it with masking and reversal. '
+              'Token-level attribution rankings over longitudinal '
+              'records [10–12] identify influential events but do '
+              'not explicitly show which events occur together or in '
+              'what order. The closest prior work mined sequential '
+              'patterns first and explained a Transformer afterwards '
+              '[23]; AToP inverts that order, mining only within the '
+              'attributed salient subsequence and scoring each '
+              'pattern on the patients who carry it. This allows '
+              'AToP to identify recurring temporal patterns among '
+              'events that contributed strongly to model '
+              'predictions; the masking and reversal analyses then '
+              'provide separate evidence about model behavior.')
     para(doc, 'The cross-visit restriction is a design choice: the '
               'all-pattern and cross-visit rankings answer different '
-              'questions and their top-50 sets overlap in 1 of 50. '
-              'Within-visit patterns carry larger attribution magnitude '
-              '(about 2.4-fold among the top-30 representatives), whereas cross-visit patterns provide the '
+              'questions and their top-ranked sets barely overlap. '
+              'Within-visit patterns carry larger attribution '
+              'magnitude, whereas cross-visit patterns provide the '
               'longitudinal structure that motivates the framework. '
-              "Because a pattern's Σ IG is an order-invariant sum, "
-              'temporal interpretation rests on the reversal analysis '
-              'rather than on Σ IG alone.')
-    para(doc, 'A consistent observation across every aggregation level is'
-              ' the proliferation of "unspecified" (NOS) coding at the '
-              'highest-impact ranks (MDD single ep. NOS, Anxiety NOS, '
-              'Bipolar NOS, AKI NOS in Figure 3B; {Psychosis NOS; SI} → '
-              'Psychosis NOS and recurrent {MDD single ep. NOS; SI} '
-              'sequences in Figure 4). We highlight this as a '
-              'hypothesis-generating observation: persistent diagnostic '
-              'ambiguity that does not resolve on follow-up is one '
-              'possible explanation, but documentation conventions, '
-              'billing workflows, and coder behavior are alternatives. '
-              'Distinguishing among these requires service-line '
-              'stratification, adjustment for coding density, and '
-              'clinician review, which are natural follow-ups before AToP'
-              ' outputs inform workflow changes.')
-    para(doc, "We deliberately use the term temporal pattern narratives "
-              "rather than clinical pathways to reflect that AToP "
-              "discovers sequential structures in model-attributed tokens, "
-              "not causal disease pathways. With observational EHR data, "
-              "any temporal correlation can reflect the underlying disease "
-              "process, the clinical workflow that generates the codes, or "
-              "an interaction between the two. AToP's outputs should be "
-              "treated as model-behavior summaries to be validated against "
-              "domain knowledge, not as discovered causal mechanisms.")
+              'Pattern attribution alone does not establish that '
+              'temporal order matters to the model; the reversal '
+              'analyses provide additional evidence of sensitivity '
+              'to event order.')
+    para(doc, 'Unspecified (NOS) diagnosis codes appeared frequently '
+              'among high-attribution tokens and patterns (for '
+              'example, Psychosis NOS, Mood disorder NOS, and '
+              'recurrent {MDD single ep. NOS; SI} sequences). This '
+              'observation may reflect diagnostic uncertainty, '
+              'documentation practices, or coding conventions. '
+              'Further analysis and clinician review would be needed '
+              'to distinguish these explanations before clinical use.')
+    para(doc, 'AToP produces temporal pattern narratives rather than '
+              'clinical pathways. These patterns reflect '
+              'model-attributed EHR events, which may arise from '
+              'disease processes, clinical workflows, or both. They '
+              'describe model behavior rather than causal mechanisms '
+              'and require clinical validation before use.')
     heading(doc, "Limitations", level=2)
-    para(doc, "AToP is post-hoc: it explains a model that remains a "
-              "black box, and for high-stakes decisions an "
-              "interpretable-by-design model has been argued preferable "
-              "to any post-hoc account of an opaque one [33]. We do not "
-              "contest that; AToP is for settings where a sequence model "
-              "is already in use. We also evaluate faithfulness to the "
-              "model rather than usefulness to a decision-maker, which "
-              "are distinct targets [34].")
-    para(doc, 'Further limitations bound our claims. (i) Evaluation uses '
-              'one dataset, task, attribution method and architecture; '
-              'portability is not demonstrated. (ii) Masking creates '
-              'out-of-distribution inputs [35], so masking effects may '
-              'partly reflect deletion itself; the between-patient '
-              'reversal analysis compares observed records without '
-              'perturbing them, whereas the within-patient test reorders '
-              'visits and shares this caveat. Our pattern-level '
-              'faithfulness evaluation is also partly circular: the '
-              'masked patterns are the ones IG ranked highest, so Figure '
-              '5 tests whether the IG-selected subset behaves as '
-              'predicted, not whether IG selected the most influential '
+    para(doc, 'AToP explains an existing Transformer rather than '
+              'replacing it with an interpretable-by-design model '
+              '[33]. Our evaluation assesses whether the '
+              'explanations reflect model behavior, not whether they '
+              'improve clinical decisions [34].')
+    para(doc, 'Further limitations bound our claims. (i) Masking '
+              'creates out-of-distribution inputs [35], so masking '
+              'effects may partly reflect deletion itself; the '
+              'between-patient reversal analysis compares observed '
+              'records without perturbing them, whereas the '
+              'within-patient test reorders visits and shares this '
+              'caveat. Our pattern-level faithfulness evaluation is '
+              'also partly circular: the masked patterns are the '
+              'ones IG ranked highest, so the masking analysis tests '
+              'whether the IG-selected subset behaves as predicted, '
+              'not whether IG selected the most influential '
               'patterns; a ranking-independent sample of the pattern '
-              'space is the natural next step. At the token level, the '
-              'comprehensiveness and sufficiency curves (Figure S8) '
-              'benchmark against random selection. (iii) Pattern-level '
-              'rankings remain partly attribution-method dependent (7/30 '
-              'cross-visit agreement with SHAP, whose estimates were '
-              'sparse and used a different pattern-scoring convention; '
-              'Supplementary Methods). (iv) Patterns with small'
-              ' carrier counts (n < 20) are flagged discovery-only; n is '
-              'shown for every pattern. (v) Deployment-utility measures '
-              'and subgroup analysis are out of scope; several surfaced '
-              'patterns involve socioeconomic and behavioural-health '
-              'tokens whose attribution may differ across subgroups, so a'
-              ' carrier-conditional fairness audit should precede any '
-              'deployment use [36]. (vi) The 80% saliency-mass threshold '
-              'is a tractability heuristic; risk-pattern rankings are '
-              'stable across τ ∈ [0.60, 0.95] (top-30 overlap ≥ 0.67), '
-              'protective-pattern rankings less so (0.20 between the '
-              'extremes; Figure S13), and the threshold has no principled'
-              ' rule. (vii) The Table 2 performance gap reflects feature '
+              'space is the natural next step. (ii) IG was the '
+              'primary attribution method; the KernelSHAP comparison '
+              'differed in reference distribution, output scale, '
+              'sparsity and pattern scoring (Supplementary Methods), '
+              'so its 7/30 cross-visit agreement does not isolate '
+              'the attribution method. (iii) The 80% saliency-mass '
+              'threshold is a tractability heuristic with no '
+              'principled rule; top-30 risk-pattern membership was '
+              'relatively stable across τ, protective-pattern '
+              'membership less so (Figure S13). (iv) The performance '
+              'gap between AToP and the baselines reflects feature '
               'richness and architecture jointly; feature-matched '
-              'ablations are left to future work. (viii) In-hospital '
-              'deaths were excluded before labeling, so readmissions that'
-              ' ended in death were not counted as readmissions (0.32% of'
-              ' index admissions; 144 in the test cohort), and death was '
-              'not modeled as a competing outcome.')
+              'ablations are left to future work.')
+    para(doc, 'Other limitations concern scope. (v) Evaluation uses '
+              'one dataset, task and architecture; portability is '
+              'not demonstrated. (vi) Patterns with small carrier '
+              'counts (n < 20) are flagged discovery-only; n is '
+              'shown for every pattern. (vii) Deployment-utility '
+              'measures and subgroup analysis are out of scope; '
+              'several surfaced patterns involve socioeconomic and '
+              'behavioural-health tokens whose attribution may '
+              'differ across subgroups, so a carrier-conditional '
+              'fairness audit should precede any deployment use '
+              '[36]. (viii) Death was not modeled as a competing '
+              'outcome.')
 
     # ── Conclusion ──────────────────────────────────────────────────
     heading(doc, "Conclusion", level=1)
     para(doc, 'We presented AToP, a post-hoc framework that derives '
-              'temporally structured clinical narratives from per-token '
-              'attributions of a Transformer on longitudinal EHR data. '
-              'Its contribution lies in how per-instance attributions '
-              'from IG and related methods are aggregated: '
-              'carrier-conditional token aggregation surfaces '
-              'rare-but-high-attribution features that prevalence '
-              'weighting hides; pattern-level ΣIG aggregation surfaces '
-              'multi-visit clinical patterns that single-feature attribution '
-              'cannot represent. Comparison with KernelSHAP indicates '
-              'that the token-level carrier-conditional findings (25/30 '
-              'agreement) were largely consistent across methods; '
-              'pattern-level rankings are attribution-method dependent, '
-              'and IG was used as the primary attribution method. AToP '
-              'was evaluated on a single Transformer, '
-              'task, and dataset; portability remains to be demonstrated.')
+              'temporally structured clinical narratives from '
+              'per-token attributions of a Transformer on '
+              'longitudinal EHR data. Carrier-conditional '
+              'aggregation surfaces rare-but-high-attribution '
+              'features that prevalence weighting hides, and '
+              'pattern-level ΣIG aggregation surfaces multi-visit '
+              'patterns that single-feature attribution cannot '
+              'represent. Portability beyond a single Transformer, '
+              'task and dataset remains to be demonstrated.')
 
     # ── Required statements (between Conclusion and References) ─────
     # JAMIA Author Instructions require these for every Original
@@ -1150,6 +1156,7 @@ def build() -> None:
     # ── Figure legends section (separate page) ─────────────────────
     page_break(doc)
     heading(doc, "Figure Legends", level=1)
+    set_body_line_spacing(1.5)   # figure legends at 1.5 (body stays 2.0)
     para(doc, '**Figure 1.** AToP framework overview. A trained '
               'Transformer predicts readmission from longitudinal '
               'EHR sequences. AToP uses Integrated Gradients to '
@@ -1282,6 +1289,8 @@ def build() -> None:
               'effects for obstetric and chest-pain patterns. Red '
               'markers indicate positive masking effects and blue '
               'markers indicate negative effects.')
+
+    set_body_line_spacing(2.0)
 
     # ── Save ─────────────────────────────────────────────────────────
     os.makedirs(os.path.dirname(OUT_PATH), exist_ok=True)

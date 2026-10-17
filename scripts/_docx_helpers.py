@@ -29,6 +29,9 @@ TEXT_WIDTH_IN   = 6.5   # letter paper, 1-inch margins
 HEADER_FILL     = "F2F2F2"
 
 
+LEGEND_SPACING = 1.5   # figure legends and alt text, main and supplement (user rule, 2026-10-17)
+
+
 def set_body_line_spacing(value: float) -> None:
     """Set the body line spacing used by new_document() and para()
     (2.0 for the main manuscript, 1.5 for the supplement)."""
@@ -210,12 +213,14 @@ def figure_placeholder(doc, label: str, legend: str, *,
         r.italic = True
 
     p = doc.add_paragraph()
+    p.paragraph_format.line_spacing = LEGEND_SPACING
     r = p.add_run(f"{label}. ")
     r.bold = True
     _add_runs_with_inline_bold(p, legend, italic=False)
 
     if alt:
         p = doc.add_paragraph()
+        p.paragraph_format.line_spacing = LEGEND_SPACING
         r = p.add_run("Alt text: ")
         r.italic = True
         _add_runs_with_inline_bold(p, alt, italic=False)
@@ -261,7 +266,7 @@ def figure_landscape(doc, label: str, heading_text: str, legend: str, *,
 
     p = doc.add_paragraph()
     pf = p.paragraph_format
-    pf.line_spacing = 1.0
+    pf.line_spacing = LEGEND_SPACING
     pf.space_before = Pt(6)
     pf.space_after = Pt(0)
     r = p.add_run(f"{label}. ")
@@ -620,7 +625,24 @@ def _cell_bottom_rule(cell) -> None:
 
 
 def page_break(doc) -> None:
-    doc.add_page_break()
+    """Start a new page.
+
+    Implemented as an empty paragraph flagged page-break-before, with a
+    1 pt paragraph mark, rather than a paragraph holding a w:br page
+    break: a break paragraph that itself lands at the top of a page
+    renders as a blank page in Word and LibreOffice, whereas a
+    page-break-before paragraph already at a page top adds nothing."""
+    from docx.oxml import OxmlElement
+    from docx.oxml.ns import qn as _qn
+    p = doc.add_paragraph()
+    pf = p.paragraph_format
+    pf.page_break_before = True
+    pf.space_before = Pt(0)
+    pf.space_after = Pt(0)
+    pf.line_spacing = 1.0
+    rpr = OxmlElement("w:rPr")
+    sz = OxmlElement("w:sz"); sz.set(_qn("w:val"), "2"); rpr.append(sz)
+    p._p.get_or_add_pPr().append(rpr)
 
 
 def hrule(doc) -> None:

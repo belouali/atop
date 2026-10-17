@@ -1,16 +1,19 @@
-"""make_fig_consort, CONSORT-style cohort + analysis flow diagram (Figure S14).
+"""make_fig_consort, cohort and analysis flow diagram (Figure S1).
 
-Addresses reviewer concern #11 (cohort/index/denominator reconciliation):
-lays out the relationship among the full MIMIC-IV cohort, the 30-day
-readmission labeling, the train/val/test splits, and the 38-patient
-attribution exclusion, with all prevalence values shown against their
-named cohort so the numbers cannot read as drift.
+Lays out the relationship among the full MIMIC-IV admissions, the 30-day
+readmission labeling, the train/validation/test split, and the 38-patient
+attribution exclusion, with every prevalence shown against its named
+cohort so the numbers cannot read as drift.
 
-Pure matplotlib (no data dependency beyond the hard-coded reconciled
-counts, which are verified against the run in the manuscript build).
+Style follows the JAMA-type flow diagram used for the DepAnx paper: square
+boxes with a light grey fill and a thin dark-grey edge, a bold lead line
+(the count) over a regular description, thin grey arrows, exclusions in a
+right-hand column of the same grey. No colour coding.
+
+Pure matplotlib; the counts are hard-coded from the reconciled run.
 
 Usage:
-    python scripts/make_fig_consort.py
+    python scripts/make_fig_consort.py [--output-path PATH] [--dpi 300]
 """
 from __future__ import annotations
 
@@ -21,145 +24,140 @@ import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-from matplotlib.patches import FancyBboxPatch, FancyArrowPatch
+from matplotlib.patches import FancyBboxPatch
+
+plt.rcParams.update({
+    "font.family": "sans-serif",
+    "font.sans-serif": ["Arial", "Helvetica", "Liberation Sans", "DejaVu Sans"],
+    "pdf.fonttype": 42,
+})
+
+FILL, EDGE = "#E9EFF3", "#555555"      # DepAnx Figure 1 constants
+LEAD_PT, TEXT_PT = 8.2, 7.8
+LINE_H = 0.235                          # axis units per text line (8 pt at this scale)
 
 
-BOX_FC = "#eef2f7"
-BOX_EC = "#33475b"
-EXCL_FC = "#f6e9e9"
-EXCL_EC = "#9c4a4a"
-SPLIT_FC = "#e8f0e8"
-SPLIT_EC = "#3d6b3d"
-
-
-def _box(ax, x, y, w, h, text, fc=BOX_FC, ec=BOX_EC, fontsize=11, weight="normal"):
-    ax.add_patch(FancyBboxPatch(
-        (x - w / 2, y - h / 2), w, h,
-        boxstyle="round,pad=0.012,rounding_size=0.02",
-        facecolor=fc, edgecolor=ec, linewidth=1.4, zorder=2))
-    ax.text(x, y, text, ha="center", va="center", fontsize=fontsize,
-            zorder=3, color="#111111", weight=weight, linespacing=1.35)
+def _box(ax, x, top, w, lead, text="", pad=0.14):
+    """Square box anchored at its top-left corner; returns its bottom y."""
+    n_lines = text.count("\n") + 1 if text else 0
+    h = pad + LINE_H * 1.25 + (LINE_H * n_lines + 0.06 if text else 0) + pad
+    ax.add_patch(FancyBboxPatch((x, top - h), w, h, boxstyle="square,pad=0",
+                                fc=FILL, ec=EDGE, lw=0.6, zorder=2))
+    ax.text(x + 0.14, top - pad, lead, va="top", ha="left",
+            fontsize=LEAD_PT, fontweight="bold", zorder=3)
+    if text:
+        ax.text(x + 0.14, top - pad - LINE_H * 1.25 - 0.04, text, va="top",
+                ha="left", fontsize=TEXT_PT, linespacing=1.4, zorder=3)
+    return top - h
 
 
 def _arrow(ax, x0, y0, x1, y1):
-    ax.add_patch(FancyArrowPatch(
-        (x0, y0), (x1, y1), arrowstyle="-|>",
-        color="#33475b", linewidth=1.4, mutation_scale=14,
-        shrinkA=1, shrinkB=1, zorder=1))
+    ax.annotate("", xy=(x1, y1), xytext=(x0, y0),
+                arrowprops=dict(arrowstyle="-|>", lw=0.7, color=EDGE,
+                                shrinkA=0, shrinkB=0), zorder=1)
+
+
+def _line(ax, x0, y0, x1, y1):
+    ax.plot([x0, x1], [y0, y1], color=EDGE, lw=0.7, zorder=1,
+            solid_capstyle="butt")
 
 
 def main() -> None:
-    p = argparse.ArgumentParser(description="Render Figure S14 (CONSORT flow).")
+    p = argparse.ArgumentParser(description="Render Figure S1 (cohort flow).")
     p.add_argument("--dpi", type=int, default=300)
     p.add_argument("--output-path",
                    default="../manuscript/jamia_submission/figures/supplements/"
                            "FigureS14_consort.png")
     args = p.parse_args()
 
-    fig, ax = plt.subplots(figsize=(11, 13))
-    ax.set_xlim(0, 10)
-    ax.set_ylim(0, 15)
+    fig, ax = plt.subplots(figsize=(9.1, 9.4))   # 0.72 in per axis unit
     ax.axis("off")
+    ax.set_xlim(0, 12.7)
+    ax.set_ylim(0, 12.0)
 
-    CX = 4.0          # main column x
-    EX = 8.1          # exclusion column x
-    W, H = 5.2, 1.15  # main box size
-    EW, EH = 3.4, 0.95
+    MX, MW = 2.3, 5.6        # main column, centred over the three split columns
+    EX, EW = 8.15, 3.7       # exclusion column
+    GAP = 0.55               # vertical gap between boxes
+    cx = MX + MW / 2
 
-    # 1. Source
-    _box(ax, CX, 14.2, W, H,
-         "MIMIC-IV v3.1\n546,028 hospital admissions",
-         fontsize=11.5, weight="bold")
-    # 2. Patient assembly
-    _box(ax, CX, 12.5, W, H,
-         "Patients with ≥1 acute inpatient admission\n"
-         "assembled into one chronological token sequence\n"
-         "(ICD-9/10 diagnoses + procedures, RxNorm drugs)")
-    _arrow(ax, CX, 14.2 - H / 2, CX, 12.5 + H / 2)
+    # 1. Source admissions
+    top = 11.9
+    b1 = _box(ax, MX, top, MW, "546,028 Hospital admissions",
+              "MIMIC-IV v3.1; patients with ≥1 acute inpatient admission")
+    # 2. Sequence assembly
+    t2 = b1 - GAP
+    b2 = _box(ax, MX, t2, MW, "One chronological token sequence per patient",
+              "ICD-9/10 diagnoses and procedures, RxNorm drugs,\n"
+              "ordered by admission")
+    _arrow(ax, cx, b1, cx, t2)
+    # 3. Labeling, with the death exclusion branching off the connector
+    t3 = b2 - GAP
+    b3 = _box(ax, MX, t3, MW, "30-day unplanned readmission labeling",
+              "Elective and surgical same-day admissions not counted\n"
+              "as unplanned readmissions")
+    _arrow(ax, cx, b2, cx, t3)
+    # 4. Analytic cohort; exclusion sits on the connector between 3 and 4
+    t4 = b3 - GAP - 0.55
+    b4 = _box(ax, MX, t4, MW, "218,196 Patients in the analytic cohort",
+              "12.6% unplanned 30-day readmission")
+    _arrow(ax, cx, b3, cx, t4)
+    ymid = (b3 + t4) / 2
+    ex_top = ymid + 0.42
+    _box(ax, EX, ex_top, EW, "11,801 Admissions excluded (2.2%)",
+         "In-hospital death;\ncannot be readmitted")
+    _arrow(ax, cx, ymid, EX, ymid)
 
-    # 3. Labeling
-    _box(ax, CX, 10.8, W, H,
-         "30-day readmission labeling\n"
-         "elective / surgical same-day admissions excluded\n"
-         "from positive label (planned care, not unplanned)")
-    _arrow(ax, CX, 12.5 - H / 2, CX, 10.8 + H / 2)
+    # 5. Patient-level split into three columns
+    t5 = b4 - GAP - 0.25
+    SW = 3.1
+    xs = [0.3, 3.55, 6.8]
+    leads = ["152,737 Training patients", "21,819 Validation patients",
+             "43,640 Test patients"]
+    texts = ["70% split; 12.6% readmitted",
+             "10% split; model selection",
+             "20% split; 12.7% readmitted"]
+    bottoms = []
+    for x, lead, text in zip(xs, leads, texts):
+        bottoms.append(_box(ax, x, t5, SW, lead, text))
+    # connector: down from cohort, horizontal bar, three drops
+    ybar = (b4 + t5) / 2
+    _line(ax, cx, b4, cx, ybar)
+    _line(ax, xs[0] + SW / 2, ybar, xs[2] + SW / 2, ybar)
+    for x in xs:
+        _arrow(ax, x + SW / 2, ybar, x + SW / 2, t5)
+    ax.text(cx + 0.12, ybar + 0.07, "Patient-level split, 70 / 10 / 20",
+            fontsize=TEXT_PT - 0.6, ha="left", va="bottom", color=EDGE)
 
-    # 3b. Outcome exclusion: in-hospital deaths are removed before
-    #     labeling (compute_readmission_labels drops hospital_expire_flag
-    #     == 1), so the flow from source admissions to analytic cohort is
-    #     fully accounted for.
-    # main box right edge is CX + W/2 = 6.6; place the exclusion box so
-    # its left edge sits clear of it, with the arrow spanning the gap
-    _box(ax, 8.45, 10.8, 2.8, EH,
-         "11,801 admissions excluded (2.2%)\nin-hospital death, cannot be readmitted",
-         fc=EXCL_FC, ec=EXCL_EC, fontsize=8.6)
-    _arrow(ax, CX + W / 2, 10.8, 8.45 - 2.8 / 2, 10.8)
+    # 6. Mining (training) and attribution (test)
+    t6 = min(bottoms) - GAP
+    b6a = _box(ax, xs[0], t6, SW, "Pattern mining",
+               "On training-cohort salient tokens\n"
+               "70,278 episodes mined (pooled)\n"
+               "24,490 at whole-cohort support\n"
+               "9,213 cross-visit representatives\n(Jaccard ≥ 0.2)")
+    _arrow(ax, xs[0] + SW / 2, bottoms[0], xs[0] + SW / 2, t6)
+    b6c = _box(ax, xs[2], t6, SW, "Per-token IG attribution",
+               "Applied to all 43,640 test patients")
+    _arrow(ax, xs[2] + SW / 2, bottoms[2], xs[2] + SW / 2, t6)
 
-    # 4. Analytic cohort
-    _box(ax, CX, 9.05, W, H,
-         "Analytic cohort\n"
-         "218,196 patients · 12.6% unplanned 30-day readmission",
-         fontsize=10.2, weight="bold")
-    _arrow(ax, CX, 10.8 - H / 2, CX, 9.05 + H / 2)
+    # 7. Attribution exclusion (right of the test column, on the connector)
+    #    and the final analytic set spanning the two right-hand columns
+    tx = xs[2] + SW / 2
+    EX2, EW2 = xs[2] + SW + 0.25, 2.4
+    t7 = b6c - GAP - 0.75
+    ymid2 = (b6c + t7) / 2
+    _box(ax, EX2, ymid2 + 0.42, EW2, "38 Excluded",
+         "Empty salient-token set")
+    _arrow(ax, tx, ymid2, EX2, ymid2)
+    FW = 4.7   # just wide enough for the lead line; centred under the test column
+    b7 = _box(ax, tx - FW / 2, t7, FW,
+         "43,602 Patients in the analytic attribution set",
+         "Carrier-conditional token summaries\nand pattern-level analyses")
+    _arrow(ax, tx, b6c, tx, t7)
+    ax.set_ylim(b7 - 0.25, 12.0)
 
-    # 5. Split header
-    _box(ax, CX, 7.4, W, H,
-         "Patient-level split (70 / 10 / 20)",
-         fontsize=11.5, weight="bold")
-    _arrow(ax, CX, 9.05 - H / 2, CX, 7.4 + H / 2)
-
-    # 6. Three split boxes
-    sy = 5.5
-    _box(ax, 1.7, sy, 2.7, 1.5,
-         "Train\n152,737\n(12.6% readmit)",
-         fc=SPLIT_FC, ec=SPLIT_EC, fontsize=10.5)
-    _box(ax, 4.6, sy, 2.5, 1.5,
-         "Validation\n21,819\n(model selection)",
-         fc=SPLIT_FC, ec=SPLIT_EC, fontsize=10.5)
-    _box(ax, 7.4, sy, 2.5, 1.5,
-         "Test\n43,640\n(12.7% readmit)",
-         fc=SPLIT_FC, ec=SPLIT_EC, fontsize=10.5)
-    _arrow(ax, CX, 7.4 - H / 2, 1.7, sy + 0.75)
-    _arrow(ax, CX, 7.4 - H / 2, 4.6, sy + 0.75)
-    _arrow(ax, CX, 7.4 - H / 2, 7.4, sy + 0.75)
-
-    # 7. Mining (from train) + attribution (from test)
-    _box(ax, 1.7, 3.2, 3.0, 1.5,
-         "Pattern mining\n(train salient tokens)\n"
-         "70,278 episodes mined (pooled)\n24,490 at whole-cohort support\n"
-         "9,213 cross-visit reps (j≥0.2)",
-         fontsize=8.8)
-    _arrow(ax, 1.7, sy - 0.75, 1.7, 3.2 + 0.75)
-
-    _box(ax, 7.4, 3.2, 3.0, 1.5,
-         "Per-token IG attribution\n(test cohort)\n"
-         "applied to all 43,640",
-         fontsize=9.5)
-    _arrow(ax, 7.4, sy - 0.75, 7.4, 3.2 + 0.75)
-
-    # 8. Attribution exclusion
-    _box(ax, 7.4, 1.35, 3.0, 1.0,
-         "38 excluded\n(empty salient-token set)",
-         fc=EXCL_FC, ec=EXCL_EC, fontsize=9.5)
-    _arrow(ax, 7.4, 3.2 - 0.75, 7.4, 1.35 + 0.5)
-
-    # 9. Final analytic attribution set
-    _box(ax, 3.0, 1.35, 3.2, 1.0,
-         "Analytic attribution set\n43,602 patients",
-         fc=BOX_FC, ec=BOX_EC, fontsize=10.5, weight="bold")
-    _arrow(ax, 7.4 - 1.5, 1.35, 3.0 + 1.6, 1.35)
-
-    # Footnote on prevalence reconciliation
-    ax.text(5.0, 0.35,
-            "Prevalence by cohort: overall/train 12.6%, test 12.7% "
-            "(rounding of 12.65% and 12.74%); these are the same metric "
-            "on different cohorts, not conflicting values.",
-            ha="center", va="center", fontsize=8.5, style="italic",
-            color="#555555", wrap=True)
-
-    fig.tight_layout()
-    os.makedirs(os.path.dirname(args.output_path), exist_ok=True)
-    fig.savefig(args.output_path, dpi=args.dpi, bbox_inches="tight")
+    fig.savefig(args.output_path, dpi=args.dpi, bbox_inches="tight",
+                facecolor="white")
     plt.close(fig)
     print(f"Saved {args.output_path} "
           f"({os.path.getsize(args.output_path)//1024} KB)")

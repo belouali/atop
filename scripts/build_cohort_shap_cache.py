@@ -127,7 +127,11 @@ def _shap_for_all_tokens(pid: str, hadm: str, *,
     bg = rng_bg.randint(0, 2, size=(10, K)).astype(float)
     x_inst = np.ones((1, K))
     expl = shap_lib.KernelExplainer(predict_masked, bg)
-    sv = expl.shap_values(x_inst, nsamples=shap_nsamples, silent=True)
+    # l1_reg is pinned to the library default used for the manuscript run
+    # (10 retained features per explanation) so results do not depend
+    # on the installed shap version's default.
+    sv = expl.shap_values(x_inst, nsamples=shap_nsamples,
+                          l1_reg="num_features(10)", silent=True)
     if isinstance(sv, list):
         sv = sv[0]
     sv = np.array(sv).reshape(-1)

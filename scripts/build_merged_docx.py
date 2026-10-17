@@ -233,12 +233,14 @@ def _embed_image_scaled(doc: Document, path: str, max_w_in: float,
 def _add_figure_caption(doc: Document, caption_md: str, alt_text: str):
     """Add caption (with bold-markdown parsed) + alt text in italic."""
     p = doc.add_paragraph()
+    p.paragraph_format.line_spacing = 1.5   # legends at 1.5
     _add_runs_with_md_bold(p, caption_md)
     # Caption styling: 9pt-ish via style if available
     for run in p.runs:
         run.font.size = Pt(9)
 
     p2 = doc.add_paragraph()
+    p2.paragraph_format.line_spacing = 1.5
     run = p2.add_run("Alt text: " + alt_text)
     run.italic = True
     run.font.size = Pt(8.5)
@@ -275,8 +277,18 @@ def _parse_main_legends(path):
 
 
 def _page_break(doc: Document):
+    # Same approach as _docx_helpers.page_break: a page-break-before
+    # paragraph never yields a blank page, a w:br paragraph can.
+    from docx.oxml import OxmlElement
     p = doc.add_paragraph()
-    p.add_run().add_break(WD_BREAK.PAGE)
+    pf = p.paragraph_format
+    pf.page_break_before = True
+    pf.space_before = Pt(0)
+    pf.space_after = Pt(0)
+    pf.line_spacing = 1.0
+    rpr = OxmlElement("w:rPr")
+    sz = OxmlElement("w:sz"); sz.set(qn("w:val"), "2"); rpr.append(sz)
+    p._p.get_or_add_pPr().append(rpr)
 
 
 def _trim_main_after_references(main_doc: Document):
@@ -296,6 +308,15 @@ def _trim_main_after_references(main_doc: Document):
             cut_index = i
             break
     if cut_index is not None:
+        # Also drop the page-break-only paragraph that precedes the
+        # heading; the Figures section adds its own break, and keeping
+        # both leaves a blank page.
+        prev = children[cut_index - 1]
+        if prev.tag == qn("w:p") \
+           and not "".join(t.text or "" for t in prev.iter(qn("w:t"))).strip() \
+           and (any(br.get(qn("w:type")) == "page" for br in prev.iter(qn("w:br")))
+                or prev.find(f".//{qn('w:pageBreakBefore')}") is not None):
+            cut_index -= 1
         for child in children[cut_index:]:
             # The body's trailing w:sectPr (page size, margins,
             # orientation) is the LAST child, so a blind delete-to-end
@@ -327,6 +348,8 @@ def _append_figures_section(doc: Document):
     # "Figure Legends" section so the merged file can never drift from the
     # submission DOCX. MAIN_FIGURES captions are a fallback only.
     legends = _parse_main_legends(MAIN_DOCX)
+    global _ENDS_ON_FRESH_PAGE
+    in_landscape = False
     for f in MAIN_FIGURES:
         fpath = os.path.join(FIG_DIR, f["file"])
         with Image.open(fpath) as im:
@@ -339,18 +362,31 @@ def _append_figures_section(doc: Document):
         if wide:
             # Wide figures (Figures 4 and 5) get their own landscape page so
             # they keep print size instead of shrinking to portrait width.
-            _start_section(doc, landscape=True)
+            # Consecutive wide figures share one landscape section; a
+            # section switch per figure left a blank portrait page between.
+            if in_landscape:
+                _page_break(doc)
+            else:
+                _start_section(doc, landscape=True)
+                in_landscape = True
             _embed_image_scaled(doc, fpath, LANDSCAPE_W_INCHES, max_h_in=LANDSCAPE_FIG_H_INCHES)
         else:
-            _page_break(doc)
+            if in_landscape:
+                _start_section(doc, landscape=False)
+                in_landscape = False
+            else:
+                _page_break(doc)
             _embed_image_scaled(doc, fpath, USABLE_W_INCHES)
         lg = legends.get(f["label"], {})
         cap = lg.get("caption")
         cap = f"**{f['label']}.** {cap}" if cap else f["caption"]
         _add_figure_caption(doc, cap, lg.get("alt") or f["alt"])
-        if wide:
-            _start_section(doc, landscape=False)
+    if in_landscape:
+        _start_section(doc, landscape=False)
+        _ENDS_ON_FRESH_PAGE = True   # the supplement needs no extra break
 
+
+_ENDS_ON_FRESH_PAGE = False   # set when the Figures section closes a landscape run
 
 SUPP_SECTIONS = ("Supplementary Methods", "Supplementary Results",
                  "Supplementary Figures", "Supplementary Tables")
@@ -386,7 +422,8 @@ def _append_supplement(doc: Document):
     re-registering image relationships, since a deepcopy carries rIds
     that mean nothing in the destination package.
     """
-    _page_break(doc)
+    if not _ENDS_ON_FRESH_PAGE:
+        _page_break(doc)
     start_idx = len(doc.paragraphs)
 
     supp = Document(SUPP_DOCX)
