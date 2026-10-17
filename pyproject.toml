@@ -34,6 +34,10 @@ dev = ["pytest", "pytest-cov", "black", "ruff"]
 # LACE baselines and the paired bootstrap (scripts/reproduce_lace_baselines.py,
 # scripts/table_s1_auroc_bootstrap.py): pinned to the version that reproduces Table 2.
 baselines = ["xgboost==3.4.1"]
+# KernelSHAP comparison (scripts/build_cohort_shap_cache.py,
+# scripts/build_shap_aggregations.py): pin to the version used for the
+# cohort run reported in the supplement.
+shap = ["shap==0.49.1"]
 
 [project.urls]
 Homepage = "https://github.com/belouali/atop"
