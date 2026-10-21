@@ -329,14 +329,15 @@ def main() -> None:
     axA.scatter(pa_df["ig_signed"], pa_df["shap_signed"],
                 s=85, c=colors_a, edgecolor="black", linewidth=0.5, alpha=0.90,
                 zorder=3)
-    lim = max(pa_df["ig_signed"].abs().max(),
-              pa_df["shap_signed"].abs().max()) * 1.20
-    axA.plot([-lim, lim], [-lim, lim], color="#888888", linestyle="--",
-              linewidth=1.0, label="y = x", zorder=1)
+    # IG is on the logit scale and KernelSHAP on the probability scale, so
+    # the two axes are scaled independently; a shared y = x line would
+    # flatten every SHAP value onto zero (reviewer issue #23).
+    lim_x = pa_df["ig_signed"].abs().max() * 1.20
+    lim_y = pa_df["shap_signed"].abs().max() * 1.20
     axA.axhline(0, color="#888888", linewidth=0.6, zorder=1)
     axA.axvline(0, color="#888888", linewidth=0.6, zorder=1)
-    axA.set_xlim(-lim, lim)
-    axA.set_ylim(-lim, lim)
+    axA.set_xlim(-lim_x, lim_x)
+    axA.set_ylim(-lim_y, lim_y)
 
     # Label only the top 6 tokens by |IG| (the most extreme dots). Skip
     # the cluster near origin to avoid the overlapping-label pile-up.

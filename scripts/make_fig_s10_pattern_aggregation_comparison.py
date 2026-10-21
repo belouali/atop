@@ -258,14 +258,21 @@ def main() -> None:
         "(only " + str(len(overlap)) + " of " + str(args.n_show) + " patterns shared)",
         fontsize=fs_title, fontweight="bold", y=0.995,
     )
+    # Subtitle values are computed from the plotted data (a hard-coded
+    # rank range and a "dominated by single-token" claim were wrong).
+    _is_single = lambda p: not str(p).startswith("{") and "->" not in str(p)
+    n_single_b = int(sum(_is_single(p) for p in df_a["pattern"]))
+    _ranks = [int(x) for x in df_b["pop_rank_other"].dropna()
+              if int(x) > args.n_show]
+    _rank_txt = (f"#{min(_ranks):,}\u2013#{max(_ranks):,}" if _ranks else "n/a")
     fig.text(
         0.5, 0.965,
-        f"Full pool, j={args.jaccard_threshold} Jaccard reps. Population-weighted "
-        f"ranking is dominated by single-token high-prevalence features; "
-        f"AToP's multi-token compositional patterns sit at population ranks "
-        f"#100\u2013#1850. Bold dark-edged bars = absent from the other panel's "
-        f"top-{args.n_show}; their rank in the other ranking is shown in bold "
-        f"next to each bar.",
+        f"Full pool, j={args.jaccard_threshold} Jaccard reps. The population-weighted "
+        f"top-{args.n_show} contains {n_single_b} single-token entries, the rest "
+        f"high-prevalence within-visit sets; the {len(_ranks)} carrier-conditional "
+        f"patterns absent from it sit at population ranks {_rank_txt}. Bold "
+        f"dark-edged bars = absent from the other panel's top-{args.n_show}; "
+        f"their rank in the other ranking is shown in bold next to each bar.",
         ha="center", va="top", fontsize=fs_sub, color="#444444",
     )
 

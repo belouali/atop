@@ -83,7 +83,7 @@ def main() -> None:
     # 1. Source admissions
     top = 11.9
     b1 = _box(ax, MX, top, MW, "546,028 Hospital admissions",
-              "MIMIC-IV v3.1; patients with ≥1 acute inpatient admission")
+              "MIMIC-IV v3.1; hospital encounters of any admission type")
     # 2. Sequence assembly
     t2 = b1 - GAP
     b2 = _box(ax, MX, t2, MW, "One chronological token sequence per patient",
@@ -133,8 +133,7 @@ def main() -> None:
     b6a = _box(ax, xs[0], t6, SW, "Pattern mining",
                "On training-cohort salient tokens\n"
                "70,278 episodes mined (pooled)\n"
-               "24,490 at whole-cohort support\n"
-               "9,213 cross-visit representatives\n(Jaccard ≥ 0.2)")
+               "24,490 at whole-cohort support")
     _arrow(ax, xs[0] + SW / 2, bottoms[0], xs[0] + SW / 2, t6)
     b6c = _box(ax, xs[2], t6, SW, "Per-token IG attribution",
                "Applied to all 43,640 test patients")
@@ -152,7 +151,7 @@ def main() -> None:
     FW = 4.7   # just wide enough for the lead line; centred under the test column
     b7 = _box(ax, tx - FW / 2, t7, FW,
          "43,602 Patients in the analytic attribution set",
-         "Carrier-conditional token summaries\nand pattern-level analyses")
+         "Pattern scoring, Jaccard deduplication\n(9,213 cross-visit representatives) and validation")
     _arrow(ax, tx, b6c, tx, t7)
     ax.set_ylim(b7 - 0.25, 12.0)
 

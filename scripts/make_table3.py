@@ -90,18 +90,16 @@ PHENOTYPE_RULES = [
       "preterm labor", "Preterm labor",
       "Amniotic", "amniotic",
       "multigravida", "Multigravida"}),
-    # Chest pain workup: chest-pain-centered diagnostic evaluations.
-    # Triggers on chest-pain or any of the diagnostic-test tokens
-    # (ECG, chest X-ray, respiratory measurements). Patterns reaching
-    # this rule have already been ruled out as Psychiatric / Oncologic /
-    # Hepatobiliary / Obstetric, so workup-test keywords are unambiguous
-    # at this point in the chain.
-    ("Chest pain workup",
-     {"Chest pain NOS", "ECG", "Chest X-ray", "Resp measurements",
-      "Atypical chest pain"}),
     ("Substance use",
      {"Alcohol intox", "Alcohol abuse", "Cannabis", "Benzodiazepine",
       "Acetamin OD", "SSRI OD", "Analgesic OD", "self-poisoning"}),
+    # Chest pain workup: chest-pain-centered diagnostic evaluations.
+    # Tested AFTER Substance use so that a pattern such as
+    # {Alcohol abuse; Resp measurements} is not labelled a chest-pain
+    # workup on the strength of a diagnostic-test token alone.
+    ("Chest pain workup",
+     {"Chest pain NOS", "ECG", "Chest X-ray", "Resp measurements",
+      "Atypical chest pain"}),
     # Anything else falls into "Other"
 ]
 

@@ -209,7 +209,10 @@ def summary(vals, name):
     # Two-sided p: fraction of resamples where delta crosses zero
     # (approximation, valid for deltas only)
     if name.startswith("d_"):
-        pval = 2 * min((arr <= 0).mean(), (arr >= 0).mean())
+        # add-one correction: (b + 1) / (B + 1), two-sided; the smallest
+        # attainable value with B = 1,000 is therefore 2/1,001 = 0.002
+        n = len(arr)
+        pval = min(1.0, 2 * min(((arr <= 0).sum() + 1), ((arr >= 0).sum() + 1)) / (n + 1))
     else:
         pval = float("nan")
     return {
@@ -252,13 +255,13 @@ def fmt_row(r):
         return (f"| {r['name'].replace('AUROC: ', '')} "
                 f"| {point:.4f} | ({lo:.4f}, {hi:.4f}) |, |")
     p = r["p_value"]
-    pstr = "< 0.001" if p < 0.001 else f"{p:.3f}"
+    pstr = f"{p:.3f}"
     return (f"| {r['name'].replace('d_ΔAUROC: ', '')} "
             f"| {point:+.4f} | ({lo:+.4f}, {hi:+.4f}) | {pstr} |")
 
 
 lines = [
-    "# Table S1, Bootstrap 95% CIs for AUROC comparisons",
+    "# Table 2 support, Bootstrap 95% CIs for AUROC comparisons",
     "",
     f"Paired bootstrap (n = {N_BOOT:,} resamples, seed = {SEED}) on the "
     f"aligned test cohort (n = {len(aligned):,}).",

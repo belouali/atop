@@ -193,9 +193,7 @@ def add_table_s2(doc) -> None:
             "threshold but not the whole-cohort one. Global rankings "
             "used the full pooled set. Token compression ratio is the "
             "mean full sequence length divided by the mean salient "
-            "subsequence length per patient. Counts represent "
-            "different stages of the pipeline rather than a running "
-            "total."
+            "subsequence length per patient. Counts represent different stages of the pipeline rather than a running total. Test-carrier counts are full-record carriers."
         ),
     )
 
@@ -221,24 +219,45 @@ def build() -> None:
               'absolute value of 0.012 logits (90th percentile 0.032), or'
               ' 1.8% of |z(x) − z(x_baseline)| (90th percentile 7.3%); '
               '100 steps would reduce the median to 0.5%.')
+    para(doc, 'Per-patient explanations and all pattern analyses use '
+              'the attribution on clinical tokens only; attribution '
+              'on the [CLS] and [VISIT] positions is not displayed. '
+              'Across the same 300 test patients, these structural '
+              'positions carried a median 46% of the total absolute '
+              'attribution (above 25% in 69% of patients), with no '
+              'consistent sign ([CLS] negative on average; [VISIT] '
+              'positive in 68% of patients). The displayed '
+              'clinical-token sums are therefore partial sums; the '
+              'full identity, including the reference logit and the '
+              'structural-token share, is reported for each example '
+              'in the legends of Figures 2 and S2A to S2C.')
 
     heading(doc, "Pattern scoring and position allocation", level=2)
-    para(doc, 'Carrier-averaged ΣIG, used for all pattern rankings and '
-              'tables, follows one rule for every pattern shape. A '
-              "patient's record is indexed as, for each token, the visits"
-              " in which it occurs. The pattern's steps are matched "
-              'greedily from left to right: step k is assigned the '
-              'earliest visit, strictly later than the visit assigned to '
-              'step k − 1, in which all of its tokens occur; a patient '
-              "with no such assignment is not a carrier. The patient's "
-              "score is the sum, over steps and over each step's tokens, "
-              "of the signed IG of the token's first occurrence in the "
-              'assigned visit. A token that appears in two steps '
-              'therefore contributes once per step, occurrences outside '
-              'the assigned visits do not contribute, and all tokens are '
+    para(doc, 'Carrier-averaged ΣIG, used for all pattern rankings '
+              'and tables, follows one rule for every pattern shape. '
+              "A patient's record is indexed as, for each token, the "
+              "visits in which it occurs. The pattern's steps are "
+              'matched greedily from left to right: step k is '
+              'assigned the earliest visit, strictly later than the '
+              'visit assigned to step k − 1, in which all of its '
+              'tokens occur; a patient with no such assignment is '
+              "not a carrier. The patient's score is the sum, over "
+              "steps and over each step's tokens, of the signed IG "
+              "of the token's first occurrence in the assigned "
+              'visit. A token that appears in two steps therefore '
+              'contributes once per step, occurrences outside the '
+              'assigned visits do not contribute, and all tokens are '
               'used, not only salient ones. Patterns are scored '
               'independently, so two patterns that share tokens both '
-              'receive credit for them.')
+              'receive credit for them. Because mining used salient '
+              'subsequences whereas carriers are matched on full '
+              'records, a carrier need not be matchable on its '
+              'salient tokens alone. Among the 1,230 carrier-pattern '
+              'pairs of the 30 patterns in Table 4, every pattern '
+              'token was salient somewhere in the record in 836 '
+              '(68%); restricting carriers to those patients '
+              'preserved the sign of all 30 carrier-averaged ΣIG '
+              'values (Spearman ρ of |ΣIG| 0.97; median change +4%).')
     para(doc, 'The per-patient explanation display (Figure 2) instead '
               "partitions the patient's salient positions among the "
               'matched patterns. Patterns from the mined dictionary are '
@@ -291,26 +310,45 @@ def build() -> None:
               'code.')
 
     heading(doc, "Preprocessing and vocabulary composition", level=2)
-    para(doc, "ICD-9 diagnosis and procedure codes were mapped to ICD-10 "
-              "with the CMS forward General Equivalence Mappings, keeping "
-              "only entries flagged as unambiguous (no_map = 0, "
-              "combination = 0); codes without such an entry were kept "
-              "in ICD-9. "
-              "Prescription drugs were mapped to RxNorm ingredient "
-              "concepts (TTY = IN) via a two-stage pipeline against the "
-              "RxNav REST API: (1) NDC codes (zero-padded to 11 digits) "
-              "were resolved to their RxCUI and then to the ingredient "
-              "concept; (2) for NDC misses and rows without an NDC, the "
-              "drug name was matched to the closest ingredient concept. "
-              "The resulting "
-              "NDC-to-ingredient lookup covers 8,195 distinct NDC codes; "
-              "records mapping to neither stage were dropped. Tokens with "
-              "training-set frequency below min_freq = 2 were dropped "
-              "(folded into [PAD] at encode time). The final 24,005-token "
-              "vocabulary comprises 14,960 diagnosis tokens (ICD-9/10), "
-              "7,877 procedure tokens (ICD-9/10), 1,165 RxNorm-ingredient "
-              "drug tokens, and 3 special tokens ([VISIT]/[CLS]/[PAD]), "
-              "shared in a single embedding space across all streams.")
+    para(doc, 'ICD-9 diagnosis and procedure codes were mapped to '
+              'ICD-10 with the CMS General Equivalence Mappings '
+              '[26]: after removing no-map and combination entries, '
+              'only ICD-9 codes with a single ICD-10 target were '
+              'converted, which harmonized 80.4% of ICD-9 diagnosis '
+              'rows (6,719 of 9,143 codes) and 14.2% of ICD-9 '
+              'procedure rows (255 of 2,557 codes); the remaining '
+              'codes were kept in ICD-9 (1,863 diagnosis and 1,807 '
+              'procedure tokens in the vocabulary). Chronic '
+              'conditions, defined by a fixed ICD-prefix list '
+              'released with the code (metabolic, cardiovascular, '
+              'respiratory, renal, gastrointestinal, neurological, '
+              'psychiatric and substance-use disorders, '
+              'malignancies, HIV, and status or history Z codes), '
+              'were retained at a visit only when recorded as the '
+              'primary diagnosis (sequence number 1) or at their '
+              "first appearance in the patient's record; acute codes "
+              'were always kept. Prescription drugs were mapped to '
+              'RxNorm ingredient concepts through the RxNav API, '
+              'queried once in March 2026: NDC codes were resolved '
+              'to ingredient concepts, and rows without a resolvable '
+              'NDC were matched on the first word of the order name, '
+              'so combination products map to their first '
+              'ingredient; the lookup resolves 4,137 NDCs and 6,177 '
+              'drug-name strings to 1,478 ingredients. Each '
+              'ingredient was retained only in the first admission '
+              'in which it was prescribed, one token per ingredient '
+              'per admission. Ingredients prescribed in more than '
+              '25% of admissions, ten near-universal ingredients '
+              '(for example sodium chloride, dextrose, '
+              'acetaminophen, heparin) and eight administrative or '
+              'screening ICD prefixes were removed by fixed lists. '
+              'Tokens with training-set frequency below 2 were '
+              'folded into [PAD] at encoding. The final 24,005-token '
+              'vocabulary comprises 14,960 diagnosis tokens '
+              '(ICD-9/10), 7,877 procedure tokens (ICD-9/10), 1,165 '
+              'RxNorm-ingredient drug tokens, and 3 special tokens '
+              '([VISIT]/[CLS]/[PAD]), shared in a single embedding '
+              'space across all streams.')
 
     heading(doc, "Test-set use in deduplication", level=2)
     para(doc, 'Patterns were mined exclusively from the training '
@@ -362,17 +400,17 @@ def build() -> None:
               'values of a pattern’s unique constituent tokens for '
               'each carrier, whereas IG scored tokens at the matched '
               'visit positions. Pattern rankings under KernelSHAP '
-              'used the Jaccard representatives of the IG analysis: '
-              'clusters depend only on carrier sets, but the '
-              'representative of each cluster is its member with the '
-              'largest |ΣIG|, and representatives were not '
-              'reselected by SHAP magnitude. Fifty-eight token '
-              'values from 25 of the 43,602 patients exceeded 10 in '
-              'absolute value, a numerical failure of the kernel '
-              'regression; these values were excluded from the token '
-              'summaries, and carriers whose constituent tokens '
-              'included such a value were excluded from the affected '
-              'pattern sums. The analysis used shap version 0.49.1.')
+              'used the Jaccard groups of the IG analysis, formed '
+              'once from test-cohort carrier sets swept in '
+              'descending |ΣIG| order, and their representatives '
+              'were not reselected by SHAP magnitude. Fifty-eight '
+              'token values from 25 of the 43,602 patients exceeded '
+              '10 in absolute value, a numerical failure of the '
+              'kernel regression; these values were excluded from '
+              'the token summaries, and carriers whose constituent '
+              'tokens included such a value were excluded from the '
+              'affected pattern sums. The analysis used shap version '
+              '0.49.1.')
     para(doc, 'The reversed-order comparison scored 3,447 candidate '
               'cross-visit patterns: those of Table 4 and Figure 4B, '
               'plus every multi-visit pattern of the full pool with '
@@ -380,12 +418,16 @@ def build() -> None:
               '40,327 multi-visit patterns of that pool. Of these, '
               '3,429 had valid matches in both orderings and 1,714 '
               'had at least 20 patients matching each ordering; the '
-              'pool statistics in the Results and Figure S9 refer '
-              'to these 1,714. The 40,327 multi-visit patterns '
-              'include 718 sequences of a single repeated token; the '
-              '39,611 cross-visit candidates in Table S2 '
-              'additionally require two distinct tokens and admit 3 '
-              'or more carriers, which adds 2 patterns.')
+              'pool statistics in the Results and Figure S9 refer to '
+              'these 1,714. The 40,327 multi-visit patterns include '
+              '718 sequences of a single repeated token; the 39,611 '
+              'cross-visit candidates in Table S2 additionally '
+              'require two distinct tokens and admit 3 or more '
+              'carriers, which adds 2 patterns. Both orderings were '
+              "matched on patients' attribution-salient visit "
+              'blocks, the token universe used for mining, so the '
+              'carrier counts in Table S4 are subsets of the '
+              'full-record counts in Table 4.')
 
     heading(doc, "Attribution direction and observed readmission", level=2)
     para(doc, 'To examine whether model-attributed cross-visit '
@@ -407,32 +449,32 @@ def build() -> None:
     heading(doc, "Figure S1. Cohort and analysis flow", level=2)
     figure_placeholder(doc, "Figure S1",
         "CONSORT-style flow of the cohort and analysis. From MIMIC-IV "
-        "v3.1 (546,028 hospital admissions), patients with at least one "
-        "acute inpatient admission are assembled into one chronological "
-        "token sequence (ICD-9/10 diagnoses and procedures, RxNorm "
-        "drugs). In-hospital deaths (11,801 admissions, 2.2%) are "
-        "excluded before labeling, since "
-        "those patients cannot be readmitted. The 30-day readmission "
-        "label excludes elective and "
-        "surgical same-day admissions from the positive class (planned "
-        "care, not unplanned readmission), yielding the analytic cohort "
-        "of 218,196 patients with a 12.6% unplanned 30-day readmission "
-        "rate. A patient-level 70/10/20 split gives train (152,737; "
-        "12.6% readmit), validation (21,819), and test (43,640; 12.7% "
-        "readmit). Pattern mining runs on training-cohort salient tokens "
-        "(70,278 distinct episodes mined, 24,490 of them at whole-cohort "
-        "support; 9,213 cross-visit representatives at j ≥ 0.2); "
+        "v3.1 (546,028 hospital admissions), each patient's hospital "
+        "encounters of any admission type are assembled into one "
+        "chronological token sequence (ICD-9/10 diagnoses and "
+        "procedures, RxNorm drugs). In-hospital deaths (11,801 "
+        "admissions, 2.2%) are excluded before labeling, since those "
+        "patients cannot be readmitted. The 30-day readmission label "
+        "excludes elective and surgical same-day admissions from the "
+        "positive class (planned care, not unplanned readmission), "
+        "yielding the analytic cohort of 218,196 patients with a 12.6% "
+        "unplanned 30-day readmission rate. A patient-level 70/10/20 "
+        "split gives train (152,737; 12.6% readmit), validation "
+        "(21,819), and test (43,640; 12.7% readmit). Pattern mining "
+        "runs on training-cohort salient tokens (70,278 distinct "
+        "episodes mined, 24,490 of them at whole-cohort support); "
         "per-token IG attribution is computed for all 43,640 test "
         "patients, of which 38 are excluded for an empty salient-token "
-        "set, leaving the analytic attribution set of 43,602 patients "
-        "used for all downstream AToP analyses. The two prevalence "
-        "values (overall/train 12.6%, test 12.7%) are the same metric "
-        "on different cohorts (rounding of 12.65% and 12.74%), not "
-        "conflicting numbers.",
+        "set, leaving the analytic attribution set of 43,602 patients, "
+        "on whose carrier sets patterns are scored and deduplicated "
+        "(9,213 cross-visit representatives at j ≥ 0.2) and validated. "
+        "The two prevalence values (overall/train 12.6%, test 12.7%) "
+        "are the same metric on different cohorts (12.61% and 12.74% "
+        "before rounding), not conflicting numbers.",
         image_path=IMAGE_PATHS.get("Figure S1"))
 
     page_break(doc)
-    heading(doc, "Figure S2A. Alternate exemplar: psychiatric clinical presentation (true positive)", level=2)
+    heading(doc, "Figure S2A. Additional example: psychiatric presentation (true positive)", level=2)
     figure_placeholder(doc, "Figure S2A",
         "Two-panel AToP narrative for a true-positive test patient with "
         "a psychiatric clinical presentation (recurrent psychosis NOS across "
@@ -445,12 +487,11 @@ def build() -> None:
         "signed \u03a3 IG decomposition under the non-overlapping "
         "position-level allocation rule. Bars labeled V\u2099\u2192V\u2098 "
         "are cross-visit pattern matches; V\u2098: are within-visit. "
-        "Figures S2A and S2B were chosen to span clinical groups "
-        "rather than to validate predictive accuracy.",
+        "Figures S2A and S2B were chosen to span clinical groups rather than to validate predictive accuracy. The displayed ΣIG (+1.973) sums the clinical tokens; attribution on the [CLS] and [VISIT] positions (+0.733) and the reference logit (−0.220) complete the identity with the patient's logit (+2.533) up to a residual of +0.046.",
         image_path=IMAGE_PATHS.get("Figure S2A"))
 
     page_break(doc)
-    heading(doc, "Figure S2B. Alternate exemplar: obstetric true negative",
+    heading(doc, "Figure S2B. Additional example: obstetric true negative",
              level=2)
     figure_placeholder(doc, "Figure S2B",
         "Two-panel AToP narrative for a true-negative test patient with "
@@ -458,12 +499,11 @@ def build() -> None:
         "obstetric laceration repair). Same format as Figures 2 and S2A. "
         "The salient subsequence comprises obstetric procedure tokens; "
         "AToP surfaces the corresponding protective obstetric trajectory "
-        "in the allocated \u03a3 IG panel and the model assigns a low "
-        "predicted readmission probability.",
+        "in the allocated \u03a3 IG panel and the model assigns a low predicted readmission probability. The displayed ΣIG (−2.145) sums the clinical tokens; attribution on the [CLS] and [VISIT] positions (+1.062) and the reference logit (−0.198) complete the identity with the patient's logit (−1.300) up to a residual of −0.019.",
         image_path=IMAGE_PATHS.get("Figure S2B"))
 
     page_break(doc)
-    heading(doc, "Figure S2C. Disagreement exemplar: oncology false "
+    heading(doc, "Figure S2C. Disagreement example: oncology false "
                   "positive", level=2)
     figure_placeholder(doc, "Figure S2C",
         "Two-panel AToP narrative for a false-positive test patient: the "
@@ -474,8 +514,7 @@ def build() -> None:
         "V4; chemotherapy-supportive medications). The prediction was "
         "driven primarily by the cross-visit Bone metastases → Bone "
         "metastases pattern (+0.240 allocated ΣIG) and a larger combined contribution from 13 other salient tokens (+0.969). Same two-panel "
-        "format as Figure 2, S2A, and S2B. The explanation shows which "
-        "patterns drove the high-confidence prediction.",
+        "format as Figure 2, S2A, and S2B. The explanation shows which patterns drove the high-confidence prediction. The displayed ΣIG (+1.061) sums the clinical tokens; attribution on the [CLS] and [VISIT] positions (+1.280) and the reference logit (+0.145) complete the identity with the patient's logit (+2.534) up to a residual of +0.048.",
         image_path=IMAGE_PATHS.get("Figure S2C"))
 
     page_break(doc)
@@ -517,44 +556,43 @@ def build() -> None:
     page_break(doc)
     heading(doc, "Figure S5. Pattern-level aggregation comparison", level=2)
     figure_placeholder(doc, "Figure S5",
-        "Pattern-level aggregation comparison across all patterns (single-token, within-visit co-occurrence, and cross-visit combined), "
-        "Jaccard j = 0.2 (17,891 representatives). (A) Top-30 by carrier-"
-        "averaged ΣIG. (B) Top-30 by population-weighted ΣIG "
-        "(= carrier-averaged ΣIG × prevalence). Only 6 of 30 patterns "
-        "overlap between the two rankings (vs 7 / 30 at the token "
-        "level in Figure 3). Multi-token patterns are penalized "
-        "harder by prevalence weighting because a pattern's carriers are a "
-        "subset of the patients carrying all of its constituent tokens, "
-        "and the visit and ordering requirements reduce that set further. The "
-        "population-weighted top-30 is dominated by single-token "
-        "features (MDD single ep. NOS, Chest pain NOS, Alcohol abuse, "
-        "Ibuprofen, Thiamine, Psychosis NOS, etc.); AToP's multi-token "
-        "compositional patterns sit at population ranks #3–#2058, so "
-        "the aggregation penalty compounds at the pattern level.",
+        "Pattern-level aggregation comparison on the all-patterns pool "
+        "(single-token, within-visit co-occurrence and cross-visit "
+        "patterns combined; Jaccard j = 0.2, 17,891 representatives). "
+        "(A) Top 30 by carrier-averaged ΣIG. (B) Top 30 by "
+        "population-weighted mean IG. Only 6 of 30 patterns are "
+        "shared. The population-weighted top 30 is led by single-token "
+        "features (10 of its 30 entries; the remainder are "
+        "high-prevalence within-visit sets, mostly obstetric bundles), "
+        "whereas the carrier-conditional top 30 consists almost "
+        "entirely of within-visit co-occurrence sets; its 24 patterns absent from the population-weighted top 30 sit at population ranks 36 to 3,911. No cross-visit sequence enters either top "
+        "30. Bold, dark-edged bars mark patterns absent from the other "
+        "panel's top 30, with their rank in the other ranking shown "
+        "beside the bar.",
         image_path=IMAGE_PATHS.get("Figure S5"))
 
     page_break(doc)
     heading(doc, "Figure S6. Pattern prevalence and relative risk vs "
                   "attribution magnitude", level=2)
     figure_placeholder(doc, "Figure S6",
-        "Patterns with similar prevalence or relative risk can have substantially different attribution magnitudes. n = 5,047 cross-"
-        "visit patterns. Dots are red for risk (ΣIG > 0), blue for "
-        "protective; dot area ∝ log(n test carriers). (A) Prevalence "
-        "(% of test patients carrying the pattern, log scale) vs "
-        "carrier-averaged |ΣIG|. The long left tail of rare-but-decisive "
-        "patterns motivates AToP's carrier-conditional aggregation. The "
-        "top-5 rare-decisive risk and top-5 protective patterns are "
-        "marked with empty rings and listed in the upper-left textbox. "
-        "(B) log₁₀(Relative Risk vs cohort baseline) vs |ΣIG|. Here RR "
-        "is computed on the training cohort (baseline 30-day readmission "
-        "rate 12.6%), the cohort the patterns were mined from. For "
-        "cross-visit patterns, RR does not account for "
-        "differences in the number of admissions. Adjusted odds ratios "
-        "for the reported cross-visit patterns are provided in Table S3. "
-        "Dashed vertical "
-        "line marks RR = 1 (baseline). Spearman ρ (|ΣIG| vs "
-        "log RR) = −0.13: patterns with comparable RR span a wide range of "
-        "|ΣIG|, so effect size alone does not predict a pattern's attribution magnitude.",
+        "Pattern prevalence and relative risk versus attribution "
+        "magnitude for n = 5,047 cross-visit patterns: the cross-visit "
+        "members of the 24,490-pattern per-patient explanation "
+        "dictionary (Table S2) that received test-cohort IG scores. "
+        "This pool is not Jaccard-deduplicated and is the set for "
+        "which training-cohort readmission counts exist, so it differs "
+        "from the 9,213 cross-visit representatives of Figure 4B and "
+        "Table 4 (718 patterns shared). Dots are red for risk (ΣIG > "
+        "0) and blue for protective patterns; dot area is proportional "
+        "to log(n test carriers). (A) Carrier-averaged |ΣIG| against "
+        "test-cohort prevalence (log scale); the five risk and five "
+        "protective patterns with the largest |ΣIG| at low prevalence "
+        "are ringed and listed below the panels. (B) |ΣIG| against "
+        "log10 relative risk computed in the training cohort (baseline "
+        "12.65%), Spearman ρ = −0.13: patterns with similar relative "
+        "risk span a wide range of attribution magnitude. Test-cohort "
+        "adjusted odds ratios for the reported patterns are given in "
+        "Table S3.",
         image_path=IMAGE_PATHS.get("Figure S6"))
 
     page_break(doc)
@@ -603,9 +641,7 @@ def build() -> None:
     heading(doc, "Figure S9. Attribution under forward and reversed "
                   "temporal order across the cross-visit pool", level=2)
     figure_placeholder(doc, "Figure S9",
-                "Attribution under forward and reversed temporal order. Small "
-        "points represent 1,714 cross-visit patterns with at least 20 "
-        "test-cohort patients matching each ordering. Outlined points "
+                "Attribution under forward and reversed temporal order. Small points represent 1,714 cross-visit patterns with at least 20 test-cohort patients matching each ordering on their attribution-salient visit blocks. Outlined points "
         "additionally show the 27 evaluable patterns reported in Table "
         "4, regardless of their forward- and reversed-order carrier "
         "counts; the remaining 3 read the same in either direction and "
@@ -628,10 +664,12 @@ def build() -> None:
     heading(doc, "Figure S10. Per-patient SHAP vs IG agreement", level=2)
     figure_placeholder(doc, "Figure S10",
         "Per-patient agreement between Integrated Gradients (IG) and "
-        "KernelSHAP attribution methods. (A) Exemplar patient (true "
+        "KernelSHAP attribution methods. (A) Example patient (true "
         "positive, recurrent psychosis): per-token signed IG vs signed "
-        "KernelSHAP for top 20 tokens by |IG|; 6 most extreme tokens "
-        "labeled. Pearson r = 0.52, Spearman ρ = 0.43. (B) Aggregate "
+        "KernelSHAP for the patient's 18 highest-|IG| tokens; the 6 most extreme "
+        "are labeled, and the axes are scaled independently because IG is on "
+        "the logit scale and KernelSHAP on the probability scale. Pearson r = "
+        "0.52, Spearman ρ = 0.43. (B) Aggregate "
         "scatter pooling top 10 tokens (by |IG|) from 100 stratified-"
         "random test patients, z-scored on both axes so per-method scale "
         "differences do not obscure rank/sign agreement. n = 935 (patient, "
@@ -830,10 +868,7 @@ def build() -> None:
             "(one-sided Wilcoxon signed-rank test of |ΣIG forward| > "
             "|ΣIG reversed| over the 27 patterns, p < 0.001). One "
             "pattern shows a small "
-            "increase under reversal. n forward and ΣIG forward are "
-            "computed over the forward-order-matching carrier subset, so "
-            "they differ from the all-carrier n and ΣIG in main-paper "
-            "Table 4. The forward and reversed groups are not disjoint: "
+            "increase under reversal. n forward, n reversed, n both and the ΣIG values in this table are computed on each patient's attribution-salient visit blocks (the tokens covering 80% of absolute IG mass, at most 50 per patient, grouped by visit; the token universe used for mining), whereas n and ΣIG in main-paper Table 4 are computed on the complete record. Every salient-block match is also a full-record carrier, so the n forward patients are a subset of the Table 4 carriers (for example 148 of 201 for {MDD single ep. NOS; SI} → SI), and ΣIG forward differs from the Table 4 value mainly because it averages over that subset. The forward and reversed groups are not disjoint: "
             "patients counted under n both contribute to both means. "
             "Several patterns "
             "have small reverse-order support (n reversed as low as 2), so "
@@ -895,6 +930,25 @@ def build() -> None:
               'one-sided Wilcoxon test on those means was significant '
               '(p < 0.001, n = 722). Per-pattern p values are nominal; 4 '
               'of 27 remain below 0.05 after Holm correction.'))
+
+    # ── Table S6: Transformer architecture and training settings ─────
+    page_break(doc)
+    df_s7 = _read_csv("TableS6_hyperparameters.csv")
+    table_title(doc, "Table S6", "Transformer architecture and training settings.")
+    _rows6, _last6 = [], None
+    for _, r in df_s7.iterrows():
+        _sec = _fmt_str(r["Section"]) if r["Section"] != _last6 else ""
+        _last6 = r["Section"]
+        _rows6.append([_sec, _fmt_str(r["Parameter"]), _fmt_str(r["Value"])])
+    make_table(doc, header_row=["Section", "Parameter", "Value"], data_rows=_rows6,
+               col_widths_in=[0.9, 1.9, 3.7], font_size_pt=8, bold_first_col=True)
+    table_legend(doc,
+        abbreviations=("AUROC = area under the receiver operating characteristic curve; "
+                       "PR-AUC = area under the precision-recall curve; OOV = out of vocabulary."),
+        note=("Values not stored in the run configuration (early-stopping patience, "
+              "feed-forward activation, optimizer constants) are the training script's "
+              "defaults. A single training run (seed 42) was performed; hardware and "
+              "library versions were not recorded."))
 
     # ── Save ─────────────────────────────────────────────────────────
     os.makedirs(os.path.dirname(OUT_PATH), exist_ok=True)

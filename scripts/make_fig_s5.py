@@ -182,13 +182,12 @@ def main() -> None:
         prot_lines.append(f"  {i}. {_resolve_label(r['pattern'], 46)}  "
                            f"(n={int(r['n_present'])})")
     box_text = "\n".join(risk_lines + prot_lines)
-    axA.text(
-        0.02, 0.98, box_text,
-        transform=axA.transAxes, ha="left", va="top",
+    # Listed below the plotting area so no data point is hidden
+    # (the former in-axes box covered the high-|ΣIG| tail).
+    fig.text(
+        0.01, -0.02, box_text,
+        ha="left", va="top",
         fontsize=8.5, color="#111111", family="DejaVu Sans",
-        bbox=dict(boxstyle="round,pad=0.40", fc="white",
-                   ec="#aaaaaa", lw=0.6),
-        zorder=6,
     )
 
     axA.set_xscale("log")
@@ -205,7 +204,7 @@ def main() -> None:
     )
     axA.tick_params(labelsize=10)
     axA.grid(True, which="both", color="#eeeeee", linewidth=0.5)
-    axA.legend(loc="lower right", fontsize=10, framealpha=0.95)
+    axA.legend(loc="upper right", fontsize=10, framealpha=0.95)
     for side in ("top", "right"):
         axA.spines[side].set_visible(False)
 
@@ -249,7 +248,7 @@ def main() -> None:
     )
     axB.tick_params(labelsize=10)
     axB.grid(True, which="both", color="#eeeeee", linewidth=0.5)
-    axB.legend(loc="upper left", fontsize=10, framealpha=0.95)
+    axB.legend(loc="lower right", fontsize=10, framealpha=0.95)
     for side in ("top", "right"):
         axB.spines[side].set_visible(False)
 
