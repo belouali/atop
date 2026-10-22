@@ -234,7 +234,10 @@ def _add_figure_caption(doc: Document, caption_md: str, alt_text: str):
     """Add caption (with bold-markdown parsed) + alt text in italic."""
     p = doc.add_paragraph()
     p.paragraph_format.line_spacing = 1.5   # legends at 1.5
-    _add_runs_with_md_bold(p, caption_md)
+    # House rule: every exhibit mention inside a caption is bold too.
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    from _docx_helpers import bold_exhibit_refs
+    _add_runs_with_md_bold(p, bold_exhibit_refs(caption_md))
     # Caption styling: 9pt-ish via style if available
     for run in p.runs:
         run.font.size = Pt(9)

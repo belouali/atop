@@ -338,7 +338,7 @@ def build() -> None:
     # Word-count statement (JAMIA title-page requirement). JAMIA Research
     # and Applications caps the body at 4,000 words and the structured
     # abstract at 250.
-    para(doc, "**Word count:** Abstract 237; Body 3,996.")
+    para(doc, "**Word count:** Abstract 238; Body 3,998.")
     hrule(doc)
 
     # ── Abstract ─────────────────────────────────────────────────────
@@ -381,8 +381,9 @@ def build() -> None:
               'validity. Cross-visit rankings agreed less between '
               'the IG and KernelSHAP implementations.')
     para(doc, '**Conclusion:** AToP turns a Transformer’s '
-              'attributions into clinically legible trajectories, '
-              'showing which events, in which order, contribute to '
+              'attributions into visit-anchored temporal pattern '
+              'narratives, showing which events, in which order, '
+              'contribute to '
               'its readmission predictions.')
 
     page_break(doc)
@@ -421,7 +422,11 @@ def build() -> None:
               "offer a partial alternative by reflecting temporal order "
               "through visit- and feature-level importance. However, "
               "the faithfulness of attention weights as explanations "
-              "remains debated [14,15].")
+              "remains debated [14,15]. Interaction attribution methods, "
+              "such as SHAP interaction values [16] and Integrated "
+              "Hessians [17], quantify pairwise feature interactions but "
+              "do not represent ordered sequences of events across "
+              "visits.")
     para(doc, 'The lack of temporal and combinatorial structure is '
               'especially consequential in longitudinal clinical '
               'data, where the same events may carry different '
@@ -430,13 +435,13 @@ def build() -> None:
               'encounters. Prior work has applied sequential pattern '
               'mining to longitudinal EHR and claims data to study '
               'disease progression, adverse drug events, treatment '
-              'pathways, and diagnostic trajectories [16–21]. '
+              'pathways, and diagnostic trajectories [18–23]. '
               'Related approaches have also examined temporal '
-              'patterns in EHR phenotyping [22]. Sequential pattern '
+              'patterns in EHR phenotyping [24]. Sequential pattern '
               'mining has also been used to construct inputs for '
               'Transformer-based disease trajectory prediction, with '
               'SHAP subsequently applied to explain individual '
-              'predictions [23].')
+              'predictions [25].')
     para(doc, 'We present AToP (Attribution to Temporal Patterns), a '
               'post-hoc explainability framework that uses '
               'token-level attribution from a trained Transformer to '
@@ -446,8 +451,8 @@ def build() -> None:
               'from carrier-conditional attribution. We evaluate '
               'AToP on unplanned 30-day hospital readmission, a '
               'prediction task for which conventional risk models '
-              'have historically shown modest discrimination [24], '
-              'using MIMIC-IV v3.1 [25], which provides the '
+              'have historically shown modest discrimination [26], '
+              'using MIMIC-IV v3.1 [27], which provides the '
               'longitudinal coverage needed for cross-visit pattern '
               'discovery.')
 
@@ -465,19 +470,22 @@ def build() -> None:
 
     heading(doc, "Data and prediction task", level=2)
     para(doc, 'The study cohort included 218,196 patients from MIMIC-IV '
-              'v3.1 [25], with an unplanned 30-day hospital readmission '
+              'v3.1 [27], with an unplanned 30-day hospital readmission '
               'rate of 12.6%. The prediction target was unplanned 30-day '
               'readmission after the index admission, defined as the '
               'patient’s penultimate hospitalization. All earlier '
               'admissions were used as longitudinal history. For patients'
               ' with a single admission, that admission served as the '
-              'index.')
+              'index; these 119,874 patients (54.9%) had no later '
+              'admission in the data and were therefore labeled negative '
+              'by construction. Among patients with two or more '
+              'admissions, the readmission rate was 28.0%.')
     para(doc, 'Each patient’s longitudinal record through the index '
               'admission was represented as a single chronological '
               'token sequence containing ICD-9 and ICD-10 diagnoses '
               'and procedures, and prescription drugs. ICD-9 codes '
               'were mapped to ICD-10 using the CMS General '
-              'Equivalence Mappings [26], retaining only unambiguous '
+              'Equivalence Mappings [28], retaining only unambiguous '
               'one-to-one mappings; codes without such a mapping '
               'were kept in their original ICD-9 form. Visit '
               'boundaries were marked with explicit [VISIT] tokens. '
@@ -504,20 +512,20 @@ def build() -> None:
     para(doc, 'A readmission was any later encounter beginning '
               'within 0 to 30 days of the index discharge; '
               'encounters were not merged and no minimum interval '
-              'was imposed. Admissions with an in-hospital death '
-              '(11,801, 2.2%) were excluded before labeling; '
-              'consequently, an index admission followed within 30 '
-              'days only by a readmission ending in death was '
-              'labeled as not readmitted (709 of 218,196 index '
-              'admissions, 0.32%). Post-discharge mortality was not '
-              'incorporated into outcome labeling. Readmissions '
+              'was imposed. Admissions ending in in-hospital death '
+              '(11,801, 2.2%) were removed before index selection and '
+              'labeling, so an index admission followed only by an '
+              'admission ending in death was labeled as not readmitted '
+              '(709, 0.32%). '
+              'Post-discharge mortality was not used in labeling. '
+              'Readmissions '
               'coded as elective or surgical same-day admissions '
               'were not counted as positive. Emergency, urgent, '
               'direct, and observation admissions remained eligible, '
               'yielding 27,508 unplanned 30-day readmissions.')
 
     heading(doc, "Single-stream Transformer", level=2)
-    para(doc, 'A Transformer encoder [27] with a 24,005-token '
+    para(doc, 'A Transformer encoder [29] with a 24,005-token '
               'vocabulary, 3.5 million parameters, two encoder '
               'layers, four attention heads, 128-dimensional '
               'embeddings and 512-dimensional feed-forward layers '
@@ -526,9 +534,7 @@ def build() -> None:
               'hyperparameters are listed in Table S6.')
     para(doc, 'Diagnoses, procedures, medications, and the [VISIT], '
               '[CLS], and [PAD] special tokens were represented in a '
-              'shared embedding space, allowing the model to learn '
-              'interactions across token types without type-specific '
-              'architectural constraints. Token embeddings were '
+              'shared embedding space. Token embeddings were '
               'summed with learned absolute position embeddings; no '
               'visit-level or time embeddings were used. The [CLS] '
               'representation was passed through a two-layer '
@@ -537,15 +543,14 @@ def build() -> None:
               'probability.')
     para(doc, 'Patients were split at the patient level into training '
               '(70%; n=152,737), validation (10%; n=21,819), and test '
-              '(20%; n=43,640) cohorts. Of the 43,640 patients in the '
-              'test cohort, 43,602 were included in IG attribution and '
-              'downstream AToP analyses; 38 were excluded because '
-              'attribution yielded no salient-token set.')
+              '(20%; n=43,640) cohorts. IG attribution and AToP '
+              'analyses included 43,602 test patients; 38 yielded no '
+              'salient-token set.')
 
     heading(doc, "Baselines and performance evaluation", level=2)
     para(doc, 'We compared the Transformer with two baselines '
               'trained on seven structured predictors: the four '
-              'components of the LACE readmission index [28] (length '
+              'components of the LACE readmission index [30] (length '
               'of stay, emergent admission, Charlson comorbidity '
               'index, and emergency department visits in the '
               'preceding six months), entered as raw values rather '
@@ -565,26 +570,28 @@ def build() -> None:
               'two-sided p values.')
 
     heading(doc, "AToP explanation framework", level=2)
-    para(doc, 'AToP is a post-hoc explanation framework that operates on '
-              'the trained model in five steps (Figure 1): (1) compute '
-              'token-level attribution using Integrated Gradients; (2) '
-              'select salient tokens based on their cumulative share of '
-              'each patient’s absolute attribution mass; (3) apply '
-              'frequent-episode mining to salient tokens from the '
-              'training cohort to identify single-token events, '
-              'within-visit co-occurrences, and cross-visit sequences; '
-              '(4) summarize attribution at the token and pattern levels '
-              'using carrier-conditional aggregation; and (5) apply '
-              'Jaccard-based deduplication using patient overlap to '
-              'collapse near-redundant patterns into representative '
-              'patterns.')
+    para(doc, 'AToP operates on the trained model in five steps '
+              '(Figure 1): (1) compute token-level attribution using '
+              'Integrated Gradients; (2) select salient tokens by '
+              'cumulative share of each patient’s absolute attribution; '
+              '(3) mine frequent episodes from the training cohort’s '
+              'salient tokens: single-token events, within-visit '
+              'co-occurrences, and cross-visit sequences; (4) aggregate '
+              'attribution at the token and pattern levels over '
+              'carriers; and (5) collapse '
+              'near-redundant patterns by Jaccard similarity of their '
+              'carrier sets.')
     para(doc, 'Integrated Gradients was calculated on the logit, the '
               'model output before conversion to a probability. By '
               'the completeness property, the attributions over all '
               'input positions, including the [CLS] and [VISIT] '
               'tokens, sum approximately to the difference between '
               "the patient's logit and that of an all-[PAD] "
-              'reference sequence [8,29]. Explanations and pattern '
+              'reference sequence [8,31]. Attribution signs are relative '
+              'to this reference: positive values indicate a contribution '
+              'toward a higher logit than the reference sequence, and '
+              'negative (protective) values toward a lower one. '
+              'Explanations and pattern '
               'analyses use the attribution on clinical tokens only; '
               'the reference sequence, the structural-token share '
               'and the approximation error are described in the '
@@ -592,10 +599,8 @@ def build() -> None:
     para(doc, 'For each patient, a token’s attribution score was its '
               'signed IG value, and a multi-token pattern’s attribution '
               'score was the sum of the signed IG values of its '
-              'constituent tokens. Both token and pattern rankings were '
-              'based on absolute attribution magnitude, with the sign '
-              'retained to indicate whether the token or pattern '
-              'increased or decreased predicted risk.')
+              'constituent tokens. Rankings used absolute attribution '
+              'magnitude, with the sign retained.')
     para(doc, 'We define a carrier as a patient whose record contains the'
               ' token or pattern being evaluated. At the token level, '
               'carrier-conditional attribution was calculated as the mean'
@@ -628,13 +633,11 @@ def build() -> None:
               'visits. For each carrier, the score was the sum of '
               "signed IG values for the pattern's tokens in the "
               'matched visits. Scores were then averaged across '
-              'carriers to obtain carrier-averaged ΣIG. Patterns '
-              'were ranked by absolute carrier-averaged ΣIG, with '
-              'the sign indicating direction. For the per-patient '
+              'carriers to obtain carrier-averaged ΣIG. For the per-patient '
               'display, each salient token occurrence was counted '
               'only once to avoid double-counting across overlapping '
               'patterns (Supplementary Methods).')
-    para(doc, 'Frequent-episode mining [16] was implemented using a '
+    para(doc, 'Frequent-episode mining [18] was implemented using a '
               'level-wise candidate-generation algorithm and applied only'
               ' to salient-token subsequences from the training cohort. '
               'Patterns were constructed by either adding a co-occurring '
@@ -678,25 +681,18 @@ def build() -> None:
               'distinct tokens. Per-patient explanations used the '
               'subset of pooled patterns observed in at least 0.1% '
               'of the full training cohort.')
-    para(doc, 'To focus pattern mining on tokens with the largest '
-              'attributions while limiting the search space, we '
-              'retained, for each patient, the smallest set of '
-              'tokens accounting for 80% of total absolute IG, '
-              'capped at 50 tokens. We assessed sensitivity to the '
-              'attribution-mass threshold across values from 0.60 to '
-              '0.95. Additional implementation details are provided '
+    para(doc, 'For mining, we retained for each patient the smallest '
+              'set of tokens accounting for 80% of total absolute IG, '
+              'capped at 50 tokens, and assessed sensitivity to this '
+              'threshold from 0.60 to 0.95. '
+              'Additional implementation details are provided '
               'in the Supplementary Methods; parameter settings and '
               'their selection rationale are summarized in Table S1.')
 
     heading(doc, "Validation analyses", level=2)
-    para(doc, 'We used pattern masking to assess whether the identified '
-              'patterns influenced model predictions. We examined the '
-              'role of temporal order by comparing attribution for '
-              'forward and reversed patterns across patients and '
-              'reversing matched visits within patients. We also tested '
-              'whether highly attributed tokens influenced predictions '
-              'more than randomly selected salient tokens, and whether '
-              'IG-based rankings were consistent with KernelSHAP.')
+    para(doc, 'Four analyses tested whether the patterns influenced '
+              'predictions and whether the findings depended on '
+              'temporal order or on the attribution method.')
     para(doc, 'Masking was applied to the reported patterns and '
               'additional high-ranked patterns with positive or '
               'negative attribution, selected by absolute ΣIG. For '
@@ -723,7 +719,7 @@ def build() -> None:
     para(doc, 'We assessed token-level attribution faithfulness by '
               'examining how model predictions changed when highly '
               'attributed tokens were progressively removed or retained '
-              '[30]. The analysis included 500 randomly sampled test '
+              '[32]. The analysis included 500 randomly sampled test '
               'patients with at least three salient tokens.')
     para(doc, 'Comprehensiveness was measured as the absolute change in '
               'predicted readmission probability after masking the top k '
@@ -757,12 +753,9 @@ def build() -> None:
     para(doc, 'Cohort derivation is shown in Figure S1, and cohort '
               'characteristics are given in Table 1. The Transformer '
               'achieved an AUROC of 0.766 (95% CI, 0.759–0.773) and '
-              'a PR-AUC of 0.342. The XGBoost and logistic '
-              'regression baselines, using conventional readmission '
-              'predictors, achieved AUROCs of 0.728 and 0.659, '
-              'respectively, with PR-AUCs of 0.312 and 0.240. The '
-              'Transformer achieved significantly higher AUROC than '
-              'both LACE-based models (both p = 0.002; Table 2). '
+              'a PR-AUC of 0.342. Both LACE-based baselines had lower '
+              'AUROC (XGBoost 0.728, logistic regression 0.659; both '
+              'p = 0.002; Table 2). '
               'Because the models used different inputs, these '
               'comparisons do not isolate the effect of architecture.')
 
@@ -851,7 +844,10 @@ def build() -> None:
               'pattern changed predicted readmission probability in '
               'the direction indicated by its attribution (Figure '
               '5), as it did for all 266 perturbed patterns (Figure '
-              'S7).')
+              'S7). Across these 266 patterns, carrier-averaged ΣIG and '
+              'the mean masking effect were correlated (Spearman ρ = '
+              '0.94; 0.79 among risk-increasing and 0.92 among '
+              'protective patterns).')
     para(doc, 'To examine whether pattern attributions aligned with '
               'observed readmission risk, we estimated odds ratios '
               'for the 30 reported cross-visit patterns, adjusting '
@@ -882,8 +878,7 @@ def build() -> None:
               'tokens, and retaining them better preserved the '
               'original predictions, with non-overlapping 95% '
               'bootstrap intervals at every k; only k = 5 was '
-              'formally tested (Figure S8). These results indicate '
-              'faithfulness to the model, not clinical correctness.')
+              'formally tested (Figure S8).')
 
     heading(doc, "Temporal-order analysis", level=2)
     para(doc, 'Among the 30 cross-visit patterns in Table 4, three '
@@ -914,10 +909,7 @@ def build() -> None:
               '(Figure S11). At the pattern level, they shared 21 of '
               'the top 30 patterns across all pattern types, but '
               'only 7 of the top 30 cross-visit patterns (Figure '
-              'S12). These findings indicate substantial token-level '
-              'agreement but lower cross-visit agreement between the '
-              'two implementations, consistent with documented '
-              'disagreement between explanation methods [31].')
+              'S12).')
 
     heading(doc, "Discussion", level=1)
     para(doc, 'AToP produced patient-level narratives that allocated '
@@ -931,13 +923,14 @@ def build() -> None:
               'cross-visit patterns but only about half of the '
               'broader pattern pool, and token-level findings were '
               'largely consistent under KernelSHAP, while '
-              'cross-visit rankings agreed less.')
+              'cross-visit rankings agreed less, consistent with '
+              'documented disagreement between explanation methods '
+              '[33].')
     para(doc, 'AToP extends conventional token-level explanations, '
               'such as the global SHAP summaries commonly reported '
-              '[32], by identifying which combinations and sequences '
-              "of clinical events matter to a model's predictions, "
-              'rather than leaving clinicians to interpret lists of '
-              'individual codes. Approaches differ in how temporal '
+              '[16], by identifying which combinations and sequences '
+              "of clinical events matter to a model's predictions. "
+              'Approaches differ in how temporal '
               'patterns are identified. Attention-based models such '
               'as RETAIN [13] expose visit-level weights, but '
               'attention is a contested basis for faithfulness '
@@ -948,7 +941,7 @@ def build() -> None:
               'not explicitly show which events occur together or in '
               'what order. The closest prior work mined sequential '
               'patterns first and explained a Transformer afterwards '
-              '[23]; AToP inverts that order, mining only within the '
+              '[25]; AToP inverts that order, mining only within the '
               'attributed salient subsequence and scoring each '
               'pattern on the patients who carry it. This allows '
               'AToP to identify recurring temporal patterns among '
@@ -971,10 +964,18 @@ def build() -> None:
               'recurrent {MDD single ep. NOS; SI} sequences). This '
               'observation may reflect diagnostic uncertainty, '
               'documentation practices, or coding conventions. '
+              'Several patterns likewise pair symptom codes with '
+              'care-process procedures, such as chest pain with chest '
+              'radiography and respiratory measurements, and mark how '
+              'care was delivered rather than a diagnosis. '
               'Further analysis and clinician review would be needed '
               'to distinguish these explanations before clinical use.')
     para(doc, 'AToP produces temporal pattern narratives rather than '
-              'clinical pathways. These patterns reflect '
+              'clinical pathways. Because the attribution reference '
+              "preserves each patient's visit structure, the narratives "
+              'describe the contribution of clinical content given the '
+              'number of admissions; the admission count itself is not '
+              'attributed to any token. These patterns reflect '
               'model-attributed EHR events, which may arise from '
               'disease processes, clinical workflows, or both. They '
               'describe model behavior rather than causal mechanisms '
@@ -982,16 +983,17 @@ def build() -> None:
     heading(doc, "Limitations", level=2)
     para(doc, 'AToP explains an existing Transformer rather than '
               'replacing it with an interpretable-by-design model '
-              '[33]. Our evaluation assesses whether the '
+              '[34]. Our evaluation assesses whether the '
               'explanations reflect model behavior, not whether they '
-              'improve clinical decisions [34].')
+              'improve clinical decisions [35].')
     para(doc, 'Further limitations bound our claims. (i) Masking '
-              'creates out-of-distribution inputs [35], so masking '
+              'creates out-of-distribution inputs [36], so masking '
               'effects may partly reflect deletion itself; the '
               'between-patient reversal analysis compares observed '
               'records without perturbing them, whereas the '
-              'within-patient test reorders visits and shares this '
-              'caveat. Our pattern-level faithfulness evaluation is '
+              'within-patient test reorders whole visits, changing '
+              'recency as well as order, and shares this caveat. Our '
+              'pattern-level faithfulness evaluation is '
               'also partly circular: the masked patterns are the '
               'ones IG ranked highest, so the masking analysis tests '
               'whether the IG-selected subset behaves as predicted, '
@@ -1012,8 +1014,9 @@ def build() -> None:
               'richness and architecture jointly; feature-matched '
               'ablations are left to future work.')
     para(doc, 'Other limitations concern scope. (v) Evaluation uses '
-              'one dataset, task and architecture; portability is '
-              'not demonstrated. (vi) Patterns with small carrier '
+              'one dataset, task and architecture, with a cohort in '
+              'which single-admission patients are negative by '
+              'construction; portability is not demonstrated. (vi) Patterns with small carrier '
               'counts (n < 20) are flagged discovery-only; n is '
               'shown for every pattern. (vii) Deployment-utility '
               'measures and subgroup analysis are out of scope; '
@@ -1021,7 +1024,7 @@ def build() -> None:
               'behavioural-health tokens whose attribution may '
               'differ across subgroups, so a carrier-conditional '
               'fairness audit should precede any deployment use '
-              '[36]. (viii) Death was not modeled as a competing '
+              '[37]. (viii) Death was not modeled as a competing '
               'outcome.')
 
     # ── Conclusion ──────────────────────────────────────────────────
@@ -1127,46 +1130,48 @@ def build() -> None:
         # [15]
         'Wiegreffe S, Pinter Y. Attention is not not explanation. Proceedings of the 2019 Conference on Empirical Methods in Natural Language Processing. 2019:11–20.',
         # [16]
-        'Mannila H, Toivonen H, Verkamo AI. Discovery of frequent episodes in event sequences. Data Mining and Knowledge Discovery. 1997;1(3):259–289.',
-        # [17]
-        'Campbell EA, Bass EJ, Masino AJ. Temporal condition pattern mining in large, sparse electronic health record data: a case study in characterizing pediatric asthma. Journal of the American Medical Informatics Association. 2020;27(4):558–566.',
-        # [18]
-        'Jensen AB, Moseley PL, Oprea TI, et al. Temporal disease trajectories condensed from population-wide registry data covering 6.2 million patients. Nature Communications. 2014;5:4022.',
-        # [19]
-        'Davazdahemami B, Delen D. Examining the effect of prescription sequence on developing adverse drug reactions: the case of renal failure in diabetic patients. International Journal of Medical Informatics. 2019;125:62–70.',
-        # [20]
-        'Wright AP, Wright AT, McCoy AB, Sittig DF. The use of sequential pattern mining to predict next prescribed medications. Journal of Biomedical Informatics. 2015;53:73–80.',
-        # [21]
-        'Belouali A, Kitchen C, Haroz E, et al. Identifying clinical diagnostic trajectories associated with suicide death using temporal sequence mining of linked claims and mortality data. BioData Mining. 2026. doi:10.1186/s13040-026-00608-3.',
-        # [22]
-        'Hripcsak G, Albers DJ. Next-generation phenotyping of electronic health records. Journal of the American Medical Informatics Association. 2013;20(1):117–121.',
-        # [23]
-        'Assadi Shalmani M, Khani M, Taleban A, et al. Sequential pattern transformer (SPT): a generative and interpretable framework for predicting disease trajectories. Neural Computing and Applications. 2026;38(3):28.',
-        # [24]
-        'Kansagara D, Englander H, Salanitro A, et al. Risk prediction models for hospital readmission: a systematic review. JAMA. 2011;306(15):1688–1698.',
-        # [25]
-        'Johnson AEW, Bulgarelli L, Pollard TJ, et al. MIMIC-IV, a freely accessible electronic health record dataset. Scientific Data. 2023;10(1):1.',
-        # [26]
-        'Centers for Medicare & Medicaid Services. Diagnosis Code Set General Equivalence Mappings: ICD-10-CM to ICD-9-CM and ICD-9-CM to ICD-10-CM. Baltimore, MD: Centers for Medicare & Medicaid Services. https://www.cms.gov/medicare/coding-billing/icd-10-codes/icd-10-cm-icd-10-pcs-gem-archive',
-        # [27]
-        'Vaswani A, Shazeer N, Parmar N, et al. Attention is all you need. Advances in Neural Information Processing Systems. 2017;30:5998–6008.',
-        # [28]
-        'van Walraven C, Dhalla IA, Bell C, et al. Derivation and validation of an index to predict early death or unplanned readmission after discharge from hospital to the community. CMAJ. 2010;182(6):551–557.',
-        # [29]
-        'Kokhlikyan N, Miglani V, Martin M, et al. Captum: A unified and generic model interpretability library for PyTorch. arXiv:2009.07896, 2020.',
-        # [30]
-        'DeYoung J, Jain S, Rajani NF, et al. ERASER: A benchmark to evaluate rationalized NLP models. Proceedings of the 58th Annual Meeting of the Association for Computational Linguistics. 2020:4443–4458.',
-        # [31]
-        "Krishna S, Han T, Gu A, Wu S, Jabbari S, Lakkaraju H. The disagreement problem in explainable machine learning: a practitioner's perspective. Transactions on Machine Learning Research. 2024.",
-        # [32]
         'Lundberg SM, et al. From local explanations to global understanding with explainable AI for trees. Nature Machine Intelligence. 2020;2(1):56–67.',
+        # [17]
+        'Janizek JD, Sturmfels P, Lee SI. Explaining explanations: axiomatic feature interactions for deep networks. Journal of Machine Learning Research. 2021;22(104):1–54.',
+        # [18]
+        'Mannila H, Toivonen H, Verkamo AI. Discovery of frequent episodes in event sequences. Data Mining and Knowledge Discovery. 1997;1(3):259–289.',
+        # [19]
+        'Campbell EA, Bass EJ, Masino AJ. Temporal condition pattern mining in large, sparse electronic health record data: a case study in characterizing pediatric asthma. Journal of the American Medical Informatics Association. 2020;27(4):558–566.',
+        # [20]
+        'Jensen AB, Moseley PL, Oprea TI, et al. Temporal disease trajectories condensed from population-wide registry data covering 6.2 million patients. Nature Communications. 2014;5:4022.',
+        # [21]
+        'Davazdahemami B, Delen D. Examining the effect of prescription sequence on developing adverse drug reactions: the case of renal failure in diabetic patients. International Journal of Medical Informatics. 2019;125:62–70.',
+        # [22]
+        'Wright AP, Wright AT, McCoy AB, Sittig DF. The use of sequential pattern mining to predict next prescribed medications. Journal of Biomedical Informatics. 2015;53:73–80.',
+        # [23]
+        'Belouali A, Kitchen C, Haroz E, et al. Identifying clinical diagnostic trajectories associated with suicide death using temporal sequence mining of linked claims and mortality data. BioData Mining. 2026. doi:10.1186/s13040-026-00608-3.',
+        # [24]
+        'Hripcsak G, Albers DJ. Next-generation phenotyping of electronic health records. Journal of the American Medical Informatics Association. 2013;20(1):117–121.',
+        # [25]
+        'Assadi Shalmani M, Khani M, Taleban A, et al. Sequential pattern transformer (SPT): a generative and interpretable framework for predicting disease trajectories. Neural Computing and Applications. 2026;38(3):28.',
+        # [26]
+        'Kansagara D, Englander H, Salanitro A, et al. Risk prediction models for hospital readmission: a systematic review. JAMA. 2011;306(15):1688–1698.',
+        # [27]
+        'Johnson AEW, Bulgarelli L, Pollard TJ, et al. MIMIC-IV, a freely accessible electronic health record dataset. Scientific Data. 2023;10(1):1.',
+        # [28]
+        'Centers for Medicare & Medicaid Services. Diagnosis Code Set General Equivalence Mappings: ICD-10-CM to ICD-9-CM and ICD-9-CM to ICD-10-CM. Baltimore, MD: Centers for Medicare & Medicaid Services. https://www.cms.gov/medicare/coding-billing/icd-10-codes/icd-10-cm-icd-10-pcs-gem-archive',
+        # [29]
+        'Vaswani A, Shazeer N, Parmar N, et al. Attention is all you need. Advances in Neural Information Processing Systems. 2017;30:5998–6008.',
+        # [30]
+        'van Walraven C, Dhalla IA, Bell C, et al. Derivation and validation of an index to predict early death or unplanned readmission after discharge from hospital to the community. CMAJ. 2010;182(6):551–557.',
+        # [31]
+        'Kokhlikyan N, Miglani V, Martin M, et al. Captum: A unified and generic model interpretability library for PyTorch. arXiv:2009.07896, 2020.',
+        # [32]
+        'DeYoung J, Jain S, Rajani NF, et al. ERASER: A benchmark to evaluate rationalized NLP models. Proceedings of the 58th Annual Meeting of the Association for Computational Linguistics. 2020:4443–4458.',
         # [33]
-        'Rudin C. Stop explaining black box machine learning models for high stakes decisions and use interpretable models instead. Nat Mach Intell. 2019;1:206–215.',
+        "Krishna S, Han T, Gu A, Wu S, Jabbari S, Lakkaraju H. The disagreement problem in explainable machine learning: a practitioner's perspective. Transactions on Machine Learning Research. 2024.",
         # [34]
-        'Doshi-Velez F, Kim B. Towards a rigorous science of interpretable machine learning. arXiv:1702.08608, 2017.',
+        'Rudin C. Stop explaining black box machine learning models for high stakes decisions and use interpretable models instead. Nat Mach Intell. 2019;1:206–215.',
         # [35]
-        'Hooker S, Erhan D, Kindermans PJ, Kim B. A benchmark for interpretability methods in deep neural networks. Advances in Neural Information Processing Systems. 2019;32:9737–9748.',
+        'Doshi-Velez F, Kim B. Towards a rigorous science of interpretable machine learning. arXiv:1702.08608, 2017.',
         # [36]
+        'Hooker S, Erhan D, Kindermans PJ, Kim B. A benchmark for interpretability methods in deep neural networks. Advances in Neural Information Processing Systems. 2019;32:9737–9748.',
+        # [37]
         'Obermeyer Z, Powers B, Vogeli C, Mullainathan S. Dissecting racial bias in an algorithm used to manage the health of populations. Science. 2019;366(6464):447–453.',
     ]
     for i, r in enumerate(refs, 1):

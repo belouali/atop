@@ -312,7 +312,7 @@ def build() -> None:
     heading(doc, "Preprocessing and vocabulary composition", level=2)
     para(doc, 'ICD-9 diagnosis and procedure codes were mapped to '
               'ICD-10 with the CMS General Equivalence Mappings '
-              '[26]: after removing no-map and combination entries, '
+              '[28]: after removing no-map and combination entries, '
               'only ICD-9 codes with a single ICD-10 target were '
               'converted, which harmonized 80.4% of ICD-9 diagnosis '
               'rows (6,719 of 9,143 codes) and 14.2% of ICD-9 '
@@ -814,7 +814,7 @@ def build() -> None:
             "number of admissions as predictors. Confidence intervals are "
             "95% Wald intervals. The odds ratios describe associations "
             "rather than causal effects, and no multiplicity correction "
-            "was applied."
+            "was applied; 20 of the 30 intervals include 1."
         ),
     )
 

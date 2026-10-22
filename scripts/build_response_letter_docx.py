@@ -41,8 +41,8 @@ def build() -> None:
               "consolidated list. Section A lists corrections already made in "
               "the current manuscript; Section B gives our response on points "
               "where we retain the design and names the clarification added "
-              "for each; Section C lists points that await the planned "
-              "additional analyses. Numbers quoted here were recomputed from "
+              "for each; a closing note states which requests are left to "
+              "future work. Numbers quoted here were recomputed from "
               "the saved analysis outputs and the raw MIMIC-IV tables.")
     para(doc, "We thank the reviewers for an unusually thorough reading. The "
               "corrections below improve the accuracy of several descriptions "
@@ -156,14 +156,24 @@ def build() -> None:
     # ── Section B ────────────────────────────────────────────────────
     heading(doc, "B. Design choices retained, with the clarification added for each", level=2)
 
+    item(doc, "1", "Readmissions ending in death and deaths after discharge",
+         "A readmission that ends in death is still a readmission; labelling such cases as non-events, and ignoring deaths after discharge, may bias the outcome. Relabelling or a competing-risk formulation is requested.",
+         "The reviewer is correct about the rule as implemented. Admissions ending in in-hospital death were removed from the admissions table before index selection and labelling. This is the CMS index criterion ('patient is alive upon discharge', with the rationale that patients who die during the initial hospitalization cannot be readmitted) applied as a row filter, and it is the cohort step used in MIMIC readmission studies, for example ClinicalBERT on MIMIC-III ('in-hospital death precludes readmission, so admissions with deaths are removed') and recent MIMIC-IV readmission cohorts that exclude in-hospital deaths before labelling. Applied to the whole table, the filter also removes a return admission that ended in death, whereas the CMS measure counts such a return as a readmission; the consequence in our data is that an index admission followed only by a readmission ending in death was labelled negative (709 of 218,196 index admissions, 0.32%). The Methods state the rule and this consequence, and post-discharge mortality was not used in labelling, which limitation (viii) records as the absence of a competing-outcome formulation. To size the effect we re-scored the existing test predictions with those readmissions counted as events: 149 labels change (0.34% of the test cohort, 2.7% of positives), AUROC moves from 0.766 to 0.762 and PR-AUC from 0.342 to 0.341. We have not corrected the training labels. The model was trained on the stated definition, so a correction would require retraining and re-deriving every attribution, ranking and perturbation result for a change affecting 0.3% of labels, and the explanation framework, which is the object of the study, does not use the labels. We state this as a decision rather than as future work.",
+         "None beyond the Methods statement listed under points 5 and 6; the sensitivity figures above are offered for the response and can be added to the Supplementary Methods if the editor prefers.")
+
     item(doc, "2", "Penultimate-admission index; single-admission patients",
          "Defining the index as the penultimate admission uses future information, and single-admission patients are negative by construction.",
          "The design takes one index per patient, which avoids within-patient correlation and gives every index the longest available history; the object of study is the explanation of a trained model, not a deployable risk score, and we say so. The reviewer's reading of Table 1 conflates admissions through the index with lifetime admissions, but the structural negatives are real: 119,874 patients (54.9%) have a single eligible hospitalization and are negative by construction (training 83,940; validation 12,050; test 23,884), and the readmission rate among patients with two or more admissions is 28.0% (28.1%, 26.9% and 28.1% by split).",
          "Proposed: two sentences in Methods, 'Data and prediction task', giving these counts; one clause in the scope limitations.")
 
+    item(doc, "4", "Observation-type index admissions and same-day returns",
+         "Observation stays and returns within a day may not represent readmissions in the usual sense; a sensitivity analysis excluding them is requested.",
+         "The outcome is any unplanned return to hospital care recorded in the admissions table within 0 to 30 days of the index discharge, with elective and same-day surgical returns excluded as planned; encounters were not merged and no minimum interval was imposed, as the Methods now state. This definition is deliberately broader than the inpatient-only CMS measure: observation encounters are part of each patient's longitudinal record in MIMIC-IV, and a sequence model that reads that record should be explained on the same encounter set it was trained on. Observation and emergency returns within a day are therefore returns under our definition, not artefacts of it. We did not restrict the endpoint to inpatient status because that would change the prediction task rather than test the explanation framework, and the definition is stated so that readers can judge the endpoint.",
+         "None beyond the Methods statement listed under points 5 and 6.")
+
     item(doc, "7", "All-[PAD] reference is patient-specific and far from the base rate",
          "The reference logit implies a probability near 0.43 and correlates with sequence length, so 'protective' means lower than an empty sequence of the same length.",
-         "The all-[PAD] reference is the standard baseline for token models and is reported with its distribution in the Supplementary Methods; attribution sign is defined relative to it, and the masking and reversal analyses are the evidence about model behaviour that does not depend on that choice. We keep it. The per-patient identities added under point 8 make the reference explicit for each example (0.575 for the Figure 2 patient), and the distribution over the full test cohort by visit count will be added when the planned analyses are complete.",
+         "The all-[PAD] reference is the standard baseline for token models. It is explicitly specified, its distribution is reported in the Supplementary Methods, completeness is checked, and every attribution in the paper is interpreted relative to it, which the Methods now state in defining the sign. We keep it as a design choice rather than claim that the results are independent of it: the patterns tested were selected with this reference and the reversal analyses compare reference-relative attributions, whereas the masking effects are changes in the model's own output that do not involve the reference. Whether an alternative reference would change the rankings is an open robustness question, which is why the closing note lists it among the analyses not undertaken here. The per-patient identities added under point 8 make the reference explicit for each example (0.575 for the Figure 2 patient). The distribution reported in the Supplementary Methods comes from 300 randomly sampled test patients (reference probability median 0.43, interquartile range 0.38 to 0.51; Spearman 0.76 with sequence length), which characterises the reference well enough that a full-cohort recomputation would not change the description.",
          "Proposed: one sentence on sign semantics moved into Methods, 'AToP explanation framework'.")
 
     item(doc, "9", "Number of prior admissions is absorbed into the reference",
@@ -178,13 +188,18 @@ def build() -> None:
 
     item(doc, "11", "No unguided-mining comparator; interaction-attribution methods not discussed",
          "A control without attribution guidance and a comparison with interaction attribution are missing.",
-         "Mining on attribution-salient subsequences is what makes episode mining tractable and model-tied (the salient subsequence is 2.2-fold shorter than the record); an unguided run returns frequency-driven comorbidity sets, which is the limitation of frequency mining noted in the Background. Interaction attribution methods answer a different question (pairwise credit) and are complementary.",
+         "Attribution guidance is the design principle of AToP rather than an optimisation to be ablated: the question asked is which combinations and sequences of events the model used, so the search is confined to the events the model attributed, which also makes episode mining tractable (the salient subsequence is 2.2-fold shorter than the record). Mining the full record answers a different question, which events are frequent, and a comparison between the two would evaluate frequency mining rather than the explanation. We have therefore not run an unguided comparator and make no claim about what it would return. Interaction attribution methods assign pairwise credit and are complementary; the Background now says so.",
          "Proposed: one Background sentence citing Integrated Hessians and Shapley interaction indices as complementary.")
 
     item(doc, "15", "Within-patient reversal moves whole visits",
          "Reversal confounds order with recency and with co-occurring events in the moved visits.",
          "Acknowledged. The between-patient analysis is the complement and involves no perturbation; the limitation already names the shared caveat.",
          "Proposed: 'including recency' added to limitation (i).")
+
+    item(doc, "17 (baseline)", "No bag-of-codes baseline on the same vocabulary",
+         "Without a baseline on the same tokens, the gain over LACE models cannot be attributed to sequence modelling.",
+         "The manuscript does not attribute the gain to sequence modelling. Table 2 labels the comparators as LACE-feature models, and limitation (iv) states that the gap reflects feature richness and architecture jointly. Whether the model uses order is tested directly by the reversal analyses, which change visit order while holding content fixed within the same model; that is the evidence the paper relies on for the ordering claims.",
+         "None.")
 
     item(doc, "19", "Masking to [PAD] equals the IG reference",
          "Direction agreement under masking is expected by construction, and only direction is reported.",
@@ -193,13 +208,23 @@ def build() -> None:
 
     item(doc, "21", "Token-level faithfulness effect is small and compared only with random tokens",
          "Masking the top five tokens moves predictions by 0.079 versus 0.056 for random salient tokens.",
-         "Random salient tokens are the standard comparator for comprehensiveness and sufficiency; the paired bootstrap intervals do not overlap at any k; and the effects are in probability units on a 12.6% base rate, so a change of 0.08 is large relative to the typical prediction.",
-         "Proposed: one sentence on scale in Results, 'Faithfulness of the attribution ranking'.")
+         "Random salient tokens are the standard comparator for comprehensiveness and sufficiency, and the paired bootstrap intervals do not overlap at any k. The effects are within-model differences in the model's own output, so their interpretation does not depend on the probability scale being calibrated.",
+         "None.")
+
+    item(doc, "24 and 25", "Uncertainty of pattern scores and selection of the top 30",
+         "The carrier-averaged scores carry no uncertainty, and a top 30 selected by magnitude on the same data overstates the scores and may not be a stable set.",
+         "The carrier-averaged scores in Tables 3 and 4 are descriptive summaries of the model's attributions over the patients in the test cohort who carry each pattern. They are sample means, and their variability with the carriers sampled is largest where carrier counts are small; for that reason n is shown for every row and rows below 20 carriers are marked as exploratory. The rankings are not presented as estimates of population quantities, and selecting the largest means from a large pool can favour noisy rows, which is one reason the behavioural claims rest on the masking and reversal analyses rather than on rank position. For a fixed model, reference and step count the per-patient attribution itself is deterministic up to the approximation error bounded by the completeness check, so the uncertainty in question is that of the cohort summary, not of the attribution method. The framework is a procedure for probing a sequence model, and the manuscript shows that the resulting ranking depends on the pattern pool, the scoring rule, the deduplication threshold, the saliency threshold and the attribution method (Results, 'Pattern discovery'; Figures S3 to S5, S10 and S13; Limitations ii and iii). We do not present any single top 30 as a definitive set, and the claims about model behaviour rest on the masking and reversal analyses rather than on the ranking.",
+         "None.")
+
+    item(doc, "29", "Calibration",
+         "Only discrimination is reported; calibration is not assessed.",
+         "Not assessed. The model was trained with a class-weighted loss (positive weight 6.91), so its output probabilities are shifted upward by construction and are not intended as risk estimates; the mean prediction in the test cohort is 0.39 against an event rate of 0.13. The study uses discrimination only to establish that the model is worth explaining and makes no deployment or risk-stratification claim. All attribution is computed on the logit, and the masking effects (Δŷ) are changes in the model's own output with and without a perturbation; they are internal measures of what the model responds to and are not presented, and should not be read, as changes in calibrated clinical risk.",
+         "None.")
 
     item(doc, "35", "'Clinically legible' without clinician review; care-process patterns",
          "No clinician assessed the patterns, and several top patterns are care-process sequences.",
          "Clinician evaluation is the natural next study and we claim no clinical validity; the Discussion already attributes some surfaced patterns to documentation and workflow.",
-         "Proposed: 'clinically interpretable' in place of 'clinically legible'; a care-process example named in the Discussion paragraph on unspecified codes.")
+         "Abstract conclusion: 'clinically legible trajectories' replaced by 'visit-anchored temporal pattern narratives'; a care-process example (chest pain with chest radiography and respiratory measurements) named in the Discussion paragraph on unspecified codes.")
 
     item(doc, "37", "'Protective' implies clinical protection",
          "Negative attribution is not protection.",
@@ -211,9 +236,14 @@ def build() -> None:
          "The table is presented as directional agreement, not as validation of clinical risk; its note says no multiplicity correction was applied.",
          "Proposed: the count of intervals crossing 1 added to the Table S3 note.")
 
-    # ── Section C ────────────────────────────────────────────────────
-    heading(doc, "C. Points awaiting the planned analyses (to be completed)", level=2)
-    para(doc, "The following points call for additional analyses that run on existing outputs or the raw tables without retraining. Responses will be written when the results are in: uncertainty of pattern scores and stability of the top 30 (points 24, 25 and 26); calibration of the Transformer (29); label sensitivities for death-ending readmissions, observation-type index admissions and same-day returns (1, 4 and 6); the reference-logit distribution by visit count (7); a bag-of-codes baseline on the same vocabulary (17); and per-patient narrative coverage (39). Requests that require retraining or a full attribution rerun (an alternative IG reference with all figures re-derived, a matched KernelSHAP rerun, permutation nulls for the within-patient test, a shuffled-visit Transformer, an unguided mining comparator) are not planned for this revision and will be stated as future work.")
+    item(doc, "39", "Narrative coverage beyond the exemplars",
+         "The three exemplars do not show how much of a typical patient's attribution the pattern narrative captures.",
+         "The narrative is an explanation format, and every exemplar displays the attribution that no pattern captured: the Figure 2 legend states that remaining attribution is shown as other salient and non-salient tokens, and Figure S2C was included as the partial case, with +0.240 allocated to the named pattern against +0.969 from thirteen other salient tokens. The allocation rule is given in the Supplementary Methods and the Results state that bars are allocations rather than independent effects. The behavioural claims rest on the masking and reversal analyses, not on narrative coverage.",
+         "None.")
+
+    # ── Closing note ─────────────────────────────────────────────────
+    heading(doc, "Closing note", level=2)
+    para(doc, "Requests that require retraining or a full attribution rerun (an alternative IG reference with all figures re-derived, a matched KernelSHAP rerun, permutation nulls for the within-patient test, a shuffled-visit Transformer, an unguided mining comparator) are not planned for this revision and will be stated as future work. The outcome-label question under point 1 is not deferred in this way: the rule, its consequence and its measured effect on discrimination are stated, and the decision not to retrain is taken on that evidence.")
 
     os.makedirs(os.path.dirname(OUT_PATH), exist_ok=True)
     doc.save(OUT_PATH)
