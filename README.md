@@ -1,6 +1,6 @@
 # AToP: Attribution-guided Temporal Pattern Mining for EHR Explainability
 
-AToP is a post-hoc explainability framework for Transformer-based clinical prediction models trained on longitudinal Electronic Health Record (EHR) data. It turns per-token Integrated Gradients attributions into structured **temporal pattern narratives** — not just which tokens matter, but which *sequences of clinical events across encounters* drive a prediction.
+AToP is a post-hoc explainability framework for Transformer-based clinical prediction models trained on longitudinal Electronic Health Record (EHR) data. It turns per-token Integrated Gradients attributions into structured **temporal pattern narratives**: not just which tokens matter, but which *sequences of clinical events across encounters* drive a prediction.
 
 ![AToP framework overview](docs/images/framework.png)
 
@@ -10,18 +10,18 @@ Standard XAI methods (SHAP, IG, attention) produce flat per-token importance sco
 
 Two conventions do the work:
 
-- **Carrier-conditional aggregation.** Standard global importance averages attribution over *all* patients, so a rare feature with large per-patient impact is diluted by its prevalence. AToP reports `E[score | present]` — the attribution among patients who actually carry the token or pattern.
+- **Carrier-conditional aggregation.** Standard global importance averages attribution over *all* patients, so a rare feature with large per-patient impact is diluted by its prevalence. AToP reports `E[score | present]`, the attribution among patients who actually carry the token or pattern.
 - **Pattern-level ΣIG.** Attribution is summed over the constituent tokens of a data-discovered multi-visit pattern, moving the unit of explanation from an isolated code to a trajectory.
 
 ## Framework Overview
 
 AToP operates in five stages on a trained Transformer:
 
-1. **Attribution** — per-token Integrated Gradients; retain the tokens carrying 80% of per-patient attribution mass
-2. **Mapping** — map salient tokens back to their admission-block structure
-3. **Mining** — frequent-episode mining over training-cohort salient subsequences
-4. **Aggregation** — carrier-conditional token-level and pattern-level ΣIG
-5. **Deduplication** — Jaccard ≥ 0.2 clustering on carrier sets, keeping the highest-magnitude representative per phenotype
+1. **Attribution**: per-token Integrated Gradients; retain the tokens carrying 80% of per-patient attribution mass
+2. **Mapping**: map salient tokens back to their admission-block structure
+3. **Mining**: frequent-episode mining over training-cohort salient subsequences
+4. **Aggregation**: carrier-conditional token-level and pattern-level ΣIG
+5. **Deduplication**: Jaccard ≥ 0.2 clustering on carrier sets, keeping the highest-magnitude representative per phenotype
 
 ## What the output looks like
 

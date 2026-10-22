@@ -1,6 +1,6 @@
 """Jaccard cluster representatives over patient-carrier sets.
 
-Used by ``scripts/make_fig3.py`` (Panel C dedup) and any downstream consumer
+Used by ``paper/jamia2026/figures/make_fig3.py`` (Panel C dedup) and any downstream consumer
 that wants the same set of "phenotype representative" patterns Fig 3 displays.
 
 Apr 2026 rewrite: the greedy sweep was O(N\u00B2) with packed-bit intersection

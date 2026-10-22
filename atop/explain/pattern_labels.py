@@ -1,6 +1,6 @@
 """Pattern + token label resolution for publication figures.
 
-Used by scripts/make_fig*.py and scripts/make_table*.py to render
+Used by paper/jamia2026/figures/make_fig*.py and paper/jamia2026/tables/make_table*.py to render
 human-readable token + pattern labels (e.g. ``C:10_I509`` →
 ``CHF`` or ``Heart failure, unspecified``).
 

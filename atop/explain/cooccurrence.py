@@ -5,7 +5,7 @@ This module scores EVERY distinct pattern in the raw mining cache (single
 tokens, same-visit co-occurrences and cross-visit episodes alike) with the
 single per-patient rule in :mod:`atop.explain.scoring`, i.e. exactly the rule
 ``figures._compute_panel_c`` applies to the cross-visit pool.  It feeds
-``scripts/make_fig3.py`` (full pool, Jaccard representatives, Table 3) and
+``paper/jamia2026/figures/make_fig3.py`` (full pool, Jaccard representatives, Table 3) and
 ``scripts/build_shap_aggregations.py``.
 
 No torch needed — pure pandas / numpy / scipy.sparse operations on cached data.
