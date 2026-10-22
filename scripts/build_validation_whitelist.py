@@ -109,7 +109,7 @@ def _patterns_from_manuscript_table(csv_path: str) -> list[str]:
     """
     if not os.path.exists(csv_path):
         sys.exit(f"  [ERROR] Missing {csv_path}\n"
-                  f"  Run scripts/make_table3.py first to produce it.")
+                  f"  Run paper/jamia2026/tables/make_table3.py first to produce it.")
     df = pd.read_csv(csv_path)
     if "pattern" not in df.columns:
         sys.exit(f"  [ERROR] {csv_path} has no 'pattern' column "

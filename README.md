@@ -95,7 +95,7 @@ python scripts/run_reversed_order_topup.py --run_dir runs/mimiciv_readmission_30
 
 ```bash
 python scripts/reproduce_lace_baselines.py      # LR + XGBoost on LACE covariates
-python scripts/table_s1_auroc_bootstrap.py      # paired-bootstrap ΔAUROC CIs
+python paper/jamia2026/tables/table_s1_auroc_bootstrap.py      # paired-bootstrap ΔAUROC CIs
 ```
 
 Note: these baselines use the four LACE components (length of stay, acuity,
@@ -112,13 +112,13 @@ python scripts/build_shap_aggregations.py --run_dir runs/mimiciv_readmission_30d
 **5. Main figures and tables**
 
 ```bash
-python scripts/make_fig2.py   --run_dir runs/mimiciv_readmission_30d   # single-patient explanation
-python scripts/make_fig3.py   --run_dir runs/mimiciv_readmission_30d   # token-level attribution
-python scripts/make_fig4.py   --run_dir runs/mimiciv_readmission_30d   # pattern-level attribution
-python scripts/make_fig5.py   --run_dir runs/mimiciv_readmission_30d   # perturbation validation
-python scripts/make_table1.py --run_dir runs/mimiciv_readmission_30d   # cohort characteristics
-python scripts/make_table2.py --run_dir runs/mimiciv_readmission_30d   # predictive performance
-python scripts/make_table3.py --run_dir runs/mimiciv_readmission_30d   # Tables 3 and 4
+python paper/jamia2026/figures/make_fig2.py   --run_dir runs/mimiciv_readmission_30d   # single-patient explanation
+python paper/jamia2026/figures/make_fig3.py   --run_dir runs/mimiciv_readmission_30d   # token-level attribution
+python paper/jamia2026/figures/make_fig4.py   --run_dir runs/mimiciv_readmission_30d   # pattern-level attribution
+python paper/jamia2026/figures/make_fig5.py   --run_dir runs/mimiciv_readmission_30d   # perturbation validation
+python paper/jamia2026/tables/make_table1.py --run_dir runs/mimiciv_readmission_30d   # cohort characteristics
+python paper/jamia2026/tables/make_table2.py --run_dir runs/mimiciv_readmission_30d   # predictive performance
+python paper/jamia2026/tables/make_table3.py --run_dir runs/mimiciv_readmission_30d   # Tables 3 and 4
 ```
 
 Figure 1 is a hand-drawn schematic, not generated from data.
@@ -126,11 +126,11 @@ Figure 1 is a hand-drawn schematic, not generated from data.
 **6. Supplementary figures**
 
 ```bash
-python scripts/make_fig_s10_reversal_scatter.py --run_dir runs/mimiciv_readmission_30d   # forward vs reversed order
-python scripts/make_fig_s7_jaccard_sensitivity.py  --run_dir runs/mimiciv_readmission_30d
-python scripts/make_fig_s8_full_pool_sensitivity.py --run_dir runs/mimiciv_readmission_30d
-python scripts/make_fig_s11_shap_fig3.py --run_dir runs/mimiciv_readmission_30d
-python scripts/make_fig_faithfulness.py --run_dir runs/mimiciv_readmission_30d
+python paper/jamia2026/figures/make_fig_s10_reversal_scatter.py --run_dir runs/mimiciv_readmission_30d   # forward vs reversed order
+python paper/jamia2026/figures/make_fig_s7_jaccard_sensitivity.py  --run_dir runs/mimiciv_readmission_30d
+python paper/jamia2026/figures/make_fig_s8_full_pool_sensitivity.py --run_dir runs/mimiciv_readmission_30d
+python paper/jamia2026/figures/make_fig_s11_shap_fig3.py --run_dir runs/mimiciv_readmission_30d
+python paper/jamia2026/figures/make_fig_faithfulness.py --run_dir runs/mimiciv_readmission_30d
 ```
 
 (The other `make_fig_s*.py` scripts follow the same convention.)
@@ -145,9 +145,21 @@ atop/
                  matching, validation, figure helpers
   models/        single-stream Transformer and training loop
   explainer.py   AToPExplainer, the top-level pipeline
-scripts/         end-to-end pipeline, every paper figure and table
+scripts/         end-to-end pipeline entry points (preprocess, train, run_atop,
+                 validation and reversed-order top-ups, baselines, KernelSHAP)
+paper/jamia2026/ code that produces the JAMIA submission: builders/ (Word and
+                 PDF documents), figures/ (figure scripts), tables/ (table
+                 scripts). See paper/jamia2026/README.md for which script
+                 produces which exhibit, in build order.
+tests/           import test for the atop package
 docs/images/     figures used in this README
 ```
+
+Neither `atop/` nor `scripts/` imports anything from `paper/`. The scripts in
+`paper/jamia2026/` read the pipeline outputs and write into the project's
+`manuscript/` folder, which is not part of this repository. The one link back
+is `scripts/build_validation_whitelist.py`, which reads the Table 3 and 4 CSVs
+from that folder.
 
 ## Requirements
 
