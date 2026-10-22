@@ -129,25 +129,55 @@ def bold_exhibit_refs(text: str) -> str:
     return "".join(out).replace("****", "")
 
 
-def para(doc, text: str, *, italic: bool = False, bold: bool = False) -> None:
+# Numeric citations written as ``[n]``, ``[n,m]`` or ``[n–m]`` in the
+# builders are rendered JAMIA-style: superscript numerals placed after any
+# directly following punctuation ("models [3,4]." -> "models.<sup>3,4</sup>").
+_CITE_RE = re.compile(r"\s*\[(\d+(?:[,–-]\d+)*)\]([.,])?")  # AMA: after periods and commas, inside colons and semicolons
+
+
+def _emit_runs(paragraph, text: str, *, bold: bool = False,
+               italic: bool = False, font_size_pt: int | None = None,
+               cite_superscript: bool = True) -> None:
+    """Add ``text`` to ``paragraph`` as runs, converting numeric citations
+    to superscripts (see ``_CITE_RE``) unless ``cite_superscript`` is False."""
+    def _run(t: str, superscript: bool = False):
+        if not t:
+            return
+        r = paragraph.add_run(t)
+        r.bold = bold
+        r.italic = italic
+        if font_size_pt is not None:
+            r.font.size = Pt(font_size_pt)
+        if superscript:
+            r.font.superscript = True
+    if not cite_superscript or not _CITE_RE.search(text):
+        _run(text)
+        return
+    pos = 0
+    for m in _CITE_RE.finditer(text):
+        _run(text[pos:m.start()])
+        if m.group(2):
+            _run(m.group(2))
+        _run(m.group(1), superscript=True)
+        pos = m.end()
+    _run(text[pos:])
+
+
+def para(doc, text: str, *, italic: bool = False, bold: bool = False,
+         cite_superscript: bool = True) -> None:
     """A normal-style paragraph; supports inline ** ** for bold runs.
-    Figure and table references are bolded automatically."""
+    Figure and table references are bolded automatically; numeric
+    citations become superscripts unless ``cite_superscript`` is False
+    (used for the reference list itself)."""
     text = bold_exhibit_refs(text)
     p = doc.add_paragraph()
     p.paragraph_format.line_spacing = LINE_SPACING
-    if "**" not in text:
-        run = p.add_run(text)
-        run.italic = italic
-        run.bold = bold
-        return
-    # Split on ** for inline bold
     parts = text.split("**")
     for i, part in enumerate(parts):
         if not part:
             continue
-        run = p.add_run(part)
-        run.italic = italic
-        run.bold = bold or (i % 2 == 1)
+        _emit_runs(p, part, bold=bold or (i % 2 == 1), italic=italic,
+                   cite_superscript=cite_superscript)
 
 
 def equation(doc, text: str, *, number: int | str | None = None) -> None:
@@ -300,13 +330,8 @@ def _add_runs_with_inline_bold(paragraph, text: str, *,
             continue
         is_bold = part.startswith("**") and part.endswith("**")
         body = part[2:-2] if is_bold else part
-        r = paragraph.add_run(body)
-        if is_bold:
-            r.bold = True
-        if italic:
-            r.italic = True
-        if font_size_pt is not None:
-            r.font.size = Pt(font_size_pt)
+        _emit_runs(paragraph, body, bold=is_bold, italic=italic,
+                   font_size_pt=font_size_pt)
 
 
 def table_title(doc, label: str, short_title: str) -> None:

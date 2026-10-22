@@ -338,7 +338,7 @@ def build() -> None:
     # Word-count statement (JAMIA title-page requirement). JAMIA Research
     # and Applications caps the body at 4,000 words and the structured
     # abstract at 250.
-    para(doc, "**Word count:** Abstract 238; Body 3,998.")
+    para(doc, "**Word count:** Abstract 238; Body 3,952.")
     hrule(doc)
 
     # ── Abstract ─────────────────────────────────────────────────────
@@ -436,8 +436,8 @@ def build() -> None:
               'mining to longitudinal EHR and claims data to study '
               'disease progression, adverse drug events, treatment '
               'pathways, and diagnostic trajectories [18–23]. '
-              'Related approaches have also examined temporal '
-              'patterns in EHR phenotyping [24]. Sequential pattern '
+              'Temporal structure has also been recognized as '
+              'important in EHR phenotyping [24]. Sequential pattern '
               'mining has also been used to construct inputs for '
               'Transformer-based disease trajectory prediction, with '
               'SHAP subsequently applied to explain individual '
@@ -452,7 +452,7 @@ def build() -> None:
               'AToP on unplanned 30-day hospital readmission, a '
               'prediction task for which conventional risk models '
               'have historically shown modest discrimination [26], '
-              'using MIMIC-IV v3.1 [27], which provides the '
+              'using MIMIC-IV v3.1 [27,28], which provides the '
               'longitudinal coverage needed for cross-visit pattern '
               'discovery.')
 
@@ -485,7 +485,7 @@ def build() -> None:
               'token sequence containing ICD-9 and ICD-10 diagnoses '
               'and procedures, and prescription drugs. ICD-9 codes '
               'were mapped to ICD-10 using the CMS General '
-              'Equivalence Mappings [28], retaining only unambiguous '
+              'Equivalence Mappings [29], retaining only unambiguous '
               'one-to-one mappings; codes without such a mapping '
               'were kept in their original ICD-9 form. Visit '
               'boundaries were marked with explicit [VISIT] tokens. '
@@ -495,9 +495,7 @@ def build() -> None:
     para(doc, 'Chronic conditions, defined by a fixed ICD-prefix '
               'list (Supplementary Methods), were retained only at '
               'first appearance or when recorded as the primary '
-              'diagnosis, so that a chronic code re-enters the '
-              'sequence only when it is the reason for a later '
-              'admission. Drugs were retained only at first recorded '
+              'diagnosis. Drugs were retained only at first recorded '
               'prescription, and ingredients prescribed in more than '
               '25% of admissions were excluded to prevent routine '
               'inpatient treatments from dominating the mined '
@@ -525,7 +523,7 @@ def build() -> None:
               'yielding 27,508 unplanned 30-day readmissions.')
 
     heading(doc, "Single-stream Transformer", level=2)
-    para(doc, 'A Transformer encoder [29] with a 24,005-token '
+    para(doc, 'A Transformer encoder [30] with a 24,005-token '
               'vocabulary, 3.5 million parameters, two encoder '
               'layers, four attention heads, 128-dimensional '
               'embeddings and 512-dimensional feed-forward layers '
@@ -550,7 +548,7 @@ def build() -> None:
     heading(doc, "Baselines and performance evaluation", level=2)
     para(doc, 'We compared the Transformer with two baselines '
               'trained on seven structured predictors: the four '
-              'components of the LACE readmission index [30] (length '
+              'components of the LACE readmission index [31] (length '
               'of stay, emergent admission, Charlson comorbidity '
               'index, and emergency department visits in the '
               'preceding six months), entered as raw values rather '
@@ -587,7 +585,7 @@ def build() -> None:
               'input positions, including the [CLS] and [VISIT] '
               'tokens, sum approximately to the difference between '
               "the patient's logit and that of an all-[PAD] "
-              'reference sequence [8,31]. Attribution signs are relative '
+              'reference sequence [8,32]. Attribution signs are relative '
               'to this reference: positive values indicate a contribution '
               'toward a higher logit than the reference sequence, and '
               'negative (protective) values toward a lower one. '
@@ -682,7 +680,8 @@ def build() -> None:
               'subset of pooled patterns observed in at least 0.1% '
               'of the full training cohort.')
     para(doc, 'For mining, we retained for each patient the smallest '
-              'set of tokens accounting for 80% of total absolute IG, '
+              'set of tokens accounting for 80% of total absolute '
+              'clinical-token IG, '
               'capped at 50 tokens, and assessed sensitivity to this '
               'threshold from 0.60 to 0.95. '
               'Additional implementation details are provided '
@@ -719,7 +718,7 @@ def build() -> None:
     para(doc, 'We assessed token-level attribution faithfulness by '
               'examining how model predictions changed when highly '
               'attributed tokens were progressively removed or retained '
-              '[32]. The analysis included 500 randomly sampled test '
+              '[33]. The analysis included 500 randomly sampled test '
               'patients with at least three salient tokens.')
     para(doc, 'Comprehensiveness was measured as the absolute change in '
               'predicted readmission probability after masking the top k '
@@ -925,7 +924,7 @@ def build() -> None:
               'largely consistent under KernelSHAP, while '
               'cross-visit rankings agreed less, consistent with '
               'documented disagreement between explanation methods '
-              '[33].')
+              '[34].')
     para(doc, 'AToP extends conventional token-level explanations, '
               'such as the global SHAP summaries commonly reported '
               '[16], by identifying which combinations and sequences '
@@ -974,8 +973,9 @@ def build() -> None:
               'clinical pathways. Because the attribution reference '
               "preserves each patient's visit structure, the narratives "
               'describe the contribution of clinical content given the '
-              'number of admissions; the admission count itself is not '
-              'attributed to any token. These patterns reflect '
+              'number of admissions; AToP does not separately report '
+              'structural-token attribution or estimate the contribution '
+              'of admission count. These patterns reflect '
               'model-attributed EHR events, which may arise from '
               'disease processes, clinical workflows, or both. They '
               'describe model behavior rather than causal mechanisms '
@@ -983,11 +983,11 @@ def build() -> None:
     heading(doc, "Limitations", level=2)
     para(doc, 'AToP explains an existing Transformer rather than '
               'replacing it with an interpretable-by-design model '
-              '[34]. Our evaluation assesses whether the '
+              '[35]. Our evaluation assesses whether the '
               'explanations reflect model behavior, not whether they '
-              'improve clinical decisions [35].')
+              'improve clinical decisions [36].')
     para(doc, 'Further limitations bound our claims. (i) Masking '
-              'creates out-of-distribution inputs [36], so masking '
+              'creates out-of-distribution inputs [37], so masking '
               'effects may partly reflect deletion itself; the '
               'between-patient reversal analysis compares observed '
               'records without perturbing them, whereas the '
@@ -1024,7 +1024,7 @@ def build() -> None:
               'behavioural-health tokens whose attribution may '
               'differ across subgroups, so a carrier-conditional '
               'fairness audit should precede any deployment use '
-              '[37]. (viii) Death was not modeled as a competing '
+              '[38]. (viii) Death was not modeled as a competing '
               'outcome.')
 
     # ── Conclusion ──────────────────────────────────────────────────
@@ -1100,17 +1100,17 @@ def build() -> None:
     heading(doc, "References", level=1)
     refs = [
         # [1]
-        'Li Y, Rao S, Solares JRA, et al. BEHRT: Transformer for Electronic Health Records. Scientific Reports. 2020;10(1):7155.',
+        'Li Y, Rao S, Solares JRA, et al. BEHRT: Transformer for Electronic Health Records. Sci Rep. 2020;10(1):7155.',
         # [2]
-        'Rasmy L, Xiang Y, Xie Z, Tao C, Zhi D. Med-BERT: pretrained contextualized embeddings on large-scale structured electronic health records for disease prediction. NPJ Digital Medicine. 2021;4(1):86.',
+        'Rasmy L, Xiang Y, Xie Z, Tao C, Zhi D. Med-BERT: pretrained contextualized embeddings on large-scale structured electronic health records for disease prediction. NPJ Digit Med. 2021;4(1):86.',
         # [3]
-        'Wornow M, Thapa R, Steinberg E, Fries JA, Shah NH. EHRSHOT: an EHR benchmark for few-shot evaluation of foundation models. Advances in Neural Information Processing Systems (Datasets and Benchmarks Track). 2023;36.',
+        'Wornow M, Thapa R, Steinberg E, Fries JA, Shah NH. EHRSHOT: an EHR benchmark for few-shot evaluation of foundation models. Advances in Neural Information Processing Systems (Datasets and Benchmarks Track). 2023;36:67125–67137.',
         # [4]
         'Steinberg E, Fries JA, Xu Y, Shah NH. MOTOR: a time-to-event foundation model for structured medical records. International Conference on Learning Representations (ICLR). 2024.',
         # [5]
-        'Amirahmadi A, Ohlsson M, Etminani K. Deep learning prediction models based on EHR trajectories: a systematic review. Journal of Biomedical Informatics. 2023;144:104430.',
+        'Amirahmadi A, Ohlsson M, Etminani K. Deep learning prediction models based on EHR trajectories: a systematic review. J Biomed Inform. 2023;144:104430.',
         # [6]
-        'Wornow M, Xu Y, Thapa R, et al. The shaky foundations of large language models and foundation models for electronic health records. npj Digital Medicine. 2023;6(1):135.',
+        'Wornow M, Xu Y, Thapa R, et al. The shaky foundations of large language models and foundation models for electronic health records. NPJ Digit Med. 2023;6(1):135.',
         # [7]
         'Lundberg SM, Lee SI. A unified approach to interpreting model predictions. Advances in Neural Information Processing Systems. 2017;30:4765–4774.',
         # [8]
@@ -1122,7 +1122,7 @@ def build() -> None:
         # [11]
         'Rong R, Gu Z, Lai H, et al. A deep learning model for clinical outcome prediction using longitudinal inpatient electronic health records. JAMIA Open. 2025;8(2):ooaf026.',
         # [12]
-        'Placido D, Yuan B, Hjaltelin JX, et al. A deep learning algorithm to predict risk of pancreatic cancer from disease trajectories. Nature Medicine. 2023;29(5):1113–1122.',
+        'Placido D, Yuan B, Hjaltelin JX, et al. A deep learning algorithm to predict risk of pancreatic cancer from disease trajectories. Nat Med. 2023;29(5):1113–1122.',
         # [13]
         'Choi E, Bahadori MT, Kulas JA, Schuetz A, Stewart WF, Sun J. RETAIN: an interpretable predictive model for healthcare using reverse time attention mechanism. Advances in Neural Information Processing Systems. 2016;29:3504–3512.',
         # [14]
@@ -1130,52 +1130,54 @@ def build() -> None:
         # [15]
         'Wiegreffe S, Pinter Y. Attention is not not explanation. Proceedings of the 2019 Conference on Empirical Methods in Natural Language Processing. 2019:11–20.',
         # [16]
-        'Lundberg SM, et al. From local explanations to global understanding with explainable AI for trees. Nature Machine Intelligence. 2020;2(1):56–67.',
+        'Lundberg SM, Erion G, Chen H, et al. From local explanations to global understanding with explainable AI for trees. Nat Mach Intell. 2020;2(1):56–67.',
         # [17]
-        'Janizek JD, Sturmfels P, Lee SI. Explaining explanations: axiomatic feature interactions for deep networks. Journal of Machine Learning Research. 2021;22(104):1–54.',
+        'Janizek JD, Sturmfels P, Lee SI. Explaining explanations: axiomatic feature interactions for deep networks. J Mach Learn Res. 2021;22(104):1–54.',
         # [18]
-        'Mannila H, Toivonen H, Verkamo AI. Discovery of frequent episodes in event sequences. Data Mining and Knowledge Discovery. 1997;1(3):259–289.',
+        'Mannila H, Toivonen H, Verkamo AI. Discovery of frequent episodes in event sequences. Data Min Knowl Discov. 1997;1(3):259–289.',
         # [19]
-        'Campbell EA, Bass EJ, Masino AJ. Temporal condition pattern mining in large, sparse electronic health record data: a case study in characterizing pediatric asthma. Journal of the American Medical Informatics Association. 2020;27(4):558–566.',
+        'Campbell EA, Bass EJ, Masino AJ. Temporal condition pattern mining in large, sparse electronic health record data: a case study in characterizing pediatric asthma. J Am Med Inform Assoc. 2020;27(4):558–566.',
         # [20]
-        'Jensen AB, Moseley PL, Oprea TI, et al. Temporal disease trajectories condensed from population-wide registry data covering 6.2 million patients. Nature Communications. 2014;5:4022.',
+        'Jensen AB, Moseley PL, Oprea TI, et al. Temporal disease trajectories condensed from population-wide registry data covering 6.2 million patients. Nat Commun. 2014;5:4022.',
         # [21]
-        'Davazdahemami B, Delen D. Examining the effect of prescription sequence on developing adverse drug reactions: the case of renal failure in diabetic patients. International Journal of Medical Informatics. 2019;125:62–70.',
+        'Davazdahemami B, Delen D. Examining the effect of prescription sequence on developing adverse drug reactions: the case of renal failure in diabetic patients. Int J Med Inform. 2019;125:62–70.',
         # [22]
-        'Wright AP, Wright AT, McCoy AB, Sittig DF. The use of sequential pattern mining to predict next prescribed medications. Journal of Biomedical Informatics. 2015;53:73–80.',
+        'Wright AP, Wright AT, McCoy AB, Sittig DF. The use of sequential pattern mining to predict next prescribed medications. J Biomed Inform. 2015;53:73–80.',
         # [23]
-        'Belouali A, Kitchen C, Haroz E, et al. Identifying clinical diagnostic trajectories associated with suicide death using temporal sequence mining of linked claims and mortality data. BioData Mining. 2026. doi:10.1186/s13040-026-00608-3.',
+        'Belouali A, Kitchen C, Haroz E, et al. Identifying clinical diagnostic trajectories associated with suicide death using temporal sequence mining of linked claims and mortality data. BioData Min. 2026. doi:10.1186/s13040-026-00608-3.',
         # [24]
-        'Hripcsak G, Albers DJ. Next-generation phenotyping of electronic health records. Journal of the American Medical Informatics Association. 2013;20(1):117–121.',
+        'Hripcsak G, Albers DJ. Next-generation phenotyping of electronic health records. J Am Med Inform Assoc. 2013;20(1):117–121.',
         # [25]
-        'Assadi Shalmani M, Khani M, Taleban A, et al. Sequential pattern transformer (SPT): a generative and interpretable framework for predicting disease trajectories. Neural Computing and Applications. 2026;38(3):28.',
+        'Assadi Shalmani M, Khani M, Taleban A, et al. Sequential pattern transformer (SPT): a generative and interpretable framework for predicting disease trajectories. Neural Comput Appl. 2026;38(3):28.',
         # [26]
         'Kansagara D, Englander H, Salanitro A, et al. Risk prediction models for hospital readmission: a systematic review. JAMA. 2011;306(15):1688–1698.',
         # [27]
-        'Johnson AEW, Bulgarelli L, Pollard TJ, et al. MIMIC-IV, a freely accessible electronic health record dataset. Scientific Data. 2023;10(1):1.',
+        'Johnson AEW, Bulgarelli L, Pollard TJ, et al. MIMIC-IV, a freely accessible electronic health record dataset. Sci Data. 2023;10(1):1.',
         # [28]
-        'Centers for Medicare & Medicaid Services. Diagnosis Code Set General Equivalence Mappings: ICD-10-CM to ICD-9-CM and ICD-9-CM to ICD-10-CM. Baltimore, MD: Centers for Medicare & Medicaid Services. https://www.cms.gov/medicare/coding-billing/icd-10-codes/icd-10-cm-icd-10-pcs-gem-archive',
+        'Johnson A, Bulgarelli L, Pollard T, et al. MIMIC-IV (version 3.1). PhysioNet. 2024. doi:10.13026/kpb9-mt58.',
         # [29]
-        'Vaswani A, Shazeer N, Parmar N, et al. Attention is all you need. Advances in Neural Information Processing Systems. 2017;30:5998–6008.',
+        'Centers for Medicare & Medicaid Services. Diagnosis Code Set General Equivalence Mappings: ICD-10-CM to ICD-9-CM and ICD-9-CM to ICD-10-CM. Baltimore, MD: Centers for Medicare & Medicaid Services. https://www.cms.gov/medicare/coding-billing/icd-10-codes/icd-10-cm-icd-10-pcs-gem-archive',
         # [30]
-        'van Walraven C, Dhalla IA, Bell C, et al. Derivation and validation of an index to predict early death or unplanned readmission after discharge from hospital to the community. CMAJ. 2010;182(6):551–557.',
+        'Vaswani A, Shazeer N, Parmar N, et al. Attention is all you need. Advances in Neural Information Processing Systems. 2017;30:5998–6008.',
         # [31]
-        'Kokhlikyan N, Miglani V, Martin M, et al. Captum: A unified and generic model interpretability library for PyTorch. arXiv:2009.07896, 2020.',
+        'van Walraven C, Dhalla IA, Bell C, et al. Derivation and validation of an index to predict early death or unplanned readmission after discharge from hospital to the community. CMAJ. 2010;182(6):551–557.',
         # [32]
-        'DeYoung J, Jain S, Rajani NF, et al. ERASER: A benchmark to evaluate rationalized NLP models. Proceedings of the 58th Annual Meeting of the Association for Computational Linguistics. 2020:4443–4458.',
+        'Kokhlikyan N, Miglani V, Martin M, et al. Captum: A unified and generic model interpretability library for PyTorch. arXiv:2009.07896, 2020.',
         # [33]
-        "Krishna S, Han T, Gu A, Wu S, Jabbari S, Lakkaraju H. The disagreement problem in explainable machine learning: a practitioner's perspective. Transactions on Machine Learning Research. 2024.",
+        'DeYoung J, Jain S, Rajani NF, et al. ERASER: A benchmark to evaluate rationalized NLP models. Proceedings of the 58th Annual Meeting of the Association for Computational Linguistics. 2020:4443–4458.',
         # [34]
-        'Rudin C. Stop explaining black box machine learning models for high stakes decisions and use interpretable models instead. Nat Mach Intell. 2019;1:206–215.',
+        "Krishna S, Han T, Gu A, Wu S, Jabbari S, Lakkaraju H. The disagreement problem in explainable machine learning: a practitioner's perspective. Trans Mach Learn Res. 2024.",
         # [35]
-        'Doshi-Velez F, Kim B. Towards a rigorous science of interpretable machine learning. arXiv:1702.08608, 2017.',
+        'Rudin C. Stop explaining black box machine learning models for high stakes decisions and use interpretable models instead. Nat Mach Intell. 2019;1:206–215.',
         # [36]
-        'Hooker S, Erhan D, Kindermans PJ, Kim B. A benchmark for interpretability methods in deep neural networks. Advances in Neural Information Processing Systems. 2019;32:9737–9748.',
+        'Doshi-Velez F, Kim B. Towards a rigorous science of interpretable machine learning. arXiv:1702.08608, 2017.',
         # [37]
+        'Hooker S, Erhan D, Kindermans PJ, Kim B. A benchmark for interpretability methods in deep neural networks. Advances in Neural Information Processing Systems. 2019;32:9737–9748.',
+        # [38]
         'Obermeyer Z, Powers B, Vogeli C, Mullainathan S. Dissecting racial bias in an algorithm used to manage the health of populations. Science. 2019;366(6464):447–453.',
     ]
     for i, r in enumerate(refs, 1):
-        para(doc, f"[{i}] {r}")
+        para(doc, f"{i}. {r}", cite_superscript=False)
 
     # ── Figure legends section (separate page) ─────────────────────
     page_break(doc)

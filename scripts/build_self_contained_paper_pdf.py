@@ -301,6 +301,8 @@ def runs_to_markup(p: DocxParagraph) -> str:
             text = f"<b>{text}</b>"
         if run.italic:
             text = f"<i>{text}</i>"
+        if run.font.superscript:
+            text = f"<super>{text}</super>"
         parts.append(text)
     out = "".join(parts).strip()
     # Collapse internal multiple spaces
