@@ -7,7 +7,8 @@ analysis steps (mining global attribution data, perturbation validation,
 reversed-order ablation). Writes data CSVs to ``5_analysis/`` and run-dir
 diagnostic figures to ``7_outputs/figures/``.
 
-**Manuscript figures and tables are rendered separately by ``scripts/make_*.py``**
+**Manuscript figures and tables are rendered separately by ``paper/jamia2026/figures/make_*.py`` and
+``paper/jamia2026/tables/make_*.py``**
 from the data this pipeline produces.
 
 Usage:
