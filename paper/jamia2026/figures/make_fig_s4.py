@@ -11,7 +11,7 @@ Internally it just calls ``make_fig2.main()`` twice with different
 ``--exemplar-key`` and ``--output-path`` overrides.
 
 Usage:
-    python paper/jamia2026/figures/make_fig_s4.py --run_dir ../runs/full_CPD_v1
+    python paper/jamia2026/figures/make_fig_s4.py --run_dir ../runs/mimiciv_readmission_30d
 """
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ import sys
 
 def main() -> None:
     p = argparse.ArgumentParser(description="Render Figure S4 (alt_tp + confident_tn)")
-    p.add_argument("--run_dir", default="../runs/full_CPD_v1")
+    p.add_argument("--run_dir", default="../runs/mimiciv_readmission_30d")
     p.add_argument("--mimic_dir", default="../data/mimiciv/3.1/hosp")
     p.add_argument("--output-dir",
                    default="../manuscript/jamia_submission/figures/supplements")

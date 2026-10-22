@@ -6,7 +6,7 @@ XGBoost on the test split. Writes
 ``<run_dir>/baselines/baseline_comparison.csv``.
 
 Usage:
-    python paper/jamia2026/tables/make_table2.py --run_dir ../runs/full_CPD_v1 \
+    python paper/jamia2026/tables/make_table2.py --run_dir ../runs/mimiciv_readmission_30d \
                                   --mimic_dir ../data/mimiciv/3.1/hosp
 """
 from __future__ import annotations
@@ -19,7 +19,7 @@ import sys
 
 def main() -> None:
     p = argparse.ArgumentParser(description="Compute Table 2 (AToP vs LACE baselines)")
-    p.add_argument("--run_dir", default="../runs/full_CPD_v1")
+    p.add_argument("--run_dir", default="../runs/mimiciv_readmission_30d")
     p.add_argument("--mimic_dir", default="../data/mimiciv/3.1/hosp")
     p.add_argument("--lace_csv", default="lace_scores_all.csv",
                    help="Filename relative to run_dir (default: lace_scores_all.csv)")

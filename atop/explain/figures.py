@@ -53,7 +53,7 @@ def load_short_names(csv_path=None):
         # Default: look next to the package
         import importlib.resources
         csv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)),
-                                "scripts", "short_names.csv")
+                                "paper", "jamia2026", "figures", "short_names.csv")
     if os.path.exists(csv_path):
         import csv
         with open(csv_path, "r") as f:
@@ -1211,7 +1211,7 @@ def fig6_global_importance_comparison(
     # ── Render: multi-token sanity-check PNG (NOT the manuscript figure) ──
     # All CSVs above are already on disk by now \u2014 if this render is interrupted
     # or fails, Panel C work is preserved. The submission's Figure 3 is
-    # rendered by scripts/make_fig3.py from those CSVs; this PNG exists only
+    # rendered by paper/jamia2026/figures/make_fig3.py from those CSVs; this PNG exists only
     # as a quick eyeball-check after a fresh mining run.
     #
     # Removed in Apr 2026 cleanup: 3 supplementary PNG variants

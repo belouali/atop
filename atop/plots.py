@@ -3,7 +3,7 @@
 Flat API in the style of ``shap.plots``, each function renders one chart type
 into a matplotlib ``Axes`` (creates one if not provided) and returns it.
 
-Multi-panel publication figures are composed by ``scripts/make_fig*.py``,
+Multi-panel publication figures are composed by ``paper/jamia2026/figures/make_fig*.py``,
 the figure-level layout (gridspec, suptitle, panel titles) belongs to the
 caller; primitives only know about their own axes.
 
@@ -493,7 +493,7 @@ def dumbbell(
       - Arrow connecting them, colored by direction (increase / decrease)
 
     The plot is agnostic about what the values represent. The caller (e.g.
-    ``scripts/make_fig4.py``) decides what "baseline" and "after" mean,
+    ``paper/jamia2026/figures/make_fig4.py``) decides what "baseline" and "after" mean,
     perturbation Δŷ, intervention pre/post, IG-rank shifts, etc., and supplies
     the title, x-label, and legend wording from outside.
 

@@ -16,7 +16,7 @@ Outputs:
   - ``jaccard_reps_<split>_j<pct>.pkl``   (cached on first run; reused after)
 
 Usage:
-    python paper/jamia2026/figures/make_fig3.py --run_dir ../runs/full_CPD_v1
+    python paper/jamia2026/figures/make_fig3.py --run_dir ../runs/mimiciv_readmission_30d
 """
 from __future__ import annotations
 
@@ -180,7 +180,7 @@ def _render_token_panels_a4(values_a, labels_a, values_b, labels_b,
 
 def main() -> None:
     p = argparse.ArgumentParser(description="Render Figure 3 (global 3-panel attribution)")
-    p.add_argument("--run_dir", default="../runs/full_CPD_v1")
+    p.add_argument("--run_dir", default="../runs/mimiciv_readmission_30d")
     p.add_argument("--split", default="test")
     p.add_argument("--n_show", type=int, default=N_SHOW)
     p.add_argument("--jaccard_threshold", type=float, default=JACCARD_THRESHOLD)

@@ -60,7 +60,7 @@ def _pick_rare_decisive(df: pd.DataFrame, side: str, n: int) -> pd.DataFrame:
 
 def main() -> None:
     p = argparse.ArgumentParser(description="Render Figure S5 (prevalence vs impact)")
-    p.add_argument("--run_dir", default="../runs/full_CPD_v1")
+    p.add_argument("--run_dir", default="../runs/mimiciv_readmission_30d")
     p.add_argument("--split", default="test")
     p.add_argument("--n-annotate-per-side", type=int, default=5,
                    help="How many rare-but-decisive patterns to annotate per side")
