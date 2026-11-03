@@ -19,8 +19,6 @@ env/
 data/
 *.csv.gz
 *.csv
-# Tracked label table used by the figure scripts (the only CSV in the repo)
-!paper/jamia2026/figures/short_names.csv
 *.pkl
 *.zip
 
@@ -53,3 +51,6 @@ manuscript/
 
 # Analyses run but not reported in the paper (kept locally, not distributed)
 scripts/parked/
+
+# Manuscript code (Word/PDF builders, figure and table scripts) stays private until publication
+paper/

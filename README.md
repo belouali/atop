@@ -69,11 +69,10 @@ explainer.validate(top_k=15)
 explainer.report(out_dir="explanations/")
 ```
 
-## Reproducing Paper Results
+## Running the pipeline
 
-The paper's run directory is `runs/mimiciv_readmission_30d`. Every script below takes
-`--run_dir`, and the figure and table scripts also take `--split` (default
-`test`). Run them from `scripts/`.
+The example run directory is `runs/mimiciv_readmission_30d`. Every script below
+takes `--run_dir`.
 
 **1. Build the cohort and train the model**
 
@@ -86,54 +85,32 @@ python scripts/train_model.py --run_dir runs/mimiciv_readmission_30d
 
 ```bash
 python scripts/run_atop.py --run_dir runs/mimiciv_readmission_30d --mimic_dir /data/mimiciv/hosp
-python scripts/build_validation_whitelist.py --run_dir runs/mimiciv_readmission_30d
 python scripts/run_validation_topup.py --run_dir runs/mimiciv_readmission_30d
 python scripts/run_reversed_order_topup.py --run_dir runs/mimiciv_readmission_30d
 ```
 
-**3. Baselines (Table 2)**
+**3. Baselines**
 
 ```bash
 python scripts/reproduce_lace_baselines.py      # LR + XGBoost on LACE covariates
-python paper/jamia2026/tables/table_s1_auroc_bootstrap.py      # paired-bootstrap ΔAUROC CIs
 ```
 
-Note: these baselines use the four LACE components (length of stay, acuity,
-Charlson comorbidity index, ED visits in the prior 6 months) plus age, sex and
-prior admissions. They are *not* the published LACE+ index.
+These baselines use the four LACE components (length of stay, acuity, Charlson
+comorbidity index, ED visits in the prior 6 months) plus age, sex and prior
+admissions. They are *not* the published LACE+ index.
 
-**4. Cross-method replication (KernelSHAP)**
+**4. Cross-method comparison (KernelSHAP)**
 
 ```bash
 python scripts/build_cohort_shap_cache.py --run_dir runs/mimiciv_readmission_30d
 python scripts/build_shap_aggregations.py --run_dir runs/mimiciv_readmission_30d
 ```
 
-**5. Main figures and tables**
-
-```bash
-python paper/jamia2026/figures/make_fig2.py   --run_dir runs/mimiciv_readmission_30d   # single-patient explanation
-python paper/jamia2026/figures/make_fig3.py   --run_dir runs/mimiciv_readmission_30d   # token-level attribution
-python paper/jamia2026/figures/make_fig4.py   --run_dir runs/mimiciv_readmission_30d   # pattern-level attribution
-python paper/jamia2026/figures/make_fig5.py   --run_dir runs/mimiciv_readmission_30d   # perturbation validation
-python paper/jamia2026/tables/make_table1.py --run_dir runs/mimiciv_readmission_30d   # cohort characteristics
-python paper/jamia2026/tables/make_table2.py --run_dir runs/mimiciv_readmission_30d   # predictive performance
-python paper/jamia2026/tables/make_table3.py --run_dir runs/mimiciv_readmission_30d   # Tables 3 and 4
-```
-
-Figure 1 is a hand-drawn schematic, not generated from data.
-
-**6. Supplementary figures**
-
-```bash
-python paper/jamia2026/figures/make_fig_s10_reversal_scatter.py --run_dir runs/mimiciv_readmission_30d   # forward vs reversed order
-python paper/jamia2026/figures/make_fig_s7_jaccard_sensitivity.py  --run_dir runs/mimiciv_readmission_30d
-python paper/jamia2026/figures/make_fig_s8_full_pool_sensitivity.py --run_dir runs/mimiciv_readmission_30d
-python paper/jamia2026/figures/make_fig_s11_shap_fig3.py --run_dir runs/mimiciv_readmission_30d
-python paper/jamia2026/figures/make_fig_faithfulness.py --run_dir runs/mimiciv_readmission_30d
-```
-
-(The other `make_fig_s*.py` scripts follow the same convention.)
+The code that renders the manuscript's figures and tables is not part of this
+repository; it will be released when the paper is published. Two pipeline
+steps read outputs of that code: `scripts/build_validation_whitelist.py`
+(which needs the Table 3 and 4 pattern lists) and the pattern-level part of
+`scripts/build_shap_aggregations.py` (which needs the full-pool scored cache).
 
 ## Repository layout
 
@@ -147,19 +124,9 @@ atop/
   explainer.py   AToPExplainer, the top-level pipeline
 scripts/         end-to-end pipeline entry points (preprocess, train, run_atop,
                  validation and reversed-order top-ups, baselines, KernelSHAP)
-paper/jamia2026/ code that produces the JAMIA submission: builders/ (Word and
-                 PDF documents), figures/ (figure scripts), tables/ (table
-                 scripts). See paper/jamia2026/README.md for which script
-                 produces which exhibit, in build order.
 tests/           import test for the atop package
 docs/images/     figures used in this README
 ```
-
-Neither `atop/` nor `scripts/` imports anything from `paper/`. The scripts in
-`paper/jamia2026/` read the pipeline outputs and write into the project's
-`manuscript/` folder, which is not part of this repository. The one link back
-is `scripts/build_validation_whitelist.py`, which reads the Table 3 and 4 CSVs
-from that folder.
 
 ## Requirements
 
@@ -168,7 +135,7 @@ from that folder.
 - MIMIC-IV v3.1 (credentialed access via PhysioNet)
 
 Install dependencies with `pip install -e .` (see `pyproject.toml`).
-The LACE baselines and the paired bootstrap behind Table 2 also need xgboost, pinned to the version that reproduces the table: `pip install -e .[baselines]`.
+The LACE baselines also need xgboost: `pip install -e .[baselines]`.
 
 ## Citation
 

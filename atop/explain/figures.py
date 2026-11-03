@@ -1211,7 +1211,7 @@ def fig6_global_importance_comparison(
     # ── Render: multi-token sanity-check PNG (NOT the manuscript figure) ──
     # All CSVs above are already on disk by now \u2014 if this render is interrupted
     # or fails, Panel C work is preserved. The submission's Figure 3 is
-    # rendered by paper/jamia2026/figures/make_fig3.py from those CSVs; this PNG exists only
+    # rendered separately from those CSVs; this PNG exists only
     # as a quick eyeball-check after a fresh mining run.
     #
     # Removed in Apr 2026 cleanup: 3 supplementary PNG variants

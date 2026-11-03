@@ -261,8 +261,8 @@ def main() -> None:
     pool_pkl = os.path.join(analysis_dir,
                               f"full_pool_scored_{args.split}.pkl")
     if not os.path.exists(pool_pkl):
-        sys.exit(f"  [ERROR] Missing {pool_pkl}\n  Run paper/jamia2026/figures/make_fig3.py "
-                 f"first to materialize the full-pool scored cache.")
+        sys.exit(f"  [ERROR] Missing {pool_pkl}\n  It is written by "
+                 f"the full-pool scoring step of the manuscript figure code.")
     with open(pool_pkl, "rb") as f:
         df_full = pickle.load(f)
 
@@ -271,8 +271,8 @@ def main() -> None:
     # (both as strings).
     if "_carrier_keys" not in df_full.columns:
         sys.exit(f"  [ERROR] full_pool_scored_<split>.pkl missing "
-                 f"'_carrier_keys' column \u2014 re-run paper/jamia2026/figures/make_fig3.py "
-                 f"to refresh the cache.")
+                 f"'_carrier_keys' column \u2014 re-run the full-pool "
+                 f"scoring step to refresh the cache.")
     carrier_sets = dict(zip(df_full["pattern"], df_full["_carrier_keys"]))
 
     df_shap_full = _aggregate_pattern_level(
