@@ -841,12 +841,12 @@ class AToPExplainer:
             if not picks:
                 print(f"  [WARN] fig2 skipped, no exemplar patients found")
 
-        # ── Fig 3: Global attribution analysis (writes Panel C data, what
-        # downstream make_fig3.py reads). Panel B's GradientSHAP step takes
-        # ~8 hr on the full test cohort and is no longer used by any
-        # submission figure (SHAP now lives in Notebook 1C as a per-patient
-        # KernelSHAP cache for Fig S3 only). Pass empty tensors {} to make
-        # fig6_global_importance_comparison skip Panel B's GradientSHAP,
+        # ── Fig 3: Global attribution analysis (writes the Panel C data
+        # that the figure scripts read). Panel B's GradientSHAP step takes
+        # ~8 hr on the full test cohort and is not used by any reported
+        # figure (the KernelSHAP comparison uses a per-patient cache
+        # instead). Pass empty tensors {} to make
+        # fig6_global_importance_comparison skip Panel B's GradientSHAP;
         # Panel A (IG) and Panel C (patterns) still run and write their CSVs.
         df_fig3_patterns = None
         if "mine_global" in selected and df_pats is not None and not df_pats.empty:
@@ -876,10 +876,6 @@ class AToPExplainer:
                     import pickle as _pkl
 
                     # Load carrier sets if available (saved during fig3)
-                    # NB: the inline greedy clustering below replaces a former
-                    # call into atop.explain.figures.fig_supp_jaccard_clusters
-                    # (which was deleted in the Apr 2026 cleanup along with
-                    # the unused supplementary figure it produced).
                     carrier_pkl = os.path.join(csv_dir, f"carrier_sets_{split}.pkl")
                     if os.path.exists(carrier_pkl):
                         with open(carrier_pkl, "rb") as _f:
@@ -980,11 +976,6 @@ class AToPExplainer:
                 if not df_val_main.empty:
                     print(f"  [validate] {len(df_val_main)} patterns validated and cached "
                           f"(aligned with fig3)")
-
-                # Supplement: OOD diagnostic, REMOVED (Apr 2026 cleanup).
-                # The OOD validity story is narrated in the manuscript text
-                # using validation distribution stats from validation_*.csv;
-                # the standalone diagnostic figure isn't shipped.
             except Exception as e:
                 import traceback
                 print(f"  [WARN] fig4 failed: {e}")
@@ -1007,36 +998,6 @@ class AToPExplainer:
                 import traceback
                 print(f"  [WARN] fig5 failed: {e}")
                 traceback.print_exc()
-
-        # ══════════════════════════════════════════════════════════════════
-        # SUPPLEMENTARY FIGURES
-        # ══════════════════════════════════════════════════════════════════
-        # SUPPLEMENTARY FIGURES, REMOVED (Apr 2026 cleanup)
-        # ══════════════════════════════════════════════════════════════════
-        # Used to host four step-gated branches:
-        #   attn_flow            \u274C locked: skip ("ratio 1.09 too weak")
-        #                            \u2014 entire atop/explain/attention_flow.py
-        #                            module deleted with this branch
-        #   supp_heatmap         \u274C locked: skip (methodology detail)
-        #   supp_decomposition   \u274C locked: skip (methodology detail)
-        #   supp_ood             \u274C locked: skip (OOD story narrated in the
-        #                            manuscript text from validation_*.csv)
-        # Their backing functions (fig_attention_flow,
-        # fig_supp_pattern_admission_heatmap, fig_supp_pattern_decomposition,
-        # fig_supp_ood_diagnostic) were deleted from atop/explain/figures.py
-        # in the same pass. The matching step names were removed from
-        # STEP_NAMES below.
-
-        # ── README writer + train-split fig3 supplement: REMOVED ──────────
-        # The auto-generated `<run_dir>/figures/README.md` had stale paths
-        # (assumed the legacy main/supplement/csv tree, broken under v2),
-        # nothing downstream consumed it, and it crashed the pipeline on
-        # v2 runs because <run_dir>/figures/ doesn't exist. Deleted in
-        # Apr 2026 cleanup (E.4 in TASKS/legacy_cleanup_inventory.md).
-        # The figure\u2194manuscript mapping now lives in TASKS/_shared_context.md.
-        #
-        # Train-split fig3 supplement (~60-90 min on A100) was removed in
-        # the same cleanup pass \u2014 see TASKS/refactor_mine_global_step.md.
 
         print(f"\n{'='*60}")
         print(f"[AToP] Done.")

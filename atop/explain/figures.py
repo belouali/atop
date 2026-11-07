@@ -108,7 +108,7 @@ def _strip_codes(label):
             return tok[2:]
         return tok
 
-    parts = label.split("\u2192")
+    parts = label.split("→")
     short_parts = []
     for part in parts:
         part = part.strip()
@@ -120,7 +120,7 @@ def _strip_codes(label):
             short_parts.append("{" + ", ".join(_shorten_one(t) for t in tokens) + "}")
         else:
             short_parts.append(_shorten_one(part))
-    return " \u2192 ".join(short_parts)
+    return " → ".join(short_parts)
 
 
 def _count_pattern_tokens(pat_str: str) -> int:
@@ -356,7 +356,6 @@ def _make_pattern_readable(pat_str: str, icd_titles: Dict, max_tok_len: int = 30
     return " → ".join(readable_parts)
 
 
-
 def fig1_dataset_performance(out_dir, summary, test_metrics, y_true, y_prob):
     fpr, tpr = roc_curve_np(y_true, y_prob)
     recall, precision = pr_curve_np(y_true, y_prob)
@@ -384,14 +383,6 @@ def fig1_dataset_performance(out_dir, summary, test_metrics, y_true, y_prob):
     fig.tight_layout(rect=[0, 0.03, 1, 0.93])
     fig.savefig(os.path.join(out_dir, "fig1_dataset_performance.png"), dpi=300)
     plt.close(fig)
-
-
-
-# ── Removed (Apr 2026 cleanup) ──────────────────────────────────────────────
-# fig2_patient_ig (~55 LOC) and fig3_top_patterns (~130 LOC) used to live
-# here. Both were AMIA-era single-panel figures replaced by make_fig2.py
-# (3-panel patient exemplar) and make_fig3.py (3-panel global comparison)
-# respectively. Neither had any live caller in atop_package/.
 
 
 # ============================================================================
@@ -658,7 +649,6 @@ def build_shap_comparison_figure(out_dir, model, device, icd_titles, pick, input
             os.path.join(csv_dir, f"fig2_matched_patterns_{split}.csv"), index=False)
 
 
-
 def _render_fig6(out_dir, icd_titles, ig_global, shap_global, df_pathways,
                  n_show, n_shap_patients, split, panel_c_label=""):
     """Render the 3-panel fig6 figure. Returns fig object (caller saves)."""
@@ -685,7 +675,7 @@ def _render_fig6(out_dir, icd_titles, ig_global, shap_global, df_pathways,
         ax.set_yticks(range(len(labels_a)))
         ax.set_yticklabels(labels_a, fontsize=8.5)
     ax.axvline(0, color="black", linewidth=0.8)
-    ax.set_xlabel("Mean IG\n\u2190 protective    risk \u2192", fontsize=9)
+    ax.set_xlabel("Mean IG\n← protective    risk →", fontsize=9)
     ax.set_title(f"A: Integrated Gradients\n(single-token, all {split} patients)", fontsize=10)
 
     # --- Panel B: Global SHAP ---
@@ -700,7 +690,7 @@ def _render_fig6(out_dir, icd_titles, ig_global, shap_global, df_pathways,
         ax.set_yticks(range(len(labels_b)))
         ax.set_yticklabels(labels_b, fontsize=8.5)
     ax.axvline(0, color="black", linewidth=0.8)
-    ax.set_xlabel(f"Mean GradientSHAP ({n_shap_patients} patients)\n\u2190 protective    risk \u2192", fontsize=9)
+    ax.set_xlabel(f"Mean GradientSHAP ({n_shap_patients} patients)\n← protective    risk →", fontsize=9)
     ax.set_title(f"B: GradientSHAP\n(single-token, all {split} patients)", fontsize=10)
 
     # --- Panel C: AToP pathway importance (occurrence-aggregated) ---
@@ -721,7 +711,7 @@ def _render_fig6(out_dir, icd_titles, ig_global, shap_global, df_pathways,
         colors_c = []
         for _, r in top_paths.iterrows():
             pat_label = _fmt_pat(r["pattern"], icd_titles, max_tok_len=55)
-            direction = "\u25B2" if r["ig_signed_mean"] > 0 else "\u25BC"
+            direction = "▲" if r["ig_signed_mean"] > 0 else "▼"
             labels_c.append(f"{direction} {pat_label}  (n={r['n_present']})")
             colors_c.append("#c44e52" if r["ig_signed_mean"] > 0 else "#4c72b0")
         ax.barh(range(len(labels_c)), top_paths["ig_signed_mean"].values,
@@ -732,7 +722,7 @@ def _render_fig6(out_dir, icd_titles, ig_global, shap_global, df_pathways,
         ax.text(0.5, 0.5, "No patterns with presence in this split",
                 ha="center", va="center")
     ax.axvline(0, color="black", linewidth=0.8)
-    ax.set_xlabel("Mean \u03A3IG over pattern carriers (n shown per bar)\n\u2190 protective    risk \u2192", fontsize=9)
+    ax.set_xlabel("Mean ΣIG over pattern carriers (n shown per bar)\n← protective    risk →", fontsize=9)
     c_title = "C: AToP temporal patterns"
     if panel_c_label:
         c_title += f"\n({panel_c_label})"
@@ -742,23 +732,13 @@ def _render_fig6(out_dir, icd_titles, ig_global, shap_global, df_pathways,
 
     from matplotlib.patches import Patch
     legend_elements = [
-        Patch(facecolor="#c44e52", label="\u25B2 Risk (positive IG)"),
-        Patch(facecolor="#4c72b0", label="\u25BC Protective (negative IG)"),
+        Patch(facecolor="#c44e52", label="▲ Risk (positive IG)"),
+        Patch(facecolor="#4c72b0", label="▼ Protective (negative IG)"),
     ]
     fig.legend(handles=legend_elements, loc="lower center", ncol=2,
                fontsize=10, framealpha=0.9, bbox_to_anchor=(0.5, -0.02))
     fig.tight_layout(rect=[0, 0.03, 1, 0.96])
     return fig
-
-
-# ── Removed (Apr 2026 cleanup) ──────────────────────────────────────────────
-# fig_supp_conditional_impact (~125 LOC) and fig_supp_jaccard_clusters
-# (~200 LOC) used to live here. Both had zero live callers in atop_package
-# and produced supplementary figures explicitly marked "skip" in
-# TASKS/_shared_context.md (overlapped Fig S5 / methodology detail).
-# fig_supp_jaccard_clusters in particular hosted a slow O(N\u00B2) Jaccard sweep
-# that was the 3-hour bottleneck on 2026-04-23. Inline jaccard clustering
-# for the fig3 \u2192 fig4 whitelist now lives in atop/explainer.py.
 
 
 def _compute_panel_c(df_patterns, df_seq, df_ig, mining_method, label=""):
@@ -1151,7 +1131,7 @@ def fig6_global_importance_comparison(
     # Main figure: multi-token patterns (≥2 tokens, incl. same-visit co-occurrences)
     df_patterns_multi_set = set(_filter_multi_token(df_patterns, min_tokens=2)["pattern"].tolist())
     n_multi = len(df_patterns_multi_set)
-    print(f"  [mine_global] Panel C multi-token: {n_multi}/{len(df_patterns)} patterns with \u22652 tokens")
+    print(f"  [mine_global] Panel C multi-token: {n_multi}/{len(df_patterns)} patterns with ≥2 tokens")
     df_pathways_multi = df_pathways_all[df_pathways_all["pattern"].isin(df_patterns_multi_set)].copy()
 
     # Supplement: cross-visit only (≥2 visit blocks, ≥2 tokens)
@@ -1159,7 +1139,7 @@ def fig6_global_importance_comparison(
         _filter_multi_token(df_patterns, min_tokens=2), min_blocks=2)["pattern"].tolist())
     n_xvisit = len(df_patterns_xvisit_set)
     print(f"  [mine_global] Panel C cross-visit: {n_xvisit}/{len(df_patterns)} patterns "
-          f"with \u22652 tokens AND \u22652 visit blocks")
+          f"with ≥2 tokens AND ≥2 visit blocks")
     df_pathways_xvisit = df_pathways_all[df_pathways_all["pattern"].isin(df_patterns_xvisit_set)].copy()
 
     # ── CSVs (written FIRST so an interrupt during render doesn't lose work) ─
@@ -1189,7 +1169,7 @@ def fig6_global_importance_comparison(
                     pkl_path = os.path.join(csv_dir, f"carrier_sets_{split}{sfx}.pkl")
                     with open(pkl_path, "wb") as f:
                         pickle.dump(carriers, f)
-                    print(f"  [carriers] Saved {len(carriers)} carrier sets \u2192 {pkl_path}")
+                    print(f"  [carriers] Saved {len(carriers)} carrier sets → {pkl_path}")
 
     all_toks = sorted(set(ig_global.index) | set(shap_global.index))
     tok_rows = []
@@ -1208,25 +1188,18 @@ def fig6_global_importance_comparison(
     pd.DataFrame(tok_rows).to_csv(
         os.path.join(csv_dir, f"token_importance_{split}.csv"), index=False)
 
-    # ── Render: multi-token sanity-check PNG (NOT the manuscript figure) ──
-    # All CSVs above are already on disk by now \u2014 if this render is interrupted
-    # or fails, Panel C work is preserved. The submission's Figure 3 is
-    # rendered separately from those CSVs; this PNG exists only
-    # as a quick eyeball-check after a fresh mining run.
-    #
-    # Removed in Apr 2026 cleanup: 3 supplementary PNG variants
-    # (_split / _xvisit / _all) and three supplementary functions
-    # (supp_conditional_impact, supp_prevalence_vs_impact, supp_jaccard_clusters)
-    # \u2014 none shipped, all replaced by make_*.py scripts. supp_jaccard in
-    # particular hosted an O(N\u00B2) Jaccard sweep that was the 3-hour bottleneck
-    # on 2026-04-23.
+    # ── Render: multi-token sanity-check PNG (not a publication figure) ──
+    # All CSVs above are already on disk, so if this render is interrupted
+    # or fails, the Panel C results are preserved. Publication figures are
+    # rendered separately from those CSVs; this PNG is a quick visual
+    # check after a fresh mining run.
     fig = _render_fig6(out_dir, icd_titles, ig_global, shap_global,
                        df_pathways_multi, n_show, len(test_keys), split,
-                       panel_c_label="\u22652-token patterns (incl. same-visit)")
+                       panel_c_label="≥2-token patterns (incl. same-visit)")
     path_main = os.path.join(out_dir, f"fig3_global_comparison_{split}.png")
     fig.savefig(path_main, dpi=300, bbox_inches="tight")
     plt.close(fig)
-    print(f"  [mine_global] Saved sanity-check PNG \u2192 {path_main}")
+    print(f"  [mine_global] Saved sanity-check PNG → {path_main}")
 
     return df_pathways_multi
 
@@ -1291,7 +1264,7 @@ def fig5_reversed_order(out_dir, df_rev, icd_titles=None, split="test",
     ax.set_yticklabels(labels, fontsize=7.5)
     ax.axvline(0, color="gray", linestyle="--", linewidth=0.8)
 
-    ax.set_xlabel("Mean signed \u03A3 IG\u1d62\n\u2190 protective    risk \u2192", fontsize=10)
+    ax.set_xlabel("Mean signed Σ IGᵢ\n← protective    risk →", fontsize=10)
     ax.set_title(
         f"Temporal order specificity ({split.upper()}): forward vs reversed pattern matching\n"
         "If the model is sensitive to temporal order, forward and reversed bars should differ",
@@ -1299,8 +1272,8 @@ def fig5_reversed_order(out_dir, df_rev, icd_titles=None, split="test",
 
     from matplotlib.patches import Patch
     legend_handles = [
-        Patch(facecolor="#c44e52", label="Forward order (A \u2192 B)"),
-        Patch(facecolor="#e8a0a2", label="Reversed order (B \u2192 A)"),
+        Patch(facecolor="#c44e52", label="Forward order (A → B)"),
+        Patch(facecolor="#e8a0a2", label="Reversed order (B → A)"),
         Patch(facecolor="#4c72b0", label="Forward order (protective)"),
         Patch(facecolor="#a0b8d0", label="Reversed order (protective)"),
     ]
@@ -1310,7 +1283,7 @@ def fig5_reversed_order(out_dir, df_rev, icd_titles=None, split="test",
     path = os.path.join(out_dir, f"fig5_reversed_order_{split}.png")
     fig.savefig(path, dpi=300, bbox_inches="tight")
     plt.close(fig)
-    print(f"  [reversed_order] Saved \u2192 {path}")
+    print(f"  [reversed_order] Saved → {path}")
 
     # CSV
     df_rev.to_csv(os.path.join(csv_dir, f"fig5_reversed_order_{split}.csv"), index=False)
@@ -1319,20 +1292,6 @@ def fig5_reversed_order(out_dir, df_rev, icd_titles=None, split="test",
 # ============================================================================
 # SUPPLEMENTAL FIGURES
 # ============================================================================
-
-
-# ── Removed (Apr 2026 cleanup) ──────────────────────────────────────────────
-# fig_supp_ig_heatmap_multi_patient (~50 LOC) and fig_supp_ig_stream_heatmap
-# (~30 LOC) used to live here. Both had `def` + an unused import in
-# explainer.py and zero call sites. Not part of the JAMIA submission.
-
-
-# ── Removed (Apr 2026 cleanup) ──────────────────────────────────────────────
-# fig_supp_pattern_admission_heatmap (~85 LOC) and fig_supp_pattern_decomposition
-# (~125 LOC) used to live here. Both were gated behind the `supp_heatmap` and
-# `supp_decomposition` step names \u2014 locked decision: skip ("methodology
-# detail / not in submission"). Their step branches in atop/explainer.py
-# report() were removed in the same pass.
 
 
 # ============================================================================
@@ -1354,14 +1313,6 @@ def save_table1(df_seq_all, summary, out_path):
          f'{df_seq_all["n_visits"].mean():.1f} ({df_seq_all["n_visits"].std(ddof=1):.1f})'),
     ]
     pd.DataFrame(tab, columns=["Characteristic", "Value"]).to_csv(out_path, index=False)
-
-
-# ── Removed (Apr 2026 cleanup) ──────────────────────────────────────────────
-# fig_supp_ood_diagnostic (~75 LOC) used to live here. Gated behind the
-# `supp_ood` step name \u2014 not in submission. The OOD validity story is now
-# narrated in the manuscript text via the validation-distribution stats
-# from validation_test.csv (no separate figure shipped). Its step branch in
-# atop/explainer.py report() was removed in the same pass.
 
 
 def fig_train_curves(out_dir: str, train_log: list) -> None:
@@ -1391,8 +1342,6 @@ def fig_train_curves(out_dir: str, train_log: list) -> None:
     fig.savefig(os.path.join(out_dir, "fig_train_curves.png"), dpi=200, bbox_inches="tight")
     plt.close(fig)
     print(f"  Saved fig_train_curves.png")
-
-
 
 
 # ============================================================================

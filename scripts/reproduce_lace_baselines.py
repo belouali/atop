@@ -7,7 +7,7 @@ tuples are pulled from runs/full_CPD/explain/data/sequences_{train,test}.pkl,
 which the model produced during training/evaluation. This guarantees the same
 patients and same index admissions as the paper's AUROC 0.766 run.
 
-Expected results (from Colab session):
+Expected results:
   LACE LR:      AUROC 0.657, PR-AUC ~0.24
   LACE XGBoost: AUROC 0.729, PR-AUC ~0.32
 
@@ -118,9 +118,9 @@ lr_auroc = roc_auc_score(y_test, lr_prob)
 lr_prauc = average_precision_score(y_test, lr_prob)
 print(f"    AUROC={lr_auroc:.4f}  PR-AUC={lr_prauc:.4f}  (paper: 0.657 / ~0.24)")
 if abs(lr_auroc - 0.657) > 0.01:
-    print(f"    ⚠️  AUROC differs from expected 0.657 by {abs(lr_auroc-0.657):.4f}")
+    print(f"    [WARN] AUROC differs from expected 0.657 by {abs(lr_auroc-0.657):.4f}")
 else:
-    print(f"    ✅ Matches expected 0.657 within tolerance")
+    print(f"    Matches expected 0.657 within tolerance")
 
 # ── XGBoost ────────────────────────────────────────────────────────────────
 print("\n[6] LACE XGBoost...")
@@ -140,9 +140,9 @@ xgb_auroc = roc_auc_score(y_test, xgb_prob)
 xgb_prauc = average_precision_score(y_test, xgb_prob)
 print(f"    AUROC={xgb_auroc:.4f}  PR-AUC={xgb_prauc:.4f}  (paper: 0.729 / ~0.32)")
 if abs(xgb_auroc - 0.729) > 0.01:
-    print(f"    ⚠️  AUROC differs from expected 0.729 by {abs(xgb_auroc-0.729):.4f}")
+    print(f"    [WARN] AUROC differs from expected 0.729 by {abs(xgb_auroc-0.729):.4f}")
 else:
-    print(f"    ✅ Matches expected 0.729 within tolerance")
+    print(f"    Matches expected 0.729 within tolerance")
 
 # ── Bootstrap CIs ──────────────────────────────────────────────────────────
 print("\n[7] Bootstrap CIs (n=1000)...")

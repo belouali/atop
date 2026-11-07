@@ -66,9 +66,9 @@ def _topn_reps(df_pool: pd.DataFrame, rep_set: set, n: int) -> list[str]:
 
 def _load_or_score_full_pool(layout: RunLayout, split: str,
                               min_carriers: int = 5) -> pd.DataFrame:
-    """Same caching logic as ``make_fig3.py``: cache to
-    ``<analysis_dir>/full_pool_scored_<split>.pkl`` and reuse if newer
-    than the raw mining cache."""
+    """Score the full pattern pool, caching to
+    ``<analysis_dir>/full_pool_scored_<split>.pkl`` and reusing it if
+    newer than the raw mining cache."""
     import pickle
     cache_path = os.path.join(layout.analysis_dir,
                                f"full_pool_scored_{split}.pkl")
@@ -102,7 +102,7 @@ def _patterns_from_manuscript_table(csv_path: str) -> list[str]:
     """Apply the phenotype-organized top-5-per-family filter that the
     main-docx builder uses. For the catch-all "Other" phenotype, take
     top-5 risk-supporting (ΣIG > 0) AND top-5 protective (ΣIG < 0)
-    SEPARATELY — since "Other" is a heterogeneous bucket and a single
+    SEPARATELY - since "Other" is a heterogeneous bucket and a single
     top-5-by-|IG| selection skews to whichever direction has bigger
     absolute values.
     Returns the canonical 'pattern' keys (not the readable labels).

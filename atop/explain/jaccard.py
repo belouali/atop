@@ -3,14 +3,14 @@
 Used by the pattern-ranking figures (Panel C dedup) and any downstream consumer
 that wants the same set of "phenotype representative" patterns Fig 3 displays.
 
-Apr 2026 rewrite: the greedy sweep was O(N\u00B2) with packed-bit intersection
-per pair (~10-40 min at v2 scale depending on threshold). The new
-implementation computes ALL pairwise intersections once via a single
-``scipy.sparse`` matrix product (``M @ M.T`` over a patterns \u00D7 patients
-boolean matrix) and then runs the greedy sweep on the precomputed sparse
-intersection matrix. Walltime drops to seconds on the same dataset and the
-cluster assignments are bit-identical to the packed-bit version (same
-greedy order + same Jaccard definition).
+A pairwise greedy sweep with packed-bit intersections is O(N²) (~10-40 min
+at v2 scale depending on threshold). This implementation instead computes
+ALL pairwise intersections once via a single ``scipy.sparse`` matrix
+product (``M @ M.T`` over a patterns × patients boolean matrix) and then
+runs the greedy sweep on the precomputed sparse intersection matrix.
+Walltime is seconds on the same dataset and the cluster assignments are
+bit-identical to the packed-bit version (same greedy order + same Jaccard
+definition).
 """
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ import pandas as pd
 
 
 def _build_sparse_presence(df_pw_with_ck: pd.DataFrame):
-    """Build a (N_patterns \u00D7 N_patients) sparse boolean carrier matrix.
+    """Build a (N_patterns × N_patients) sparse boolean carrier matrix.
 
     Returns (M, pattern_strs, sizes):
         M             : csr_matrix of shape (N_patterns, N_patients), int8 ones
@@ -32,12 +32,12 @@ def _build_sparse_presence(df_pw_with_ck: pd.DataFrame):
     """
     from scipy.sparse import csr_matrix
 
-    # Order patterns by |ig_signed_mean| descending \u2014 greedy sweep order.
+    # Order patterns by |ig_signed_mean| descending - greedy sweep order.
     df = df_pw_with_ck.sort_values(
         "ig_signed_mean", key=abs, ascending=False
     ).reset_index(drop=True)
 
-    # Build pattern \u2192 carrier-set iterator. Skip rows with non-set / empty.
+    # Build pattern → carrier-set iterator. Skip rows with non-set / empty.
     rows, cols = [], []
     patient_idx: dict = {}
     pattern_strs: list = []
@@ -70,23 +70,23 @@ def _greedy_jaccard_clusters(df_pw_with_ck: pd.DataFrame,
     """Greedy sweep ordered by ``|ig_signed_mean|`` desc.
 
     For each unassigned pattern, grow a cluster of subsequent patterns whose
-    carrier-set Jaccard \u2265 threshold; keep the seed as the representative.
+    carrier-set Jaccard ≥ threshold; keep the seed as the representative.
 
     Implementation
     --------------
-    1. Build sparse carrier matrix ``M`` (patterns \u00D7 patients, int).
-    2. Compute ``I = M @ M.T`` \u2014 sparse (patterns \u00D7 patterns) of pairwise
+    1. Build sparse carrier matrix ``M`` (patterns × patients, int).
+    2. Compute ``I = M @ M.T`` - sparse (patterns × patterns) of pairwise
        intersection counts. Only nonzero entries represent pairs that
        actually share a carrier; this is typically ~1-5% of all pairs.
     3. Greedy sweep: for each unassigned pattern i (in |IG| order), pull
-       row i's nonzero columns, compute ``J = I / (s_i + s_j \u2212 I)`` in a
+       row i's nonzero columns, compute ``J = I / (s_i + s_j − I)`` in a
        single vectorized step, and mark every j >= threshold as assigned.
 
     Output is bit-identical to the legacy packed-bit implementation:
     same sort order, same Jaccard definition, same "merge first-seen
     surviving pattern" semantics.
     """
-    from scipy.sparse import csr_matrix  # noqa: F401 \u2014 ensures availability
+    from scipy.sparse import csr_matrix  # noqa: F401 - ensures availability
 
     # 1. Build sparse carrier matrix.
     M, pattern_strs, sizes = _build_sparse_presence(df_pw_with_ck)
@@ -184,12 +184,12 @@ def get_jaccard_representatives(
             os.path.getmtime(cache_path) >= os.path.getmtime(pw_csv):
         with open(cache_path, "rb") as f:
             rep_patterns = pickle.load(f)
-        print(f"  [jaccard] cached \u2192 {len(rep_patterns)} representatives "
+        print(f"  [jaccard] cached → {len(rep_patterns)} representatives "
               f"({os.path.basename(cache_path)})")
         return rep_patterns
 
     print(f"  [jaccard] computing representatives at threshold {jaccard_threshold} "
-          f"(vectorized \u2014 seconds at ~40k patterns)...", flush=True)
+          f"(vectorized - seconds at ~40k patterns)...", flush=True)
     df_pw = pd.read_csv(pw_csv)
     with open(pkl_path, "rb") as f:
         carriers = pickle.load(f)
@@ -200,11 +200,11 @@ def get_jaccard_representatives(
         return None
 
     rep_patterns = _greedy_jaccard_clusters(df_pw, jaccard_threshold)
-    print(f"  [jaccard] {len(df_pw)} patterns \u2192 {len(rep_patterns)} representatives")
+    print(f"  [jaccard] {len(df_pw)} patterns → {len(rep_patterns)} representatives")
 
     if use_cache:
         with open(cache_path, "wb") as f:
             pickle.dump(rep_patterns, f)
-        print(f"  [jaccard] cached \u2192 {cache_path}")
+        print(f"  [jaccard] cached → {cache_path}")
 
     return rep_patterns

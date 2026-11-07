@@ -48,7 +48,7 @@ def main() -> None:
                    help="Whitelist file (default: <run_dir>/5_analysis/"
                         "reversed_order_whitelist.txt).")
 
-    # Mining knobs (mirror Notebook 1B so we hit the cached scored CSV)
+    # Mining knobs (match the main run so the cached scored CSV is reused)
     p.add_argument("--min_support_frac", type=float, default=0.001)
     p.add_argument("--scoring_min_support_frac", type=float, default=0.0)
     p.add_argument("--episode_max_len", type=int, default=4)

@@ -162,9 +162,6 @@ class AToPConfig:
     validate_max_admissions_per_pattern: int = 200
     n_shuffle_draws: int = 50
 
-    # Attention flow knobs removed in Apr 2026 cleanup along with
-    # atop/explain/attention_flow.py (locked: skip, "ratio 1.09 too weak").
-
     # Display
     n_show: int = 15  # number of items per panel in figures
 

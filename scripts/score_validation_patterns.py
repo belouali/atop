@@ -3,8 +3,8 @@
 Scores each pattern in ``5_analysis/validation_<split>.csv`` on the full
 test cohort with the single rule in ``atop/explain/scoring.py`` and writes
 ``5_analysis/validation_pattern_directions.csv`` (pattern, sigma_ig_test,
-n_carriers_test). ``make_fig_s10_masking.py`` uses it to colour the masking
-histogram by attribution direction.
+n_carriers_test). The masking figure uses it to colour its histogram by
+attribution direction.
 
 Usage:
     python scripts/score_validation_patterns.py --run_dir ../runs/mimiciv_readmission_30d

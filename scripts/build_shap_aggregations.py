@@ -1,22 +1,22 @@
-"""build_shap_aggregations \u2014 SHAP-based token + pattern aggregation CSVs.
+"""build_shap_aggregations - SHAP-based token + pattern aggregation CSVs.
 
 Reads the per-patient KernelSHAP cache produced by
 ``scripts/build_cohort_shap_cache.py`` and aggregates it into the same
 CSV schemas Fig 3 / Fig S11 consume:
 
-  * ``token_importance_shap_<split>.csv`` \u2014 per-token mean SHAP
+  * ``token_importance_shap_<split>.csv`` - per-token mean SHAP
     (carrier-conditional) + sample prevalence + n_present. Mirrors the IG
     schema in ``token_importance_<split>.csv``.
-  * ``panel_c_shap_<split>_j<jt>_short.csv`` \u2014 full-pool patterns scored
-    by carrier-averaged \u03A3SHAP (sum of constituent-token SHAPs across
+  * ``panel_c_shap_<split>_j<jt>_short.csv`` - full-pool patterns scored
+    by carrier-averaged ΣSHAP (sum of constituent-token SHAPs across
     sampled carriers). Jaccard-deduplicated at the same threshold as
     Fig 3 Panel C.
-  * ``panel_d_shap_<split>_j<jt>_short.csv`` \u2014 cross-visit patterns
-    (\u22652 visits & \u22652 tokens) scored the same way. Mirrors Panel D.
+  * ``panel_d_shap_<split>_j<jt>_short.csv`` - cross-visit patterns
+    (≥2 visits & ≥2 tokens) scored the same way. Mirrors Panel D.
 
-These outputs let ``make_fig_s11_shap_fig3.py`` render a SHAP-based variant
-of Fig 3 without changing the figure renderer's grammar \u2014 the input CSVs
-have the same columns the canonical pipeline expects.
+These outputs allow a SHAP-based variant of Fig 3 to be rendered without
+changing the figure renderer: the input CSVs have the same columns the
+canonical pipeline expects.
 
 Method: for every (pid, hadm) in the SHAP cache, we have ``{token: signed
 shap_value}``. To aggregate at the pattern level we multiply pattern
@@ -71,10 +71,9 @@ def _resolve_cache_path(layout, split: str, user_supplied: str) -> str:
 
     sys.exit(
         f"  [ERROR] No cohort SHAP cache found. Tried:\n"
-        + "\n".join(f"    \u2022 {c}" for c in candidates if c) +
-        f"\n  Run scripts/build_cohort_shap_cache.py first (Step 1 in "
-        f"notebooks/AToP_1B3_shap_cohort.ipynb \u2014 the GPU step, not the "
-        f"dry-run).")
+        + "\n".join(f"    • {c}" for c in candidates if c) +
+        f"\n  Run scripts/build_cohort_shap_cache.py first (the GPU run, "
+        f"not the dry-run).")
 
 
 def _load_shap_cache(path: str) -> dict:
@@ -91,12 +90,12 @@ def _aggregate_token_level(cache: dict, outlier_threshold: float = 10.0) -> pd.D
 
     **Outlier filter:** KernelSHAP with insufficient ``nsamples`` for high-K
     patients (K=number of tokens) produces numerically unstable SHAP values
-    (10\u00b9\u00b3-10\u00b9\u2075 range vs the bounded [-1,+1] expected from a sigmoid model).
+    (10¹³-10¹⁵ range vs the bounded [-1,+1] expected from a sigmoid model).
     Per-patient-token entries with ``|SHAP| > outlier_threshold`` are
     excluded from the aggregation. With ``threshold=10`` and a sigmoid-output
     model (whose total prediction delta is bounded by 1), this filter only
-    catches the underdetermined-regression artifacts \u2014 a real per-token
-    SHAP value rarely exceeds \u00b15 even for highly influential tokens.
+    catches the underdetermined-regression artifacts - a real per-token
+    SHAP value rarely exceeds ±5 even for highly influential tokens.
     """
     N_sample = len(cache)
     by_tok: dict = {}
@@ -144,7 +143,7 @@ def _aggregate_pattern_level(cache: dict, sample_pids: set,
     ``5_analysis/pathway_importance_<split>.csv`` so the existing Fig 3
     panel selection / Jaccard logic can consume it unchanged.
 
-    **Outlier filter:** Per-patient pattern \u03A3SHAP is dropped if any
+    **Outlier filter:** Per-patient pattern ΣSHAP is dropped if any
     constituent-token SHAP is unstable (``|SHAP| > outlier_threshold``).
     Otherwise a single high-K-patient artifact pollutes every pattern
     that contains the artifact's token.
@@ -163,7 +162,7 @@ def _aggregate_pattern_level(cache: dict, sample_pids: set,
             continue
         n_patterns_with_sampled_carriers += 1
 
-        # Pattern \u2192 set of constituent tokens (union across blocks).
+        # Pattern → set of constituent tokens (union across blocks).
         constituent_tokens = set()
         for step in pat.split(" -> "):
             step = step.strip()
@@ -178,7 +177,7 @@ def _aggregate_pattern_level(cache: dict, sample_pids: set,
             shap_d = cache[k]
             # Only sum stable SHAP values; if ANY constituent token has a
             # numerically unstable per-patient SHAP, drop this carrier from
-            # the aggregation entirely (better than letting a 10\u00b9\u2074-magnitude
+            # the aggregation entirely (better than letting a 10¹⁴-magnitude
             # value dominate the pattern's mean).
             tok_vals = [shap_d.get(t, 0.0) for t in constituent_tokens]
             if any(abs(v) > outlier_threshold for v in tok_vals):
@@ -205,7 +204,7 @@ def _aggregate_pattern_level(cache: dict, sample_pids: set,
 
     df = pd.DataFrame(rows)
     print(f"[3] Pattern-level: {len(df):,} patterns scored "
-          f"({n_patterns_with_sampled_carriers:,} had \u22651 sampled carrier)")
+          f"({n_patterns_with_sampled_carriers:,} had ≥1 sampled carrier)")
     return df
 
 
@@ -216,7 +215,7 @@ def main() -> None:
     p.add_argument("--split", default="test")
     p.add_argument("--shap_cache", default=None,
                    help="Path to cohort SHAP cache (default: "
-                        "<run_dir>/3_attribution/cohort_shap_<split>.pkl \u2014 "
+                        "<run_dir>/3_attribution/cohort_shap_<split>.pkl - "
                         "single growing cache).")
     p.add_argument("--jaccard_threshold", type=float, default=0.2)
     p.add_argument("--n_show", type=int, default=30,
@@ -225,7 +224,7 @@ def main() -> None:
                    help="Min sampled carriers required for a pattern to be "
                         "considered for the top-N panel CSVs (default 10). "
                         "KernelSHAP \"mean\" is undefined for patterns with "
-                        "1\u20132 sampled carriers \u2014 the SHAP value of a single "
+                        "1–2 sampled carriers - the SHAP value of a single "
                         "patient is not a population estimate.")
     p.add_argument("--analysis_dir", default=None,
                    help="Output dir for token/pattern CSVs (default: "
@@ -242,7 +241,7 @@ def main() -> None:
 
     # Resolve cache path: honor --shap_cache, fall back to the new default
     # filename, then to any legacy ``_n*.pkl`` cache. Robust against
-    # stale notebook variables pointing at the old per-N filename.
+    # stale variables pointing at the old per-N filename.
     cache_path = _resolve_cache_path(layout, args.split, args.shap_cache)
     cache = _load_shap_cache(cache_path)
     sample_pids = set(cache.keys())
@@ -253,7 +252,7 @@ def main() -> None:
     tok_path = os.path.join(analysis_dir,
                               f"token_importance_shap_{args.split}.csv")
     df_tok.to_csv(tok_path, index=False)
-    print(f"  \u2192 {tok_path}")
+    print(f"  → {tok_path}")
 
     # ── Pattern-level (Panels C + D for Fig S11) ─────────────────────
     # Load full-pool scored patterns + their carrier sets (built by Fig 3
@@ -267,11 +266,11 @@ def main() -> None:
         df_full = pickle.load(f)
 
     # Carrier sets: built by ``score_all_raw_patterns`` and cached in the
-    # ``_carrier_keys`` column \u2014 set of (patient_id, index_hadm_id) tuples
+    # ``_carrier_keys`` column - set of (patient_id, index_hadm_id) tuples
     # (both as strings).
     if "_carrier_keys" not in df_full.columns:
         sys.exit(f"  [ERROR] full_pool_scored_<split>.pkl missing "
-                 f"'_carrier_keys' column \u2014 re-run the full-pool "
+                 f"'_carrier_keys' column - re-run the full-pool "
                  f"scoring step to refresh the cache.")
     carrier_sets = dict(zip(df_full["pattern"], df_full["_carrier_keys"]))
 
@@ -279,22 +278,22 @@ def main() -> None:
         cache, sample_pids, df_full, carrier_sets, N_sample)
 
     # ── Panel C source: full pool, j=0.2 dedup ───────────────────────
-    print(f"\n[4] Panel C (full pool) Jaccard reps\u2026")
+    print(f"\n[4] Panel C (full pool) Jaccard reps…")
     rep_c = cluster_jaccard_inmemory(df_full, args.jaccard_threshold,
                                        verbose=False)
-    print(f"  j={args.jaccard_threshold} \u2192 {len(rep_c):,} reps "
+    print(f"  j={args.jaccard_threshold} → {len(rep_c):,} reps "
           f"(carrier sets independent of SHAP/IG choice)")
     df_shap_c_reps = df_shap_full[df_shap_full["pattern"].isin(rep_c)].copy()
     # Filter: require enough sampled carriers for a meaningful mean.
     n_c_before = len(df_shap_c_reps)
     df_shap_c_reps = df_shap_c_reps[df_shap_c_reps["n_present"] >= args.min_n_present].copy()
-    print(f"  filtered to \u2265 {args.min_n_present} sampled carriers: "
+    print(f"  filtered to ≥ {args.min_n_present} sampled carriers: "
           f"{len(df_shap_c_reps):,}/{n_c_before:,} reps")
     df_shap_c_reps["_abs"] = df_shap_c_reps["ig_signed_mean"].abs()
     df_shap_c_top = df_shap_c_reps.nlargest(args.n_show, "_abs").drop(columns="_abs")
 
     # ── Panel D source: cross-visit pool, j=0.2 dedup ────────────────
-    print(f"\n[5] Panel D (cross-visit pool) Jaccard reps\u2026")
+    print(f"\n[5] Panel D (cross-visit pool) Jaccard reps…")
     pw_csv_path = layout.pathway_csv(args.split)
     df_pw = pd.read_csv(pw_csv_path)
     df_pw = df_pw[df_pw["n_present"] >= 3]
@@ -309,7 +308,7 @@ def main() -> None:
     n_d_before = len(df_shap_d_reps)
     df_shap_d_reps = df_shap_d_reps[df_shap_d_reps["n_present"] >= args.min_n_present].copy()
     print(f"  cross-visit + sampled-carrier patterns: {len(df_shap_d_pool):,}")
-    print(f"  filtered to \u2265 {args.min_n_present} sampled carriers: "
+    print(f"  filtered to ≥ {args.min_n_present} sampled carriers: "
           f"{len(df_shap_d_reps):,}/{n_d_before:,} reps")
     df_shap_d_reps["_abs"] = df_shap_d_reps["ig_signed_mean"].abs()
     df_shap_d_top = df_shap_d_reps.nlargest(args.n_show, "_abs").drop(columns="_abs")
@@ -332,18 +331,18 @@ def main() -> None:
     panel_c_path = _emit_panel(df_shap_c_top, "c")
     panel_d_path = _emit_panel(df_shap_d_top, "d")
     print(f"\n[6] Panel CSVs:")
-    print(f"  \u2192 {panel_c_path}  ({len(df_shap_c_top)} patterns)")
-    print(f"  \u2192 {panel_d_path}  ({len(df_shap_d_top)} patterns)")
+    print(f"  → {panel_c_path}  ({len(df_shap_c_top)} patterns)")
+    print(f"  → {panel_d_path}  ({len(df_shap_d_top)} patterns)")
 
-    # Preview uses the outer DataFrames \u2014 columns are still named
+    # Preview uses the outer DataFrames - columns are still named
     # ``ig_signed_mean`` here; the rename to ``ig_value`` happens inside
     # ``_emit_panel`` on a local copy.
     print(f"\n=== Headline preview ===")
-    print(f"Panel C top-5 by carrier \u03A3SHAP:")
+    print(f"Panel C top-5 by carrier ΣSHAP:")
     for _, r in df_shap_c_top.nlargest(5, "ig_signed_mean").iterrows():
         lab = resolver.format_pattern(r["pattern"], short_names=True)
         print(f"  {r['ig_signed_mean']:+.4f}  n={int(r['n_present']):>3}  {lab[:60]}")
-    print(f"\nPanel D top-5 by carrier \u03A3SHAP:")
+    print(f"\nPanel D top-5 by carrier ΣSHAP:")
     for _, r in df_shap_d_top.nlargest(5, "ig_signed_mean").iterrows():
         lab = resolver.format_pattern(r["pattern"], short_names=True)
         print(f"  {r['ig_signed_mean']:+.4f}  n={int(r['n_present']):>3}  {lab[:60]}")

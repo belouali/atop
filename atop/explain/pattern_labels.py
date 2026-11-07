@@ -7,9 +7,9 @@ human-readable token + pattern labels (e.g. ``C:10_I509`` →
 Three sources are merged, in priority order:
 
 1. Hand-curated short labels (``TOKEN_LABELS``), clinical abbreviations
-   used in the JAMIA paper figures.
+   used in the paper figures.
 2. ``short_names.csv`` overrides, caller-provided per-token rewrites
-   (e.g. for the AMIA / JAMIA submission style guide).
+   (e.g. to match a journal's style guide).
 3. ICD title lookup (``icd_titles.json`` from the run dir) +
    word-level abbreviations (``WORD_SHORTENINGS``).
 
@@ -31,15 +31,15 @@ import pandas as pd
 # Hand-curated short labels, clinical abbreviations used in the paper
 # ──────────────────────────────────────────────────────────────────────
 TOKEN_LABELS: Dict[str, str] = {
-    # House style for figures (Apr 2026):
-    #   * No parentheses inside token labels \u2014 (single), (severe), (mania),
+    # House style for figures:
+    #   * No parentheses inside token labels - (single), (severe), (mania),
     #     (self-harm), (other) read as if they were second tokens inside a
     #     co-occurrence set. Drop them and reorder words to natural clinical
     #     phrasing instead.
-    #   * "Cancer anemia" was an ad-hoc shorthand \u2014 use the clinical name
+    #   * "Cancer anemia" was an ad-hoc shorthand - use the clinical name
     #     "Cancer anemia" (ICD-10 D63.0).
     #   * ICD-9 198.5 ("Secondary malignant neoplasm of bone and bone marrow")
-    #     is what oncologists call "Bone metastases" \u2014 use that.
+    #     is what oncologists call "Bone metastases" - use that.
     #   * NOS suffix on every label whose underlying ICD title is the
     #     "unspecified" / "unsp." catch-all variant (e.g. F29 "Unspecified
     #     psychosis", F39 "Unspecified mood disorder"). Standard medical
@@ -58,7 +58,7 @@ TOKEN_LABELS: Dict[str, str] = {
     "C:10_T781XXA": "Food reaction", "C:9_9654": "Analgesic OD",
     "C:9_30981": "PTSD", "C:9_78659": "Atypical chest pain",
     "C:9_1985": "Bone metastases",
-    # ICD-9/-10 long-name shortenings encountered in v2 panels (Apr 2026):
+    # ICD-9/-10 long-name shortenings encountered in v2 panels:
     "C:9_2724":     "Hyperlipidemia NOS",      # "Other and unspecified hyperlipidemia"
     "C:9_64233":    "Gestational hypertension", # "Transient hypertension of pregnancy, antepartum..."
     "C:9_64403":    "Threatened preterm labor", # "Threatened premature labor, antepartum..."
@@ -179,7 +179,7 @@ TOKEN_LABELS: Dict[str, str] = {
     "C:10_T451X5A": "Adverse effect of chemo",           # Adverse effect of antineoplastic and immunosuppressive drugs
     "C:9_E9331":    "Chemo adverse effect",              # Antineoplastic and immunosuppressive drugs causing adverse effects
     "C:10_Z800":    "Hx GI cancer (family)",             # Family history of malignant neoplasm of digestive organs
-    "D:RX_1731071": "Fosaprepitant",                     # already short — antiemetic for chemo
+    "D:RX_1731071": "Fosaprepitant",                     # already short - antiemetic for chemo
     #, Heme / renal / skin
     "C:10_D62":     "Posthemorrhagic anemia",            # Acute posthemorrhagic anemia
     "C:10_D684":    "Acquired coagulopathy",             # Acquired coagulation factor deficiency
@@ -198,7 +198,7 @@ WORD_SHORTENINGS = [
     (", unspecified", " NOS"), (", unsp.", " NOS"),
     ("not elsewhere classified", "NEC"), ("not otherwise specified", "NOS"),
     ("intentional self-harm", "self-harm"), ("initial encounter", ""),
-    # Preserve the "uncomplicated" qualifier as ``uncomp.`` \u2014 it's
+    # Preserve the "uncomplicated" qualifier as ``uncomp.`` - it's
     # clinically meaningful (distinguishes the chronic/baseline form from
     # acute complications like with-intoxication or with-withdrawal).
     (", uncomplicated", " uncomp."), ("uncomplicated", "uncomp."),
@@ -322,7 +322,7 @@ class PatternLabelResolver:
             return text
         if text in self._short_names:
             return self._short_names[text]
-        # Leading "Unspecified <thing>" \u2192 "<thing> NOS" so the standard
+        # Leading "Unspecified <thing>" → "<thing> NOS" so the standard
         # medical "not otherwise specified" suffix lands at the end of the
         # label rather than as a confusing prefix.
         if text.lower().startswith("unspecified "):
@@ -377,4 +377,4 @@ class PatternLabelResolver:
                 formatted.append("{" + "; ".join(self.format_token(t) for t in tokens) + "}")
             else:
                 formatted.append(self.format_token(step))
-        return " \u2192 ".join(formatted)
+        return " → ".join(formatted)

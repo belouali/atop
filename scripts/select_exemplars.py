@@ -1,12 +1,12 @@
 """
 Pick four exemplar patients for Figure 2 and its supplements.
 
-Applies the selection criteria from TASKS/_shared_context.md:
+Selection criteria:
   main_tp       confident TP, cardiac/renal phenotype preferred
   alt_tp        confident TP, a *different* phenotype (psychiatric or oncologic)
   confident_tn  y_true=0, y_prob ≤ 0.1, obstetric preferred
-  disagreement  FP or FN with high confidence (deferred content; picks
-                the highest-confidence FP we can find so the stub exists)
+  disagreement  FP or FN with high confidence (the highest-confidence FP
+                is picked)
 
 Writes ../runs/full_CPD/explain/exemplars.json and prints a top-10-per-category
 console report so the pick can be spot-checked.
@@ -142,7 +142,7 @@ cand_tp = df[
 
 # TN candidates: percentile-based threshold within the in-window negative cohort.
 # A static y_prob ≤ 0.15 doesn't work because multi-visit patients (3-5
-# visits) systematically score higher \u2014 n_visits is a model feature, so the
+# visits) systematically score higher - n_visits is a model feature, so the
 # model raises baseline risk for them. Using a percentile of the in-window
 # negatives keeps the meaning ("model confidently said this patient won't
 # readmit") relative to the cohort the exemplar lives in.
@@ -170,12 +170,12 @@ print(f"    FP candidates (high-conf): {len(cand_fp):,}")
 # Pre-parse all patterns ONCE.
 #
 # The library helper _match_all_patterns(df_patterns, svb, is_episode) is
-# convenient but inefficient inside a loop \u2014 it re-runs
+# convenient but inefficient inside a loop - it re-runs
 # _parse_episode_pattern + frozenset construction for all 70k patterns on
 # every call. With ~1k candidates that's ~70M wasted parses.
 #
 # We pre-parse once and add a token pre-filter so per-candidate work is
-# O(patterns_with_subset_tokens), not O(all_patterns). Empirically ~25-30\u00D7
+# O(patterns_with_subset_tokens), not O(all_patterns). Empirically ~25-30×
 # faster on a v2-scale mining dictionary.
 # ──────────────────────────────────────────────────────────────────────────
 print("\n[3a] Pre-parsing pattern dictionary...")
@@ -193,7 +193,7 @@ def _match_for_patient(svb):
     """Token-prefiltered episode matching for a single patient's visit blocks."""
     if not svb:
         return []
-    # Build patient's token set once for fast pat_tokens \u2286 patient_tokens check
+    # Build patient's token set once for fast pat_tokens ⊆ patient_tokens check
     patient_tokens = set()
     for block in svb:
         patient_tokens.update(block)
@@ -213,7 +213,7 @@ def _match_for_patient(svb):
 # ──────────────────────────────────────────────────────────────────────────
 def score(cand: pd.DataFrame, tag: str) -> pd.DataFrame:
     print(f"\n[3] Matching patterns for {len(cand):,} {tag} candidates...")
-    # Sort by y_prob to prioritize the strongest candidates \u2014 we can stop early
+    # Sort by y_prob to prioritize the strongest candidates - we can stop early
     # once we have enough per-phenotype variety.
     if tag == "tn":
         cand = cand.sort_values("y_prob", ascending=True).head(400).copy()
@@ -299,7 +299,7 @@ print("\n" + "=" * 60)
 print("FINAL PICKS")
 print("=" * 60)
 
-# main_tp: richest confident-TP within the locked n_visits range.
+# main_tp: richest confident-TP within the fixed n_visits range.
 # Uses the same {N_VISITS_MIN..N_VISITS_MAX} window as alt_tp and
 # confident_tn so all three Fig 2 / Fig S4 panels are visually comparable.
 def _pick_main(df_scored, min_matched=50):
@@ -312,7 +312,7 @@ def _pick_main(df_scored, min_matched=50):
 
 main_tp = _pick_main(scored_tp)
 if main_tp is None:
-    print(f"\u26A0  No {N_VISITS_MIN}-{N_VISITS_MAX}-visit TP with \u226550 matched patterns; "
+    print(f"[WARN] No {N_VISITS_MIN}-{N_VISITS_MAX}-visit TP with ≥50 matched patterns; "
           f"falling back to cardiac_renal")
     main_tp = pick(scored_tp, "cardiac_renal")
 
@@ -371,7 +371,7 @@ exemplars = {
 }
 for key, pick_row in exemplars.items():
     if pick_row is None:
-        print(f"\n{key}: ⚠️  none found")
+        print(f"\n{key}: [WARN] none found")
         continue
     print(f"\n{key}:")
     for k in ("patient_id", "index_hadm_id", "y_true", "y_prob",
@@ -402,4 +402,4 @@ payload = {k: _clean(v) for k, v in exemplars.items()}
 os.makedirs(os.path.dirname(OUT), exist_ok=True)
 with open(OUT, "w") as f:
     json.dump(payload, f, indent=2, default=str)
-print(f"\n✅ Wrote {OUT}")
+print(f"\nWrote {OUT}")

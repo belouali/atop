@@ -13,11 +13,11 @@ doesn't risk shifting any upstream outputs.
 
 Two non-obvious config requirements (both important):
 
-  1. **Match Notebook 1B's mining knobs** so we hit the existing cached
-     scored CSV (``all_scored_<hash>.csv``). Defaults below mirror the
-     1B notebook (``min_support_frac=0.001``,
+  1. **Match the main run's mining settings** so the existing cached
+     scored CSV (``all_scored_<hash>.csv``) is reused. Defaults below
+     match that run (``min_support_frac=0.001``,
      ``scoring_min_support_frac=0``). Overriding either re-scores from
-     scratch, ~10 min of wasted GPU.
+     scratch (about 10 GPU minutes).
   2. **Override ``episode_min_steps`` to 1** for the validation step.
      The default (``=2``) post-filters ``df_patterns`` to cross-visit
      patterns only, which silently drops every full-pool whitelist
@@ -61,18 +61,18 @@ def main() -> None:
                    help="Whitelist file (default: <run_dir>/5_analysis/"
                         "validation_whitelist.txt).")
 
-    # ── Mining knobs, defaults mirror Notebook 1B so we hit the cache ──
+    # ── Mining knobs, defaults match the main run so the cache is reused ──
     p.add_argument("--min_support_frac", type=float, default=0.001,
-                   help="Mining min-support fraction per group (default 0.001 \u2014 "
-                        "matches Notebook 1B).")
+                   help="Mining min-support fraction per group (default 0.001 - "
+                        "matches the main run).")
     p.add_argument("--scoring_min_support_frac", type=float, default=0.0,
-                   help="Scoring min-support fraction (default 0 \u2014 matches "
-                        "Notebook 1B; disables the extra full-cohort filter).")
+                   help="Scoring min-support fraction (default 0 - matches "
+                        "the main run; disables the extra full-cohort filter).")
     p.add_argument("--episode_max_len", type=int, default=4,
-                   help="Max pattern length in visit blocks (default 4 \u2014 matches "
-                        "Notebook 1B).")
+                   help="Max pattern length in visit blocks (default 4 - matches "
+                        "the main run).")
     p.add_argument("--jaccard_dedup", type=float, default=0.0,
-                   help="Mining-time Jaccard dedup (default 0 \u2014 matches Notebook 1B).")
+                   help="Mining-time Jaccard dedup (default 0 - matches the main run).")
 
     # ── Validation knobs ──────────────────────────────────────────────
     p.add_argument("--n_shuffle_draws", type=int, default=None,
@@ -107,7 +107,7 @@ def main() -> None:
     else:
         df_cached = pd.DataFrame()
         cached_set = set()
-        print(f"[2] No existing validation CSV \u2014 starting fresh.")
+        print(f"[2] No existing validation CSV - starting fresh.")
 
     missing = [p for p in whitelist if p not in cached_set]
     print(f"[3] Need GPU compute: {len(missing)} patterns "
@@ -118,20 +118,20 @@ def main() -> None:
         return
 
     if args.dry_run:
-        print("\nDry run \u2014 first 10 patterns that would be validated:")
+        print("\nDry run - first 10 patterns that would be validated:")
         for p in missing[:10]:
             print(f"  {p}")
         return
 
     # ── Boot the explainer (loads model + tensors + IG cache) ─────────
-    print("\n[4] Loading model bundle\u2026")
+    print("\n[4] Loading model bundle…")
     from atop.explainer import AToPExplainer
     explainer = AToPExplainer.from_bundle(
         args.run_dir, mimic_dir=args.mimic_dir, device=args.device)
 
-    # Apply mining-knob overrides BEFORE mine_patterns so we hit Notebook
-    # 1B's scored cache. (These don't touch min_steps, which is a post-load
-    # filter \u2014 we override that separately below.)
+    # Apply mining-knob overrides BEFORE mine_patterns so the main
+    # run's scored cache is reused. (These don't touch min_steps, which is a post-load
+    # filter - we override that separately below.)
     explainer.config.min_support_frac = args.min_support_frac
     explainer.config.scoring_min_support_frac = args.scoring_min_support_frac
     explainer.config.episode_max_len = args.episode_max_len
@@ -144,7 +144,7 @@ def main() -> None:
     print(f"  [config] scoring_min_support_frac = {args.scoring_min_support_frac}")
     print(f"  [config] episode_max_len          = {args.episode_max_len}")
     print(f"  [config] jaccard_dedup            = {args.jaccard_dedup}")
-    print(f"  [config] episode_min_steps        = 1  (override \u2014 keep single-block "
+    print(f"  [config] episode_min_steps        = 1  (override - keep single-block "
           f"patterns visible to whitelist filter)")
 
     explainer.compute_attributions()
@@ -159,12 +159,12 @@ def main() -> None:
         invisible = [p for p in missing
                      if p not in set(explainer.df_patterns["pattern"].tolist())]
         print(f"  [WARN] {len(invisible)} whitelist patterns NOT in df_patterns_train "
-              f"\u2014 they will be silently dropped by run_validation. First 5:")
+              f"- they will be silently dropped by run_validation. First 5:")
         for p in invisible[:5]:
             print(f"    {p}")
 
     # ── Run validation only for missing patterns ──────────────────────
-    print(f"\n[5] Running masking validation for {visible} patterns\u2026")
+    print(f"\n[5] Running masking validation for {visible} patterns…")
     cfg = explainer.config
     n_shuffle = args.n_shuffle_draws or cfg.n_shuffle_draws
     max_adm = args.max_adm_per_pattern or cfg.validate_max_admissions_per_pattern
@@ -196,7 +196,7 @@ def main() -> None:
 
     # ── Merge + save (drop internal `_` columns to match existing schema) ─
     print(f"\n[6] Merging {len(df_new)} new rows into "
-          f"{os.path.basename(val_csv)}\u2026")
+          f"{os.path.basename(val_csv)}…")
     if not df_cached.empty:
         df_out = pd.concat([df_cached, df_new], ignore_index=True)
         df_out = df_out.drop_duplicates(subset=["pattern"], keep="last")
@@ -205,20 +205,20 @@ def main() -> None:
 
     public_cols = [c for c in df_out.columns if not c.startswith("_")]
     df_out.to_csv(val_csv, index=False, columns=public_cols)
-    print(f"    \u2192 {val_csv} ({len(df_out)} total patterns)")
+    print(f"    → {val_csv} ({len(df_out)} total patterns)")
 
     # ── Coverage report ──────────────────────────────────────────────
     final_set = set(df_out["pattern"].tolist())
     missing_after = [p for p in whitelist if p not in final_set]
     if missing_after:
         print(f"\n  [WARN] {len(missing_after)} whitelist patterns still missing "
-              f"after run \u2014 likely zero matches in test split:")
+              f"after run - likely zero matches in test split:")
         for p in missing_after[:5]:
             print(f"    {p}")
         if len(missing_after) > 5:
-            print(f"    \u2026 and {len(missing_after) - 5} more")
+            print(f"    … and {len(missing_after) - 5} more")
     else:
-        print(f"\n  \u2713 All {len(whitelist)} whitelist patterns now in cache.")
+        print(f"\n  All {len(whitelist)} whitelist patterns now in cache.")
 
 
 if __name__ == "__main__":

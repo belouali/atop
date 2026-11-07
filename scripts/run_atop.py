@@ -101,20 +101,20 @@ def parse_args():
                    help="Number of risk + protective patterns for validate step "
                         "(default: 15 each)")
 
-    # ── Mining knobs (locked at specific values for JAMIA submission, but
-    # exposed so reviewer-response sensitivity analyses can override) ──
+    # ── Mining knobs: values used in the paper are shown in each help;
+    # override them for sensitivity analyses ──
     p.add_argument("--episode_min_steps", type=int, default=-1,
-                   help="Minimum visit blocks per pattern (locked: 2). -1 = use config.")
+                   help="Minimum visit blocks per pattern (paper: 2). -1 = use config.")
     p.add_argument("--episode_max_len", type=int, default=-1,
-                   help="Maximum pattern length in visit blocks (locked: 4). -1 = use config.")
+                   help="Maximum pattern length in visit blocks (paper: 4). -1 = use config.")
     p.add_argument("--min_support_frac", type=float, default=-1,
-                   help="Mining min-support fraction per group (locked: 0.001). "
+                   help="Mining min-support fraction per group (paper: 0.001). "
                         "-1 = use config.")
     p.add_argument("--scoring_min_support_frac", type=float, default=-99,
-                   help="Scoring min-support fraction (locked: 0 disables). "
+                   help="Scoring min-support fraction (paper: 0 disables). "
                         "-99 = use config.")
     p.add_argument("--jaccard_dedup", type=float, default=-1,
-                   help="Mining-time Jaccard dedup threshold (locked: 0.0 disables; "
+                   help="Mining-time Jaccard dedup threshold (paper: 0.0 disables; "
                         "display-time dedup happens separately at j=0.2). -1 = use config.")
     return p.parse_args()
 

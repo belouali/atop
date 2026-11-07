@@ -8,7 +8,7 @@ single per-patient rule in :mod:`atop.explain.scoring`, i.e. exactly the rule
 the manuscript figure code (full pool, Jaccard representatives) and
 ``scripts/build_shap_aggregations.py``.
 
-No torch needed — pure pandas / numpy / scipy.sparse operations on cached data.
+No torch needed - pure pandas / numpy / scipy.sparse operations on cached data.
 """
 from __future__ import annotations
 
@@ -85,7 +85,8 @@ def load_combined_pool(run_dir: str, split: str = "test",
     pkl_path = os.path.join(L.analysis_dir, f"carrier_sets_{split}.pkl")
     if not (os.path.exists(pw_csv) and os.path.exists(pkl_path)):
         raise FileNotFoundError(
-            f"Need {pw_csv} and {pkl_path} — run make_fig3.py first.")
+            f"Need {pw_csv} and {pkl_path}; run the mine_global step "
+            f"of scripts/run_atop.py first.")
     df_multi = pd.read_csv(pw_csv)
     df_multi = df_multi[df_multi["n_present"] >= min_carriers].copy()
     with open(pkl_path, "rb") as f:

@@ -7,7 +7,7 @@ Multi-panel publication figures are composed by the caller,
 the figure-level layout (gridspec, suptitle, panel titles) belongs to the
 caller; primitives only know about their own axes.
 
-Available primitives (added incrementally as ``make_fig*.py`` scripts land):
+Available primitives:
 
   - ``ig_waterfall``, top-N IG token waterfall + "Other" aggregate
   - ``visit_block_bars``, per-visit ΣIG bars with token labels
@@ -28,13 +28,13 @@ from matplotlib.lines import Line2D
 from matplotlib.patches import Patch
 
 
-# Default colors (locked decisions, see TASKS/_shared_context.md)
+# Default colors
 RISK = "#ca0020"
 PROT = "#92c5de"
 NEUTRAL_GRAY = "#6c6c6c"
 LIGHT_GRAY = "#b5b5b5"
 
-# Dumbbell uses different reds/blues (set during the JAMIA review).
+# The validation dumbbell uses its own red and blue.
 DUMBBELL_RISK = "#c44e52"
 DUMBBELL_PROT = "#4c72b0"
 DUMBBELL_BASELINE = "#444444"

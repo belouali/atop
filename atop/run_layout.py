@@ -132,7 +132,7 @@ class RunLayout:
 
     @property
     def shap_cache_pkl(self) -> str:
-        """Per-patient KernelSHAP cache (populated by ``make_fig_s3``)."""
+        """Per-patient KernelSHAP cache."""
         return os.path.join(self.attribution_dir, "shap_cache.pkl")
 
     def pathway_csv(self, split: str, suffix: str = "") -> str:
@@ -230,26 +230,26 @@ def runtime_check(
     print(f"CPU RAM:  {ram:.1f} GB")
     print(f"Run dir:  {layout.run_dir}\n")
 
-    print("Cache status (\u2713 = present, will skip):")
+    print("Cache status (✓ = present, will skip):")
     needs_gpu_for = []
     for name, (path, kind) in needs.items():
         present = os.path.exists(path)
-        mark = "\u2713" if present else "\u2717"
+        mark = "✓" if present else "✗"
         print(f"  {mark}  {name:<30s} ({kind})")
         if not present and kind in ("gpu", "both"):
             needs_gpu_for.append(name)
 
     print()
     if needs_gpu_for and not has_gpu:
-        print(f"\u26A0  GPU runtime needed to (re-)compute: {', '.join(needs_gpu_for)}")
-        print("   \u2192 Switch to a Colab GPU runtime before continuing.")
+        print(f"[WARN] GPU runtime needed to (re-)compute: {', '.join(needs_gpu_for)}")
+        print("   → Switch to a Colab GPU runtime before continuing.")
     elif needs_gpu_for:
-        print(f"\u2713  GPU available; will compute: {', '.join(needs_gpu_for)}")
+        print(f"GPU available; will compute: {', '.join(needs_gpu_for)}")
     else:
-        print("\u2713  Everything cached \u2014 no GPU needed for this notebook.")
+        print("Everything cached; no GPU needed for this notebook.")
         if has_gpu:
             print("   (You can downgrade to a CPU runtime to save Compute Units.)")
 
     if ram < min_ram_gb:
-        print(f"\n\u26A0  Available RAM ({ram:.1f} GB) < recommended {min_ram_gb} GB. "
+        print(f"\n[WARN] Available RAM ({ram:.1f} GB) < recommended {min_ram_gb} GB. "
               f"Consider High-RAM tier.")

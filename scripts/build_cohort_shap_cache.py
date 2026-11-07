@@ -1,4 +1,4 @@
-"""build_cohort_shap_cache \u2014 GPU-only cohort-wide KernelSHAP runner.
+"""build_cohort_shap_cache - GPU-only cohort-wide KernelSHAP runner.
 
 Builds a per-patient-per-token KernelSHAP cache over a stratified-random
 sample of test patients, so the methodological argument from Fig 3 / Fig
@@ -6,14 +6,14 @@ S9 / Fig S10 (carrier-conditional vs. population-weighted aggregation)
 can be replicated under SHAP instead of Integrated Gradients.
 
 Why this exists: the existing per-patient SHAP cache (used by Fig S3) is
-limited to the top-K tokens *by IG* per patient \u2014 circular if you want to
+limited to the top-K tokens *by IG* per patient - circular if you want to
 build a SHAP-based ranking. This script computes SHAP for **every unique
 non-special token** in each sampled patient's sequence, so downstream
 aggregation can mirror the IG aggregation choices in Fig 3 directly
 (see scripts/build_shap_aggregations.py).
 
 Output: ``<run_dir>/3_attribution/cohort_shap_<split>.pkl``
-  dict keyed by (pid, hadm) \u2192 dict {token_str: signed_shap}
+  dict keyed by (pid, hadm) → dict {token_str: signed_shap}
 
 **Single growing cache** (no ``n<sample>`` in filename): all runs against
 the same split write to the same file, so ``--sample_n`` is interpreted as
@@ -24,15 +24,15 @@ set across runs; ``--sample_n 1000`` adds 500 new patients to a cache built
 at 500.
 
 Resilience: incremental save every ``flush_every`` patients (atomic write
-via .tmp + os.replace). Resume by re-running with the same flags \u2014 the
+via .tmp + os.replace). Resume by re-running with the same flags - the
 script skips any (pid, hadm) keys already in the cache.
 
 Compute estimate (Colab T4):
-  * ~10\u201330 s/patient at ``shap-nsamples=50``
-  * 500 patients \u2192 ~1.5 hours
-  * 1000 patients \u2192 ~3 hours
-  * 5000 patients \u2192 ~15 hours (multi-session)
-  * "all" (~43,640 patients) \u2192 ~5\u201310 days, not practically useful
+  * ~10–30 s/patient at ``shap-nsamples=50``
+  * 500 patients → ~1.5 hours
+  * 1000 patients → ~3 hours
+  * 5000 patients → ~15 hours (multi-session)
+  * "all" (~43,640 patients) → ~5–10 days, not practically useful
   * Drop ``shap-nsamples`` to 25 if you need it faster (population
     averaging across 500+ patients tolerates noisier per-patient SHAP).
 
@@ -157,7 +157,7 @@ def _stratified_ordering(df_seq: pd.DataFrame, df_pred: pd.DataFrame,
 
     Returns the FULL cohort in an order such that any prefix ``[:N]`` is
     a near-balanced stratified sample of N patients (positive/negative
-    readmit ratios match the cohort base rate). Same seed \u2192 same ordering,
+    readmit ratios match the cohort base rate). Same seed → same ordering,
     so ``[:500]`` is identical across runs and ``[:1000]`` is a strict
     extension of ``[:500]``. Lets the cache grow incrementally without
     redoing previously-cached work.
@@ -170,7 +170,7 @@ def _stratified_ordering(df_seq: pd.DataFrame, df_pred: pd.DataFrame,
     if "hadm_id" in df_pred.columns and "index_hadm_id" not in df_pred.columns:
         rename_map["hadm_id"] = "index_hadm_id"
     pred = df_pred.rename(columns=rename_map)
-    # IDs come through as floats (e.g. 10000068.0) \u2014 cast via int first to
+    # IDs come through as floats (e.g. 10000068.0) - cast via int first to
     # drop the decimal, then to str.
     for col in ("patient_id", "index_hadm_id"):
         pred[col] = pred[col].astype("Int64").astype(str)
@@ -179,7 +179,7 @@ def _stratified_ordering(df_seq: pd.DataFrame, df_pred: pd.DataFrame,
     seq = df_seq[["patient_id", "index_hadm_id"]].astype(str).copy()
     joined = seq.merge(pred, on=["patient_id", "index_hadm_id"], how="inner")
     if joined.empty:
-        sys.exit(f"  [ERROR] No overlap between sequences and predictions \u2014 "
+        sys.exit(f"  [ERROR] No overlap between sequences and predictions - "
                  f"check ID format. Seq sample: {seq.iloc[0].to_dict()}; "
                  f"Pred sample: {pred.iloc[0].to_dict()}")
 
@@ -227,7 +227,7 @@ def main() -> None:
         description="Build cohort KernelSHAP cache (per-patient, per-token).")
     p.add_argument("--run_dir", required=True)
     p.add_argument("--mimic_dir", required=True,
-                   help="MIMIC-IV hosp/ directory \u2014 needed to load model "
+                   help="MIMIC-IV hosp/ directory - needed to load model "
                         "config + drug names.")
     p.add_argument("--split", default="test")
     p.add_argument("--device", default="cuda")
@@ -239,7 +239,7 @@ def main() -> None:
                         "ordering means the first N entries are stable).")
     p.add_argument("--shap_nsamples", type=int, default=50,
                    help="KernelSHAP samples per patient (default 50; bump "
-                        "to 100\u2013200 for tighter per-patient values).")
+                        "to 100–200 for tighter per-patient values).")
     p.add_argument("--chunk", type=int, default=64,
                    help="Forward-pass batch size per KernelSHAP coalition.")
     p.add_argument("--seed", type=int, default=42)
@@ -247,7 +247,7 @@ def main() -> None:
                    help="Save cache to disk every N patients (atomic write).")
     p.add_argument("--cache_path", default=None,
                    help="Cache output path (default: <run_dir>/3_attribution/"
-                        "cohort_shap_<split>.pkl \u2014 single growing cache, "
+                        "cohort_shap_<split>.pkl - single growing cache, "
                         "no n-suffix).")
     p.add_argument("--dry_run", action="store_true",
                    help="Print what would be computed, then exit.")
@@ -258,7 +258,7 @@ def main() -> None:
         layout.attribution_dir, f"cohort_shap_{args.split}.pkl")
 
     # ── Load model + tensors + sequences + predictions ───────────────
-    print(f"[1] Loading model bundle from {args.run_dir}\u2026")
+    print(f"[1] Loading model bundle from {args.run_dir}…")
     with open(layout.vocab_pkl, "rb") as f:
         vocab = pickle.load(f)
     with open(layout.config_json) as f:
@@ -288,7 +288,7 @@ def main() -> None:
           f"preds={len(df_pred):,}")
 
     # ── Deterministic stratified ordering of the full cohort ────────
-    print(f"\n[2] Building deterministic stratified ordering (seed={args.seed})\u2026")
+    print(f"\n[2] Building deterministic stratified ordering (seed={args.seed})…")
     full_ordering = _stratified_ordering(sequences, df_pred, args.seed)
     cohort_size = len(full_ordering)
 
@@ -317,14 +317,14 @@ def main() -> None:
               f"{os.path.basename(cache_path)}")
     else:
         cache = {}
-        print(f"\n[3] No existing cache \u2014 starting fresh.")
+        print(f"\n[3] No existing cache - starting fresh.")
 
     cached_in_target = sum(1 for k in sample_keys if k in cache)
     missing = [k for k in sample_keys if k not in cache]
     print(f"  Cached within target window: {cached_in_target:,}/{target_n:,}")
     print(f"  Need GPU compute:            {len(missing):,} patients")
     if cache and cached_in_target < len(cache):
-        # Cache contains entries OUTSIDE the deterministic prefix \u2014 either
+        # Cache contains entries OUTSIDE the deterministic prefix - either
         # an earlier seed or hand-curated keys. Surface this so the user
         # knows their cache is bigger than the target window indicates.
         extra = len(cache) - cached_in_target
@@ -336,14 +336,14 @@ def main() -> None:
         return
 
     if args.dry_run:
-        print(f"\n  Dry run \u2014 first 5 keys that would be computed:")
+        print(f"\n  Dry run - first 5 keys that would be computed:")
         for k in missing[:5]:
             print(f"    {k}")
         return
 
     # ── KernelSHAP per missing patient ───────────────────────────────
     print(f"\n[4] Running KernelSHAP for {len(missing)} patients "
-          f"(nsamples={args.shap_nsamples}, chunk={args.chunk})\u2026")
+          f"(nsamples={args.shap_nsamples}, chunk={args.chunk})…")
     t0 = time.time()
     n_done = 0
     n_skipped = 0
