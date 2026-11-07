@@ -15,8 +15,10 @@ build/
 venv/
 env/
 
-# Data — never commit patient data
+# Data - never commit patient data
 data/
+# ...except the package's data-loading code (no data files)
+!atop/data/
 *.csv.gz
 *.csv
 *.pkl
