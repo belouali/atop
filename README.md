@@ -25,6 +25,10 @@ AToP operates in five stages on a trained Transformer:
 
 ## What the output looks like
 
+**Single-patient explanation.** Panel A is the admission timeline with the salient tokens each visit contributed; Panel B decomposes the predicted risk into the matched temporal patterns, under a deterministic non-overlapping allocation so the bars sum to the total ΣIG.
+
+![Single-patient AToP explanation](docs/images/patient-explanation.png)
+
 **Token-level global attribution.** Population-weighted (left) versus carrier-conditional (right). The two rankings share only 7 of 30 tokens: carrier-conditioning surfaces rare, high-impact features that prevalence weighting buries.
 
 ![Token-level attribution](docs/images/token-attribution.png)
